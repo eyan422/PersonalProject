@@ -1,0 +1,372 @@
+SELECT COUNT(*) FROM AFTTAB WHERE (FLDA LIKE '20130821%') AND FTYP='S' >> Number=ERROR:
+ORA-01017: invalid username/password; logon denied
+
+
+SP2-0306: Invalid option.
+Usage: CONN[ECT] [{logon|/|proxy} [AS {SYSDBA|SYSOPER|SYSASM}] [edition=value]]
+where <logon> ::= <username>[/<password>][@<connect_identifier>]
+      <proxy> ::= <proxyuser>[<username>][/<password>][@<connect_identifier>]
+SP2-0306: Invalid option.
+Usage: CONN[ECT] [{logon|/|proxy} [AS {SYSDBA|SYSOPER|SYSASM}] [edition=value]]
+where <logon> ::= <username>[/<password>][@<connect_identifier>]
+      <proxy> ::= <proxyuser>[<username>][/<password>][@<connect_identifier>]
+SP2-0157: unable to CONNECT to ORACLE after 3 attempts, exiting SQL*Plus
+SELECT COUNT(*) FROM AFTTAB WHERE (FLDA LIKE '20130822%') AND FTYP='S' >> Number=ERROR:
+ORA-01017: invalid username/password; logon denied
+
+
+SP2-0306: Invalid option.
+Usage: CONN[ECT] [{logon|/|proxy} [AS {SYSDBA|SYSOPER|SYSASM}] [edition=value]]
+where <logon> ::= <username>[/<password>][@<connect_identifier>]
+      <proxy> ::= <proxyuser>[<username>][/<password>][@<connect_identifier>]
+SP2-0306: Invalid option.
+Usage: CONN[ECT] [{logon|/|proxy} [AS {SYSDBA|SYSOPER|SYSASM}] [edition=value]]
+where <logon> ::= <username>[/<password>][@<connect_identifier>]
+      <proxy> ::= <proxyuser>[<username>][/<password>][@<connect_identifier>]
+SP2-0157: unable to CONNECT to ORACLE after 3 attempts, exiting SQL*Plus
+SELECT COUNT(*) FROM AFTTAB WHERE (FLDA LIKE '20130823%') AND FTYP='S' >> Number=ERROR:
+ORA-01017: invalid username/password; logon denied
+
+
+SP2-0306: Invalid option.
+Usage: CONN[ECT] [{logon|/|proxy} [AS {SYSDBA|SYSOPER|SYSASM}] [edition=value]]
+where <logon> ::= <username>[/<password>][@<connect_identifier>]
+      <proxy> ::= <proxyuser>[<username>][/<password>][@<connect_identifier>]
+SP2-0306: Invalid option.
+Usage: CONN[ECT] [{logon|/|proxy} [AS {SYSDBA|SYSOPER|SYSASM}] [edition=value]]
+where <logon> ::= <username>[/<password>][@<connect_identifier>]
+      <proxy> ::= <proxyuser>[<username>][/<password>][@<connect_identifier>]
+SP2-0157: unable to CONNECT to ORACLE after 3 attempts, exiting SQL*Plus
+SELECT COUNT(*) FROM AFTTAB WHERE (FLDA LIKE '20130824%') AND FTYP='S' >> Number=ERROR:
+ORA-01017: invalid username/password; logon denied
+
+
+SP2-0306: Invalid option.
+Usage: CONN[ECT] [{logon|/|proxy} [AS {SYSDBA|SYSOPER|SYSASM}] [edition=value]]
+where <logon> ::= <username>[/<password>][@<connect_identifier>]
+      <proxy> ::= <proxyuser>[<username>][/<password>][@<connect_identifier>]
+SP2-0306: Invalid option.
+Usage: CONN[ECT] [{logon|/|proxy} [AS {SYSDBA|SYSOPER|SYSASM}] [edition=value]]
+where <logon> ::= <username>[/<password>][@<connect_identifier>]
+      <proxy> ::= <proxyuser>[<username>][/<password>][@<connect_identifier>]
+SP2-0157: unable to CONNECT to ORACLE after 3 attempts, exiting SQL*Plus
+SELECT COUNT(*) FROM AFTTAB WHERE (FLDA LIKE '20130825%') AND FTYP='S' >> Number=ERROR:
+ORA-01017: invalid username/password; logon denied
+
+
+SP2-0306: Invalid option.
+Usage: CONN[ECT] [{logon|/|proxy} [AS {SYSDBA|SYSOPER|SYSASM}] [edition=value]]
+where <logon> ::= <username>[/<password>][@<connect_identifier>]
+      <proxy> ::= <proxyuser>[<username>][/<password>][@<connect_identifier>]
+SP2-0306: Invalid option.
+Usage: CONN[ECT] [{logon|/|proxy} [AS {SYSDBA|SYSOPER|SYSASM}] [edition=value]]
+where <logon> ::= <username>[/<password>][@<connect_identifier>]
+      <proxy> ::= <proxyuser>[<username>][/<password>][@<connect_identifier>]
+SP2-0157: unable to CONNECT to ORACLE after 3 attempts, exiting SQL*Plus
+SELECT COUNT(*) FROM AFTTAB WHERE (FLDA LIKE '20130826%') AND FTYP='S' >> Number=ERROR:
+ORA-01017: invalid username/password; logon denied
+
+
+SP2-0306: Invalid option.
+Usage: CONN[ECT] [{logon|/|proxy} [AS {SYSDBA|SYSOPER|SYSASM}] [edition=value]]
+where <logon> ::= <username>[/<password>][@<connect_identifier>]
+      <proxy> ::= <proxyuser>[<username>][/<password>][@<connect_identifier>]
+SP2-0306: Invalid option.
+Usage: CONN[ECT] [{logon|/|proxy} [AS {SYSDBA|SYSOPER|SYSASM}] [edition=value]]
+where <logon> ::= <username>[/<password>][@<connect_identifier>]
+      <proxy> ::= <proxyuser>[<username>][/<password>][@<connect_identifier>]
+SP2-0157: unable to CONNECT to ORACLE after 3 attempts, exiting SQL*Plus
+SELECT COUNT(*) FROM AFTTAB WHERE (FLDA LIKE '20130827%') AND FTYP='S' >> Number=ERROR:
+ORA-01017: invalid username/password; logon denied
+
+
+SP2-0306: Invalid option.
+Usage: CONN[ECT] [{logon|/|proxy} [AS {SYSDBA|SYSOPER|SYSASM}] [edition=value]]
+where <logon> ::= <username>[/<password>][@<connect_identifier>]
+      <proxy> ::= <proxyuser>[<username>][/<password>][@<connect_identifier>]
+SP2-0306: Invalid option.
+Usage: CONN[ECT] [{logon|/|proxy} [AS {SYSDBA|SYSOPER|SYSASM}] [edition=value]]
+where <logon> ::= <username>[/<password>][@<connect_identifier>]
+      <proxy> ::= <proxyuser>[<username>][/<password>][@<connect_identifier>]
+SP2-0157: unable to CONNECT to ORACLE after 3 attempts, exiting SQL*Plus
+SELECT COUNT(*) FROM AFTTAB WHERE (FLDA LIKE '20130821%') AND FTYP='O' >> Number=ERROR:
+ORA-01017: invalid username/password; logon denied
+
+
+SP2-0306: Invalid option.
+Usage: CONN[ECT] [{logon|/|proxy} [AS {SYSDBA|SYSOPER|SYSASM}] [edition=value]]
+where <logon> ::= <username>[/<password>][@<connect_identifier>]
+      <proxy> ::= <proxyuser>[<username>][/<password>][@<connect_identifier>]
+SP2-0306: Invalid option.
+Usage: CONN[ECT] [{logon|/|proxy} [AS {SYSDBA|SYSOPER|SYSASM}] [edition=value]]
+where <logon> ::= <username>[/<password>][@<connect_identifier>]
+      <proxy> ::= <proxyuser>[<username>][/<password>][@<connect_identifier>]
+SP2-0157: unable to CONNECT to ORACLE after 3 attempts, exiting SQL*Plus
+SELECT COUNT(*) FROM AFTTAB WHERE (FLDA LIKE '20130822%') AND FTYP='O' >> Number=ERROR:
+ORA-01017: invalid username/password; logon denied
+
+
+SP2-0306: Invalid option.
+Usage: CONN[ECT] [{logon|/|proxy} [AS {SYSDBA|SYSOPER|SYSASM}] [edition=value]]
+where <logon> ::= <username>[/<password>][@<connect_identifier>]
+      <proxy> ::= <proxyuser>[<username>][/<password>][@<connect_identifier>]
+SP2-0306: Invalid option.
+Usage: CONN[ECT] [{logon|/|proxy} [AS {SYSDBA|SYSOPER|SYSASM}] [edition=value]]
+where <logon> ::= <username>[/<password>][@<connect_identifier>]
+      <proxy> ::= <proxyuser>[<username>][/<password>][@<connect_identifier>]
+SP2-0157: unable to CONNECT to ORACLE after 3 attempts, exiting SQL*Plus
+SELECT COUNT(*) FROM AFTTAB WHERE (FLDA LIKE '20130823%') AND FTYP='O' >> Number=ERROR:
+ORA-01017: invalid username/password; logon denied
+
+
+SP2-0306: Invalid option.
+Usage: CONN[ECT] [{logon|/|proxy} [AS {SYSDBA|SYSOPER|SYSASM}] [edition=value]]
+where <logon> ::= <username>[/<password>][@<connect_identifier>]
+      <proxy> ::= <proxyuser>[<username>][/<password>][@<connect_identifier>]
+SP2-0306: Invalid option.
+Usage: CONN[ECT] [{logon|/|proxy} [AS {SYSDBA|SYSOPER|SYSASM}] [edition=value]]
+where <logon> ::= <username>[/<password>][@<connect_identifier>]
+      <proxy> ::= <proxyuser>[<username>][/<password>][@<connect_identifier>]
+SP2-0157: unable to CONNECT to ORACLE after 3 attempts, exiting SQL*Plus
+SELECT COUNT(*) FROM AFTTAB WHERE (FLDA LIKE '20130824%') AND FTYP='O' >> Number=ERROR:
+ORA-01017: invalid username/password; logon denied
+
+
+SP2-0306: Invalid option.
+Usage: CONN[ECT] [{logon|/|proxy} [AS {SYSDBA|SYSOPER|SYSASM}] [edition=value]]
+where <logon> ::= <username>[/<password>][@<connect_identifier>]
+      <proxy> ::= <proxyuser>[<username>][/<password>][@<connect_identifier>]
+SP2-0306: Invalid option.
+Usage: CONN[ECT] [{logon|/|proxy} [AS {SYSDBA|SYSOPER|SYSASM}] [edition=value]]
+where <logon> ::= <username>[/<password>][@<connect_identifier>]
+      <proxy> ::= <proxyuser>[<username>][/<password>][@<connect_identifier>]
+SP2-0157: unable to CONNECT to ORACLE after 3 attempts, exiting SQL*Plus
+SELECT COUNT(*) FROM AFTTAB WHERE (FLDA LIKE '20130825%') AND FTYP='O' >> Number=ERROR:
+ORA-01017: invalid username/password; logon denied
+
+
+SP2-0306: Invalid option.
+Usage: CONN[ECT] [{logon|/|proxy} [AS {SYSDBA|SYSOPER|SYSASM}] [edition=value]]
+where <logon> ::= <username>[/<password>][@<connect_identifier>]
+      <proxy> ::= <proxyuser>[<username>][/<password>][@<connect_identifier>]
+SP2-0306: Invalid option.
+Usage: CONN[ECT] [{logon|/|proxy} [AS {SYSDBA|SYSOPER|SYSASM}] [edition=value]]
+where <logon> ::= <username>[/<password>][@<connect_identifier>]
+      <proxy> ::= <proxyuser>[<username>][/<password>][@<connect_identifier>]
+SP2-0157: unable to CONNECT to ORACLE after 3 attempts, exiting SQL*Plus
+SELECT COUNT(*) FROM AFTTAB WHERE (FLDA LIKE '20130826%') AND FTYP='O' >> Number=ERROR:
+ORA-01017: invalid username/password; logon denied
+
+
+SP2-0306: Invalid option.
+Usage: CONN[ECT] [{logon|/|proxy} [AS {SYSDBA|SYSOPER|SYSASM}] [edition=value]]
+where <logon> ::= <username>[/<password>][@<connect_identifier>]
+      <proxy> ::= <proxyuser>[<username>][/<password>][@<connect_identifier>]
+SP2-0306: Invalid option.
+Usage: CONN[ECT] [{logon|/|proxy} [AS {SYSDBA|SYSOPER|SYSASM}] [edition=value]]
+where <logon> ::= <username>[/<password>][@<connect_identifier>]
+      <proxy> ::= <proxyuser>[<username>][/<password>][@<connect_identifier>]
+SP2-0157: unable to CONNECT to ORACLE after 3 attempts, exiting SQL*Plus
+SELECT COUNT(*) FROM AFTTAB WHERE (FLDA LIKE '20130827%') AND FTYP='O' >> Number=ERROR:
+ORA-01017: invalid username/password; logon denied
+
+
+SP2-0306: Invalid option.
+Usage: CONN[ECT] [{logon|/|proxy} [AS {SYSDBA|SYSOPER|SYSASM}] [edition=value]]
+where <logon> ::= <username>[/<password>][@<connect_identifier>]
+      <proxy> ::= <proxyuser>[<username>][/<password>][@<connect_identifier>]
+SP2-0306: Invalid option.
+Usage: CONN[ECT] [{logon|/|proxy} [AS {SYSDBA|SYSOPER|SYSASM}] [edition=value]]
+where <logon> ::= <username>[/<password>][@<connect_identifier>]
+      <proxy> ::= <proxyuser>[<username>][/<password>][@<connect_identifier>]
+SP2-0157: unable to CONNECT to ORACLE after 3 attempts, exiting SQL*Plus
+------------------------------------
+SELECT COUNT(*) FROM AFTTAB WHERE (FLDA LIKE '20130821%') AND FTYP='S' > Number=ERROR:
+ORA-01017: invalid username/password; logon denied
+
+
+SP2-0306: Invalid option.
+Usage: CONN[ECT] [{logon|/|proxy} [AS {SYSDBA|SYSOPER|SYSASM}] [edition=value]]
+where <logon> ::= <username>[/<password>][@<connect_identifier>]
+      <proxy> ::= <proxyuser>[<username>][/<password>][@<connect_identifier>]
+SP2-0306: Invalid option.
+Usage: CONN[ECT] [{logon|/|proxy} [AS {SYSDBA|SYSOPER|SYSASM}] [edition=value]]
+where <logon> ::= <username>[/<password>][@<connect_identifier>]
+      <proxy> ::= <proxyuser>[<username>][/<password>][@<connect_identifier>]
+SP2-0157: unable to CONNECT to ORACLE after 3 attempts, exiting SQL*Plus
+SELECT COUNT(*) FROM AFTTAB WHERE (FLDA LIKE '20130821%') AND FTYP='O' > Number=ERROR:
+ORA-01017: invalid username/password; logon denied
+
+
+SP2-0306: Invalid option.
+Usage: CONN[ECT] [{logon|/|proxy} [AS {SYSDBA|SYSOPER|SYSASM}] [edition=value]]
+where <logon> ::= <username>[/<password>][@<connect_identifier>]
+      <proxy> ::= <proxyuser>[<username>][/<password>][@<connect_identifier>]
+SP2-0306: Invalid option.
+Usage: CONN[ECT] [{logon|/|proxy} [AS {SYSDBA|SYSOPER|SYSASM}] [edition=value]]
+where <logon> ::= <username>[/<password>][@<connect_identifier>]
+      <proxy> ::= <proxyuser>[<username>][/<password>][@<connect_identifier>]
+SP2-0157: unable to CONNECT to ORACLE after 3 attempts, exiting SQL*Plus
+------------------------------------
+SELECT COUNT(*) FROM AFTTAB WHERE (FLDA LIKE '20130822%') AND FTYP='S' > Number=ERROR:
+ORA-01017: invalid username/password; logon denied
+
+
+SP2-0306: Invalid option.
+Usage: CONN[ECT] [{logon|/|proxy} [AS {SYSDBA|SYSOPER|SYSASM}] [edition=value]]
+where <logon> ::= <username>[/<password>][@<connect_identifier>]
+      <proxy> ::= <proxyuser>[<username>][/<password>][@<connect_identifier>]
+SP2-0306: Invalid option.
+Usage: CONN[ECT] [{logon|/|proxy} [AS {SYSDBA|SYSOPER|SYSASM}] [edition=value]]
+where <logon> ::= <username>[/<password>][@<connect_identifier>]
+      <proxy> ::= <proxyuser>[<username>][/<password>][@<connect_identifier>]
+SP2-0157: unable to CONNECT to ORACLE after 3 attempts, exiting SQL*Plus
+SELECT COUNT(*) FROM AFTTAB WHERE (FLDA LIKE '20130822%') AND FTYP='O' > Number=ERROR:
+ORA-01017: invalid username/password; logon denied
+
+
+SP2-0306: Invalid option.
+Usage: CONN[ECT] [{logon|/|proxy} [AS {SYSDBA|SYSOPER|SYSASM}] [edition=value]]
+where <logon> ::= <username>[/<password>][@<connect_identifier>]
+      <proxy> ::= <proxyuser>[<username>][/<password>][@<connect_identifier>]
+SP2-0306: Invalid option.
+Usage: CONN[ECT] [{logon|/|proxy} [AS {SYSDBA|SYSOPER|SYSASM}] [edition=value]]
+where <logon> ::= <username>[/<password>][@<connect_identifier>]
+      <proxy> ::= <proxyuser>[<username>][/<password>][@<connect_identifier>]
+SP2-0157: unable to CONNECT to ORACLE after 3 attempts, exiting SQL*Plus
+------------------------------------
+SELECT COUNT(*) FROM AFTTAB WHERE (FLDA LIKE '20130823%') AND FTYP='S' > Number=ERROR:
+ORA-01017: invalid username/password; logon denied
+
+
+SP2-0306: Invalid option.
+Usage: CONN[ECT] [{logon|/|proxy} [AS {SYSDBA|SYSOPER|SYSASM}] [edition=value]]
+where <logon> ::= <username>[/<password>][@<connect_identifier>]
+      <proxy> ::= <proxyuser>[<username>][/<password>][@<connect_identifier>]
+SP2-0306: Invalid option.
+Usage: CONN[ECT] [{logon|/|proxy} [AS {SYSDBA|SYSOPER|SYSASM}] [edition=value]]
+where <logon> ::= <username>[/<password>][@<connect_identifier>]
+      <proxy> ::= <proxyuser>[<username>][/<password>][@<connect_identifier>]
+SP2-0157: unable to CONNECT to ORACLE after 3 attempts, exiting SQL*Plus
+SELECT COUNT(*) FROM AFTTAB WHERE (FLDA LIKE '20130823%') AND FTYP='O' > Number=ERROR:
+ORA-01017: invalid username/password; logon denied
+
+
+SP2-0306: Invalid option.
+Usage: CONN[ECT] [{logon|/|proxy} [AS {SYSDBA|SYSOPER|SYSASM}] [edition=value]]
+where <logon> ::= <username>[/<password>][@<connect_identifier>]
+      <proxy> ::= <proxyuser>[<username>][/<password>][@<connect_identifier>]
+SP2-0306: Invalid option.
+Usage: CONN[ECT] [{logon|/|proxy} [AS {SYSDBA|SYSOPER|SYSASM}] [edition=value]]
+where <logon> ::= <username>[/<password>][@<connect_identifier>]
+      <proxy> ::= <proxyuser>[<username>][/<password>][@<connect_identifier>]
+SP2-0157: unable to CONNECT to ORACLE after 3 attempts, exiting SQL*Plus
+------------------------------------
+SELECT COUNT(*) FROM AFTTAB WHERE (FLDA LIKE '20130824%') AND FTYP='S' > Number=ERROR:
+ORA-01017: invalid username/password; logon denied
+
+
+SP2-0306: Invalid option.
+Usage: CONN[ECT] [{logon|/|proxy} [AS {SYSDBA|SYSOPER|SYSASM}] [edition=value]]
+where <logon> ::= <username>[/<password>][@<connect_identifier>]
+      <proxy> ::= <proxyuser>[<username>][/<password>][@<connect_identifier>]
+SP2-0306: Invalid option.
+Usage: CONN[ECT] [{logon|/|proxy} [AS {SYSDBA|SYSOPER|SYSASM}] [edition=value]]
+where <logon> ::= <username>[/<password>][@<connect_identifier>]
+      <proxy> ::= <proxyuser>[<username>][/<password>][@<connect_identifier>]
+SP2-0157: unable to CONNECT to ORACLE after 3 attempts, exiting SQL*Plus
+SELECT COUNT(*) FROM AFTTAB WHERE (FLDA LIKE '20130824%') AND FTYP='O' > Number=ERROR:
+ORA-01017: invalid username/password; logon denied
+
+
+SP2-0306: Invalid option.
+Usage: CONN[ECT] [{logon|/|proxy} [AS {SYSDBA|SYSOPER|SYSASM}] [edition=value]]
+where <logon> ::= <username>[/<password>][@<connect_identifier>]
+      <proxy> ::= <proxyuser>[<username>][/<password>][@<connect_identifier>]
+SP2-0306: Invalid option.
+Usage: CONN[ECT] [{logon|/|proxy} [AS {SYSDBA|SYSOPER|SYSASM}] [edition=value]]
+where <logon> ::= <username>[/<password>][@<connect_identifier>]
+      <proxy> ::= <proxyuser>[<username>][/<password>][@<connect_identifier>]
+SP2-0157: unable to CONNECT to ORACLE after 3 attempts, exiting SQL*Plus
+------------------------------------
+SELECT COUNT(*) FROM AFTTAB WHERE (FLDA LIKE '20130825%') AND FTYP='S' > Number=ERROR:
+ORA-01017: invalid username/password; logon denied
+
+
+SP2-0306: Invalid option.
+Usage: CONN[ECT] [{logon|/|proxy} [AS {SYSDBA|SYSOPER|SYSASM}] [edition=value]]
+where <logon> ::= <username>[/<password>][@<connect_identifier>]
+      <proxy> ::= <proxyuser>[<username>][/<password>][@<connect_identifier>]
+SP2-0306: Invalid option.
+Usage: CONN[ECT] [{logon|/|proxy} [AS {SYSDBA|SYSOPER|SYSASM}] [edition=value]]
+where <logon> ::= <username>[/<password>][@<connect_identifier>]
+      <proxy> ::= <proxyuser>[<username>][/<password>][@<connect_identifier>]
+SP2-0157: unable to CONNECT to ORACLE after 3 attempts, exiting SQL*Plus
+SELECT COUNT(*) FROM AFTTAB WHERE (FLDA LIKE '20130825%') AND FTYP='O' > Number=ERROR:
+ORA-01017: invalid username/password; logon denied
+
+
+SP2-0306: Invalid option.
+Usage: CONN[ECT] [{logon|/|proxy} [AS {SYSDBA|SYSOPER|SYSASM}] [edition=value]]
+where <logon> ::= <username>[/<password>][@<connect_identifier>]
+      <proxy> ::= <proxyuser>[<username>][/<password>][@<connect_identifier>]
+SP2-0306: Invalid option.
+Usage: CONN[ECT] [{logon|/|proxy} [AS {SYSDBA|SYSOPER|SYSASM}] [edition=value]]
+where <logon> ::= <username>[/<password>][@<connect_identifier>]
+      <proxy> ::= <proxyuser>[<username>][/<password>][@<connect_identifier>]
+SP2-0157: unable to CONNECT to ORACLE after 3 attempts, exiting SQL*Plus
+------------------------------------
+SELECT COUNT(*) FROM AFTTAB WHERE (FLDA LIKE '20130826%') AND FTYP='S' > Number=ERROR:
+ORA-01017: invalid username/password; logon denied
+
+
+SP2-0306: Invalid option.
+Usage: CONN[ECT] [{logon|/|proxy} [AS {SYSDBA|SYSOPER|SYSASM}] [edition=value]]
+where <logon> ::= <username>[/<password>][@<connect_identifier>]
+      <proxy> ::= <proxyuser>[<username>][/<password>][@<connect_identifier>]
+SP2-0306: Invalid option.
+Usage: CONN[ECT] [{logon|/|proxy} [AS {SYSDBA|SYSOPER|SYSASM}] [edition=value]]
+where <logon> ::= <username>[/<password>][@<connect_identifier>]
+      <proxy> ::= <proxyuser>[<username>][/<password>][@<connect_identifier>]
+SP2-0157: unable to CONNECT to ORACLE after 3 attempts, exiting SQL*Plus
+SELECT COUNT(*) FROM AFTTAB WHERE (FLDA LIKE '20130826%') AND FTYP='O' > Number=ERROR:
+ORA-01017: invalid username/password; logon denied
+
+
+SP2-0306: Invalid option.
+Usage: CONN[ECT] [{logon|/|proxy} [AS {SYSDBA|SYSOPER|SYSASM}] [edition=value]]
+where <logon> ::= <username>[/<password>][@<connect_identifier>]
+      <proxy> ::= <proxyuser>[<username>][/<password>][@<connect_identifier>]
+SP2-0306: Invalid option.
+Usage: CONN[ECT] [{logon|/|proxy} [AS {SYSDBA|SYSOPER|SYSASM}] [edition=value]]
+where <logon> ::= <username>[/<password>][@<connect_identifier>]
+      <proxy> ::= <proxyuser>[<username>][/<password>][@<connect_identifier>]
+SP2-0157: unable to CONNECT to ORACLE after 3 attempts, exiting SQL*Plus
+------------------------------------
+SELECT COUNT(*) FROM AFTTAB WHERE (FLDA LIKE '20130827%') AND FTYP='S' > Number=ERROR:
+ORA-01017: invalid username/password; logon denied
+
+
+SP2-0306: Invalid option.
+Usage: CONN[ECT] [{logon|/|proxy} [AS {SYSDBA|SYSOPER|SYSASM}] [edition=value]]
+where <logon> ::= <username>[/<password>][@<connect_identifier>]
+      <proxy> ::= <proxyuser>[<username>][/<password>][@<connect_identifier>]
+SP2-0306: Invalid option.
+Usage: CONN[ECT] [{logon|/|proxy} [AS {SYSDBA|SYSOPER|SYSASM}] [edition=value]]
+where <logon> ::= <username>[/<password>][@<connect_identifier>]
+      <proxy> ::= <proxyuser>[<username>][/<password>][@<connect_identifier>]
+SP2-0157: unable to CONNECT to ORACLE after 3 attempts, exiting SQL*Plus
+SELECT COUNT(*) FROM AFTTAB WHERE (FLDA LIKE '20130827%') AND FTYP='O' > Number=ERROR:
+ORA-01017: invalid username/password; logon denied
+
+
+SP2-0306: Invalid option.
+Usage: CONN[ECT] [{logon|/|proxy} [AS {SYSDBA|SYSOPER|SYSASM}] [edition=value]]
+where <logon> ::= <username>[/<password>][@<connect_identifier>]
+      <proxy> ::= <proxyuser>[<username>][/<password>][@<connect_identifier>]
+SP2-0306: Invalid option.
+Usage: CONN[ECT] [{logon|/|proxy} [AS {SYSDBA|SYSOPER|SYSASM}] [edition=value]]
+where <logon> ::= <username>[/<password>][@<connect_identifier>]
+      <proxy> ::= <proxyuser>[<username>][/<password>][@<connect_identifier>]
+SP2-0157: unable to CONNECT to ORACLE after 3 attempts, exiting SQL*Plus
+------------------------------------
