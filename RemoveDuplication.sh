@@ -1,7 +1,5 @@
 #!/bin/bash
 
-#FYA
-
 shopt -s expand_aliases
 
 # Setup Environment
