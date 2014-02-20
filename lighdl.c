@@ -240,9 +240,11 @@ static int SendBatchFlights(MSG *rlMsg);
 static void initMsg(MSG *msg);
 static int TrimSpace( char *pcpInStr );
 static void BuildArrPart(SENT_MSG *rpSentMsg, char *pcpPstaNewData, char *pcpStoaNewData, char *pcpEtoaNewData, char* pcpTmoaNewData, char *pcpOnblNewData);
-void BuildDepPart(SENT_MSG *rpSentMsg, char *pcpPstdNewData, char *pcpStodaNewData, char *pcpEtodNewData, char *pcpOfblNewData);
-void ShowMsgStruct(SENT_MSG rpSentMsg);
-void PutDefaultValue(SENT_MSG *rpSentMsg);
+static void BuildDepPart(SENT_MSG *rpSentMsg, char *pcpPstdNewData, char *pcpStodaNewData, char *pcpEtodNewData, char *pcpOfblNewData);
+static void ShowMsgStruct(SENT_MSG rpSentMsg);
+static void PutDefaultValue(SENT_MSG *rpSentMsg);
+static int GetSeqFlight(SENT_MSG *rpSentMsg,char *pcpADFlag);
+static int RunSQL(char *pcpSelection, char *pcpData );
 /******************************************************************************/
 /*                                                                            */
 /* The MAIN program                                                           */
@@ -1108,16 +1110,27 @@ static int HandleInternalData()
 				dbg(DEBUG,"<%s> After BuildArrPart, Show msg struct",pclFunc);
 				ShowMsgStruct(rlSentMsg);
 				
+				
+				
 				//Next Step is to complete the Departure part in Msg
 				/*
-				For arrival only flight:
-				1)Based on RKEY and REGN, finding the nearest corresponding followed departure flight from afttab
-				
-				
-				
-				For Towing flight:
-				2) 
+				1)Based on RKEY and REGN, finding the nearest corresponding followed departure/towing flight from afttab
+				1.1 Getting the REGN & RKEY from afttab
+				1.2 Getting sequential flight
 				*/
+				
+				sprintf(pclSelection, "WHERE URNO = %s", pclUaft);
+    		
+    		sprintf(pclSqlBuf, "SELECT RKEY,REGN FROM AFTTAB %s", pclSelection);
+    		ilRc = RunSQL(pclSqlBuf, pclSqlData);
+    		if (ilRc != DB_SUCCESS) 
+    		{
+        	dbg(DEBUG, "%s: UAFT <%s> not found in AFTTAB", pclFunc, pclUaft);
+        	return RC_SUCCESS;
+    		}
+				
+				GetSeqFlight(&rlSentMsg,"D");
+				
 			}
 			else if ( strncmp(pclAdidNewData,"D",1) == 0)
 			{
@@ -1174,6 +1187,8 @@ static int HandleInternalData()
 				BuildDepPart(&rlSentMsg, pclPstdNewData, pclStodNewData, pclEtodNewData, pclOfblNewData);
 				dbg(DEBUG,"<%s> After BuildDepPart, Show msg struct",pclFunc);
 				ShowMsgStruct(rlSentMsg);
+				
+				
 			}
 			else
 			{
@@ -3089,7 +3104,7 @@ static int TrimSpace( char *pcpInStr )
         free( (char *)pclOutStr );
 }
 
-void PutDefaultValue(SENT_MSG *rpSentMsg)
+static void PutDefaultValue(SENT_MSG *rpSentMsg)
 {
 	char *pclFunc = "PutDefaultValue";
 	char pclDefauleValueTime[16] = "..............";
@@ -3102,6 +3117,8 @@ void PutDefaultValue(SENT_MSG *rpSentMsg)
 	memset(rpSentMsg->pclStod,0,sizeof(rpSentMsg->pclStod));
 	memset(rpSentMsg->pclEtod,0,sizeof(rpSentMsg->pclEtod));
 	memset(rpSentMsg->pclOfbl,0,sizeof(rpSentMsg->pclOfbl));
+	memset(rpSentMsg->pclRegn,0,sizeof(rpSentMsg->pclRegn));
+	memset(rpSentMsg->pclRkey,0,sizeof(rpSentMsg->pclRkey));
 	
 	//strncpy(rpSentMsg->pclPosi,'0000',strlen("0000"));
 	strncpy(rpSentMsg->pclStoa,pclDefauleValueTime,strlen(pclDefauleValueTime));
@@ -3201,7 +3218,7 @@ void BuildDepPart(SENT_MSG *rpSentMsg, char *pcpPstdNewData, char *pcpStodaNewDa
 	}
 }
 
-void ShowMsgStruct(SENT_MSG rpSentMsg)
+static void ShowMsgStruct(SENT_MSG rpSentMsg)
 {
 	char *pclFunc = "ShowMsgStruct";
 	
@@ -3214,4 +3231,108 @@ void ShowMsgStruct(SENT_MSG rpSentMsg)
   dbg(DEBUG,"<%s> ETD<%s>",pclFunc,rpSentMsg.pclEtod);
   dbg(DEBUG,"<%s> OFB<%s>",pclFunc,rpSentMsg.pclOfbl);
 }
+
+static int GetSeqFlight(SENT_MSG *rpSentMsg,char *pcpADFlag)
+{
+	char * pclFunc = "GetSeqFlight";
+	int  ilRC = RC_SUCCESS;
+	short slLocalCursor = 0, slFuncCode = 0;
 	
+	char pclSqlBuf[2048] = "\0",pclDataArea[2048] = "\0",pclWhere[2048] = "\0";
+  
+  TrimSpace(pcpADFlag);
+  
+  if (strlen(pcpADFlag) == 0)
+  {
+  	dbg(TRACE,"<%s> pcpADFlag is null<%s>",pclFunc,pcpADFlag);
+  	return RC_FAIL;
+  }
+  dbg(TRACE,"<%s> pcpADFlag is <%s>",pclFunc,pcpADFlag);
+  
+  //Build Where Clause
+  UpdBuildWhereClause(rpSentMsg,pclWhere,pcpADFlag);
+  
+  //Build Full Sql query
+  UpdBuildFullQuery(pclSqlBuf,pclWhere);
+  
+  slLocalCursor = 0;
+  ilRC = DB_SUCCESS;
+  slFuncCode = START;
+  
+  //initMsg(rlMsg);
+  if(sql_if(slFuncCode, &slLocalCursor, pclSqlBuf, pclDataArea) == DB_SUCCESS)
+  {
+      if(ilRC == DB_SUCCESS)
+      {     
+
+        slFuncCode = NEXT;
+        
+       	//get_fld(pclDataArea,FIELD_1,STR,16,rlMsg->pclAUrno);         TrimSpace(rlMsg->pclAUrno);
+       	//get_fld(pclDataArea,FIELD_2,STR,16,rlMsg->pclDUrno);         TrimSpace(rlMsg->pclDUrno);
+       	//get_fld(pclDataArea,FIELD_3,STR,16,rlMsg->pclDRkey);         TrimSpace(rlMsg->pclDRkey);
+       	
+       	dbg(DEBUG,"rpSentMsg->pclStod<%s>",rpSentMsg->pclStod);
+       	dbg(DEBUG,"rpSentMsg->pclEtod<%s>",rpSentMsg->pclEtod);
+       	dbg(DEBUG,"rpSentMsg->pclOfbl<%s>",rpSentMsg->pclOfbl);
+      } /* end if */
+      else
+      {
+      	dbg(DEBUG,"No Record");		
+      }
+
+  }
+	close_my_cursor(&slLocalCursor);
+}
+
+
+static void UpdBuildWhereClause(SENT_MSG *rpSentMsg, char * pcpWhere, char * pcpADFlag)
+{
+	char *pclFunc = "UpdBuildWhereClause";
+	
+	char pclWhere[2048] = "\0";
+	
+	if (strlen(pcpADFlag) == 0)
+  {
+  	dbg(TRACE,"<%s> pcpADFlag is null<%s>",pclFunc,pcpADFlag);
+  	return RC_FAIL;
+  }
+  dbg(TRACE,"<%s> pcpADFlag is <%s>",pclFunc,pcpADFlag);
+	
+	if (strncmp(pcpADFlag,"D") == 0)
+  {
+  	//Seeking for related sequential departure flight
+  	sprintf(pclWhere,"(REGN = %s and RKEY = %s) and (TIFD > %s) and FTYP NOT IN ('X','N') ORDER BY TIFD", rpSentMsg->, pcgTimeUpperLimit,pcgCurrentTime, pcgTimeUpperLimit);
+  }
+  else if (strncmp(pcpADFlag,"A") == 0)
+  {
+  	//Seeking for related sequential arrival flight
+  	sprintf(pclWhere,"arr.urno = dep.rkey and dep.adid = 'D' AND arr.adid = 'A' and trim(arr.psta) is not null and trim(dep.pstd) is not null and arr.psta = dep.pstd and (arr.tifa between '201401%%' and '201402%%') order by arr.tifa", pcgCurrentTime, pcgTimeUpperLimit,pcgCurrentTime, pcgTimeUpperLimit);
+  }
+  
+	
+	//sprintf(pclWhere,"((trim(PSTA) is not null) or (trim(PSTD) is not null)) and ((TIFA between '%s' and '%s') or (TIFD between '%s' and '%s')) ORDER BY", pcgCurrentTime, pcgTimeUpperLimit,pcgCurrentTime, pcgTimeUpperLimit);
+  
+  sprintf(pclWhere,"arr.urno = dep.rkey and dep.adid = 'D' AND arr.adid = 'A' and trim(arr.psta) is not null and trim(dep.pstd) is not null and arr.psta = dep.pstd and (arr.tifa between '201401%%' and '201402%%') order by arr.tifa", pcgCurrentTime, pcgTimeUpperLimit,pcgCurrentTime, pcgTimeUpperLimit);
+
+  strcpy(pcpWhere,pclWhere);
+  dbg(DEBUG,"Where Clause<%s>",pcpWhere);
+}
+
+static int RunSQL(char *pcpSelection, char *pcpData )
+{
+    int ilRc = DB_SUCCESS;
+    short slSqlFunc = 0;
+    short slSqlCursor = 0;
+    char pclErrBuff[128];
+    char *pclFunc = "RunSQL";
+
+    ilRc = sql_if ( START, &slSqlCursor, pcpSelection, pcpData );
+    close_my_cursor ( &slSqlCursor );
+  
+    if( ilRc == DB_ERROR ) 
+    {   
+        get_ora_err( ilRc, &pclErrBuff[0] );
+        dbg( TRACE, "<%s> Error getting Oracle data error <%s>", pclFunc, &pclErrBuff[0] );
+    }   
+    return ilRc;
+}

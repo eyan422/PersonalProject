@@ -60,7 +60,11 @@ typedef struct
 	char pclEtoa[16];
 	char pclTmoa[16];
 	char pclOnbl[16];
+	
 	char pclStod[16];
 	char pclEtod[16];
 	char pclOfbl[16];
+	
+	char pclRegn[64];
+	char pclRkey[64];
 }SENT_MSG;
