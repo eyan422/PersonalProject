@@ -1,7 +1,7 @@
 #ifndef _DEF_mks_version
   #define _DEF_mks_version
   #include "ufisvers.h" /* sets UFIS_VERSION, must be done before mks_version */
-  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/lighdl.c 1.1 2/18/2014 11:23:23 AM Exp  $";
+  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/lighdl.c 1.2 2/20/2014 5:56:30 PM Exp  $";
 #endif /* _DEF_mks_version */
 
 /******************************************************************************/
@@ -75,6 +75,7 @@ static char sccs_hwecon[]="%Z% UFIS 4.5 (c) ABB AAT/I %M% %I% / %E% %U% / AKL";
 //fya 20140218
 #define TIMEFORMAT 16
 #define DB_SUCCESS RC_SUCCESS
+#define POS_LEN	4
 
 /******************************************************************************/
 /* External variables                                                         */
@@ -237,7 +238,11 @@ static void BatBuildWhereClause(char * pcpWhere);
 static void BatBuildFullQuery(char *pcpSqlBuf,char *pcpWhere);
 static int SendBatchFlights(MSG *rlMsg);
 static void initMsg(MSG *msg);
-int TrimSpace( char *pcpInStr );
+static int TrimSpace( char *pcpInStr );
+static void BuildArrPart(SENT_MSG *rpSentMsg, char *pcpPstaNewData, char *pcpStoaNewData, char *pcpEtoaNewData, char* pcpTmoaNewData, char *pcpOnblNewData);
+void BuildDepPart(SENT_MSG *rpSentMsg, char *pcpPstdNewData, char *pcpStodaNewData, char *pcpEtodNewData, char *pcpOfblNewData);
+void ShowMsgStruct(SENT_MSG rpSentMsg);
+void PutDefaultValue(SENT_MSG *rpSentMsg);
 /******************************************************************************/
 /*                                                                            */
 /* The MAIN program                                                           */
@@ -793,6 +798,52 @@ static int HandleInternalData()
 	
 	int ilCount = 0;
 	
+	//fya 20140220
+	//char *pclTmpPtr = NULL;
+	int ilItemNo = 0;
+	int ilItemNo1 = 0;
+	int ilNoEleField = 0;
+	int ilNoEleNewData = 0;
+	int ilNoEleOldData = 0;
+	
+	char pclUrnoSelection[50] = "\0";
+	char pclUrnoOldData[50] = "\0";
+	char pclUrnoNewData[50] = "\0";
+	
+	char pclAdidOldData[2] = "\0";
+	char pclAdidNewData[2] = "\0";
+	
+	char pclPstaNewData[16] = "\0";
+	char pclPstaOldData[16] = "\0";
+	char pclPstdNewData[16] = "\0";
+	char pclPstdOldData[16] = "\0";
+	
+	char pclStoaNewData[16] = "\0";
+	char pclStoaOldData[16] = "\0";
+	
+	char pclStodNewData[16] = "\0";
+	char pclStodOldData[16] = "\0";
+	
+	char pclEtoaNewData[16] = "\0";
+	char pclEtoaOldData[16] = "\0";
+	
+	char pclEtodNewData[16] = "\0";
+	char pclEtodOldData[16] = "\0";
+	
+	char pclTmoaNewData[16] = "\0";
+	char pclTmoaOldData[16] = "\0";	
+	
+	char pclOnblNewData[16] = "\0";
+	char pclOnblOldData[16] = "\0";	
+	
+	char pclOfblNewData[16] = "\0";
+	char pclOfblOldData[16] = "\0";	
+	
+	char pclNewData[512000] = "\0"; 
+  char pclOldData[512000] = "\0";
+  SENT_MSG rlSentMsg;
+	//
+	
 	memset(pclDataBuf,0,sizeof(pclDataBuf));
 
 	bchd  = (BC_HEAD *) ((char *)prgEvent + sizeof(EVENT));
@@ -814,18 +865,38 @@ static int HandleInternalData()
 	pclSelection = cmdblk->data;
 	pclFields = (char *)pclSelection + strlen(pclSelection) + 1;
 	pclData = (char *)pclFields + strlen(pclFields) + 1;
+	
+	pclTmpPtr = strstr(pclSelection, "\n");
+ 	if (pclTmpPtr != NULL) 
+ 	{
+    *pclTmpPtr = '\0'; 
+  	pclTmpPtr++;
+    strcpy(pclUrnoSelection, pclTmpPtr);
+  }
+  
+  strcpy(pclNewData, pclData);
+  
+  pclTmpPtr = strstr(pclNewData, "\n");
+  if (pclTmpPtr != NULL) {
+      *pclTmpPtr = '\0'; 
+      pclTmpPtr++;
+      strcpy(pclOldData, pclTmpPtr);
+  }     
 
 	dbg(DEBUG,"========================= START <%10.10d> ===============================",lgEvtCnt);
+	
+	dbg(DEBUG,"Command:   <%s>",cmdblk->command);
+	dbg(DEBUG,"Selection: <%s> URNO<%s>",pclSelection,pclUrnoSelection);
+	dbg(DEBUG,"Fields:    <%s>",pclFields);
+	dbg(DEBUG,"New Data:  <%s>",pclNewData);
+	dbg(DEBUG,"Old Data:  <%s>",pclOldData);
+	dbg(DEBUG,"TwStart:   <%s>",pcgTwStart);
+	dbg(DEBUG,"TwEnd:     <%s>",pcgTwEnd);
+	
+	//Command XMLO
 	if (strcmp(cmdblk->command,"XMLO") == 0)
 	{
-		dbg(DEBUG,"Command:   <%s>",cmdblk->command);
-		dbg(DEBUG,"Selection: <%s>",pclSelection);
-		dbg(DEBUG,"Fields:    <%s>",pclFields);
-		dbg(DEBUG,"Data:      \n<%s>",pclData);
-		dbg(DEBUG,"TwStart:   <%s>",pcgTwStart);
-		dbg(DEBUG,"TwEnd:     <%s>",pcgTwEnd);
-		
-        /*
+    /*
 		if( igMsgNo >= 65535)
 		{
 			igMsgNo = 0;
@@ -838,43 +909,43 @@ static int HandleInternalData()
         */
 		//dbg(DEBUG,"Data:      \n<%s>",pclDataBuf);
 		
-        strcpy(pcgCurSendData, pclData);
-        strcpy(pcgSendMsgId,pclSelection);
+    strcpy(pcgCurSendData, pclData);
+    strcpy(pcgSendMsgId,pclSelection);
 		
-        for (ilCount = 0; ilCount < igReSendMax; ilCount++)
-        {
-		    if (igSock > 0)
-            {
-			    		ilRC = Send_data(igSock,pclData);
-		        	dbg(DEBUG, "<%s>ilRC<%d>",pclFunc,ilRC);
+    for (ilCount = 0; ilCount < igReSendMax; ilCount++)
+    {
+  		if (igSock > 0)
+      {
+    		ilRC = Send_data(igSock,pclData);
+      	dbg(DEBUG, "<%s>ilRC<%d>",pclFunc,ilRC);
 
-		        if (ilRC == RC_SUCCESS)
-		        {
-                    igSckWaitACK = TRUE;
-                    igSckTryACKCnt = 0;
-
-                    GetServerTimeStamp( "UTC", 1, 0, pcgSckWaitACKExpTime);
-                    AddSecondsToCEDATime(pcgSckWaitACKExpTime, igSckACKCWait, 1);
-                    break;
-		        }
-                else if(ilRC == RC_FAIL)
-		        {
-			       dbg(DEBUG, "<%s>Send_data error",pclFunc);
-                   ilRC = Sockt_Reconnect();
-		        }
-		        else if(ilRC == RC_SENDTIMEOUT)
-		        {
-			       dbg(DEBUG,"<%s>Send_data timeout, Re send again",pclFunc);
-		        }
-            }
-            else
-            { 
-                if ((igConnected == TRUE) || (igOldCnnt == TRUE))
-                    ilRC = Sockt_Reconnect();
-                else
-                	  ilRC = RC_FAIL;
-            }
-        }
+	      if (ilRC == RC_SUCCESS)
+	      {
+	              igSckWaitACK = TRUE;
+	              igSckTryACKCnt = 0;
+	
+	              GetServerTimeStamp( "UTC", 1, 0, pcgSckWaitACKExpTime);
+	              AddSecondsToCEDATime(pcgSckWaitACKExpTime, igSckACKCWait, 1);
+	              break;
+	      }
+         else if(ilRC == RC_FAIL)
+	      {
+	       dbg(DEBUG, "<%s>Send_data error",pclFunc);
+	             ilRC = Sockt_Reconnect();
+	      }
+	      else if(ilRC == RC_SENDTIMEOUT)
+	      {
+	       dbg(DEBUG,"<%s>Send_data timeout, Re send again",pclFunc);
+	      }
+      }
+      else
+      { 
+        if ((igConnected == TRUE) || (igOldCnnt == TRUE))
+            ilRC = Sockt_Reconnect();
+        else
+        	  ilRC = RC_FAIL;
+      }
+    }
 
 		if( ilCount >= igReSendMax)
 		{
@@ -883,39 +954,246 @@ static int HandleInternalData()
 		}
 	}
 	else if (strcmp(cmdblk->command,"RACK") == 0)
-    {
-    	dbg(DEBUG,"RACK command");
-        if (strcmp(pcgSendMsgId, pclSelection) == 0)
-        {
-            igSckWaitACK = FALSE;
-            igSckTryACKCnt = 0;
-        }
-        else
-    	    dbg(DEBUG,"RACK command Recived MsgId<%s>, NOT for current Waiting MsgId<%s>", pclSelection, pcgSendMsgId);
-       ilRC = RC_SUCCESS;
-    }
+  {
+  	dbg(DEBUG,"RACK command");
+      if (strcmp(pcgSendMsgId, pclSelection) == 0)
+      {
+          igSckWaitACK = FALSE;
+          igSckTryACKCnt = 0;
+      }
+      else
+  	    dbg(DEBUG,"RACK command Recived MsgId<%s>, NOT for current Waiting MsgId<%s>", pclSelection, pcgSendMsgId);
+     ilRC = RC_SUCCESS;
+  }
 	else if (strcmp(cmdblk->command,"SACK") == 0)
-    {
-    	dbg(DEBUG,"SACK command");
-        strcpy(pcgMsgNoForACK, pclSelection);
-	    SendAckMsg();
-        ilRC = RC_SUCCESS;
-    }
+  {
+  	dbg(DEBUG,"SACK command");
+      strcpy(pcgMsgNoForACK, pclSelection);
+    SendAckMsg();
+      ilRC = RC_SUCCESS;
+  }
 	else if (strcmp(cmdblk->command,"CONX") == 0)
-    {
-    	dbg(DEBUG,"CONX command");
-    	
-        if (igConnected == TRUE)
-	        ilQueRc = SendCedaEvent(igModID_ConMgr,0,mod_name,"CEDA",pcgTwStart,pcgTwEnd,"CONX","","","","","","",NETOUT_NO_ACK);
-        else
-	        ilQueRc = SendCedaEvent(igModID_ConMgr,0,mod_name,"CEDA",pcgTwStart,pcgTwEnd,"DROP","","","","","","",NETOUT_NO_ACK);
-    }
+  {
+  	dbg(DEBUG,"CONX command");
+  	
+      if (igConnected == TRUE)
+        ilQueRc = SendCedaEvent(igModID_ConMgr,0,mod_name,"CEDA",pcgTwStart,pcgTwEnd,"CONX","","","","","","",NETOUT_NO_ACK);
+      else
+        ilQueRc = SendCedaEvent(igModID_ConMgr,0,mod_name,"CEDA",pcgTwStart,pcgTwEnd,"DROP","","","","","","",NETOUT_NO_ACK);
+  }
     //fya 20140218
 	else if (strcmp(cmdblk->command,"RST") == 0)
 	{
 		dbg(DEBUG,"RST command for sending the batch flights");
 		
 		SendBatchFlights(&rlMsg);
+	}//fya 20140220
+	else if (strcmp(cmdblk->command,"UFR") == 0 || strcmp(cmdblk->command,"IFR") == 0 || strcmp(cmdblk->command,"DFR") == 0)
+	{
+		dbg(DEBUG,"<%s> %s command is received", pclFunc,cmdblk->command);
+		
+		PutDefaultValue(&rlSentMsg);
+		
+		//Common Part->Getting data
+		TrimSpace(pclUrnoSelection);
+		if (strlen(pclUrnoSelection) == 0)
+		{
+			dbg(TRACE,"<%s>The urno is not included in the selection list, can not proceed",pclFunc);
+			return RC_FAIL;
+		}
+		
+		ilNoEleField = GetNoOfElements(pclFields, ',');
+		ilNoEleNewData  = GetNoOfElements(pclNewData, ',');
+		ilNoEleOldData  = GetNoOfElements(pclOldData, ',');
+		
+		dbg(DEBUG,"<%s>ilNoEleField<%d> ilNoEleNewData<%d> ilNoEleOldData<%d>",pclFunc,ilNoEleField,ilNoEleNewData,ilNoEleOldData);
+		if ((ilNoEleField == ilNoEleNewData) && (ilNoEleNewData == ilNoEleOldData))
+		{
+			ilItemNo = get_item_no(pclFields, "URNO", 5) + 1;
+			if (ilItemNo <= 0)
+			{
+				dbg(TRACE, "<%s> No URNO Found in the field list, can't do anything", pclFunc);
+	      return RC_FAIL;
+			}
+			//1) Getting URNO -> Getting the URNO from selection statement
+    	get_real_item(pclUrnoNewData, pclNewData, ilItemNo);
+    	get_real_item(pclUrnoOldData, pclOldData, ilItemNo);
+    	dbg(DEBUG,"<%s>The New URNO is <%s>", pclFunc, pclUrnoNewData);
+			dbg(DEBUG,"<%s>The Old URNO is <%s>", pclFunc, pclUrnoOldData);
+			
+			//2)Getting ADID
+			ilItemNo = get_item_no(pclFields, "ADID", 5) + 1;
+			if (ilItemNo <= 0)
+			{
+				dbg(TRACE,"<%s> ADID is not included in the field list, can not proceed",pclFunc);
+	    	return RC_FAIL;
+			}
+			get_real_item(pclAdidNewData, pclNewData, ilItemNo);
+			get_real_item(pclAdidOldData, pclOldData, ilItemNo);
+			dbg(DEBUG,"<%s>The New ADID is <%s>", pclFunc, pclAdidNewData);
+			dbg(DEBUG,"<%s>The Old ADID is <%s>", pclFunc, pclAdidOldData);
+			
+			TrimSpace(pclAdidNewData);
+			if (strlen(pclAdidNewData) == 0)
+			{
+				dbg(TRACE,"<%s>New ADID is null, can not proceed",pclFunc);
+				return RC_FAIL;
+			}
+			
+			if ( strncmp(pclAdidNewData,"A",1) == 0 || strncmp(pclAdidNewData,"B",1) == 0)
+			{
+				dbg(DEBUG,"<%s>ADID = A|B",pclFunc);
+				//3) Getting the PSTA for building the message
+				ilItemNo = get_item_no(pclFields, "PSTA", 5) + 1;
+				if( ilItemNo <= 0)
+    		{
+    			dbg(TRACE,"<%s> PSTA is not included in the field list, can not proceed",pclFunc);
+					return RC_FAIL;
+    		}
+    		get_real_item(pclPstaNewData, pclNewData, ilItemNo);
+    		get_real_item(pclPstaOldData, pclOldData, ilItemNo);
+    		dbg(DEBUG,"<%s> New PSTA<%s>",pclFunc,pclPstaNewData);
+    		dbg(DEBUG,"<%s> Old PSTA<%s>",pclFunc,pclPstaOldData);
+    		
+    		//4) Getting the STOA for building the message
+		  	ilItemNo =  get_item_no(pclFields, "STOA", 5) + 1;
+		  	if (ilItemNo <= 0)
+				{
+					dbg(TRACE,"<%s> STOA is not included in the field list, can not proceed",pclFunc);
+		    	return RC_FAIL;
+				}
+				get_real_item(pclStoaNewData, pclNewData, ilItemNo);
+				get_real_item(pclStoaOldData, pclOldData, ilItemNo);
+				dbg(DEBUG,"<%s>The New STOA is <%s>", pclFunc, pclStoaNewData);
+				dbg(DEBUG,"<%s>The Old STOA is <%s>", pclFunc, pclStoaOldData);
+				
+				//5) Getting the ETOA for building the message
+	    	ilItemNo =  get_item_no(pclFields, "ETOA", 5) + 1;
+	    	if (ilItemNo <= 0)
+				{
+					dbg(TRACE,"<%s> ETOA is not included in the field list, can not proceed",pclFunc);
+		    	return RC_FAIL;
+				}
+				get_real_item(pclEtoaNewData, pclNewData, ilItemNo);
+				get_real_item(pclEtoaOldData, pclOldData, ilItemNo);
+				dbg(DEBUG,"<%s>The New ETOA is <%s>", pclFunc, pclEtoaNewData);
+				dbg(DEBUG,"<%s>The Old ETOA is <%s>", pclFunc, pclEtoaOldData);
+				
+				//6) Getting the TMOA for building the message
+	    	ilItemNo =  get_item_no(pclFields, "TMOA", 5) + 1;
+	    	if (ilItemNo <= 0)
+				{
+					dbg(TRACE,"<%s> TMOA is not included in the field list, can not proceed",pclFunc);
+		    	return RC_FAIL;
+				}
+				get_real_item(pclTmoaNewData, pclNewData, ilItemNo);
+				get_real_item(pclTmoaOldData, pclOldData, ilItemNo);
+				dbg(DEBUG,"<%s>The New TMOA is <%s>", pclFunc, pclTmoaNewData);
+				dbg(DEBUG,"<%s>The Old TMOA is <%s>", pclFunc, pclTmoaOldData);
+				
+				//7) Getting the TMOA for building the message
+	    	ilItemNo =  get_item_no(pclFields, "ONBL", 5) + 1;
+	    	if (ilItemNo <= 0)
+				{
+					dbg(TRACE,"<%s> ONBL is not included in the field list, can not proceed",pclFunc);
+		    	return RC_FAIL;
+				}
+				get_real_item(pclOnblNewData, pclNewData, ilItemNo);
+				get_real_item(pclOnblOldData, pclOldData, ilItemNo);
+				dbg(DEBUG,"<%s>The New ONBL is <%s>", pclFunc, pclOnblNewData);
+				dbg(DEBUG,"<%s>The Old ONBL is <%s>", pclFunc, pclOnblOldData);
+				
+				//psta, stoa, etoa, tmoa, onbl
+				BuildArrPart(&rlSentMsg, pclPstaNewData, pclStoaNewData, pclEtoaNewData, pclTmoaNewData, pclOnblNewData);
+				dbg(DEBUG,"<%s> After BuildArrPart, Show msg struct",pclFunc);
+				ShowMsgStruct(rlSentMsg);
+				
+				//Next Step is to complete the Departure part in Msg
+				/*
+				For arrival only flight:
+				1)Based on RKEY and REGN, finding the nearest corresponding followed departure flight from afttab
+				
+				
+				
+				For Towing flight:
+				2) 
+				*/
+			}
+			else if ( strncmp(pclAdidNewData,"D",1) == 0)
+			{
+				dbg(DEBUG,"<%s>ADID = D",pclFunc);
+				//3) Getting the PSTD for building the message
+				ilItemNo = get_item_no(pclFields, "PSTD", 5) + 1;
+				if( ilItemNo <= 0)
+    		{
+    			dbg(TRACE,"<%s> PSTD is not included in the field list, can not proceed",pclFunc);
+					return RC_FAIL;
+    		}
+    		get_real_item(pclPstdNewData, pclNewData, ilItemNo);
+    		get_real_item(pclPstdOldData, pclOldData, ilItemNo);
+    		dbg(DEBUG,"<%s> New PSTD<%s>",pclFunc,pclPstdNewData);
+    		dbg(DEBUG,"<%s> Old PSTD<%s>",pclFunc,pclPstdOldData);
+    		
+    		//4) Getting the STOD for building the message
+		  	ilItemNo =  get_item_no(pclFields, "STOD", 5) + 1;
+		  	if (ilItemNo <= 0)
+				{
+					dbg(TRACE,"<%s> STOD is not included in the field list, can not proceed",pclFunc);
+		    	return RC_FAIL;
+				}
+				get_real_item(pclStodNewData, pclNewData, ilItemNo);
+				get_real_item(pclStodOldData, pclOldData, ilItemNo);
+				dbg(DEBUG,"<%s>The New STOD is <%s>", pclFunc, pclStodNewData);
+				dbg(DEBUG,"<%s>The Old STOD is <%s>", pclFunc, pclStodOldData);
+				
+				//5) Getting the ETOD for building the message
+	    	ilItemNo =  get_item_no(pclFields, "ETOD", 5) + 1;
+	    	if (ilItemNo <= 0)
+				{
+					dbg(TRACE,"<%s> ETOD is not included in the field list, can not proceed",pclFunc);
+		    	return RC_FAIL;
+				}
+				get_real_item(pclEtodNewData, pclNewData, ilItemNo);
+				get_real_item(pclEtodOldData, pclOldData, ilItemNo);
+				dbg(DEBUG,"<%s>The New ETOD is <%s>", pclFunc, pclEtodNewData);
+				dbg(DEBUG,"<%s>The Old ETOD is <%s>", pclFunc, pclEtodOldData);
+				
+				//6) Getting the OFBL for building the message
+	    	ilItemNo =  get_item_no(pclFields, "OFBL", 5) + 1;
+	    	if (ilItemNo <= 0)
+				{
+					dbg(TRACE,"<%s> OFBL is not included in the field list, can not proceed",pclFunc);
+		    	return RC_FAIL;
+				}
+				get_real_item(pclOfblNewData, pclNewData, ilItemNo);
+				get_real_item(pclOfblOldData, pclOldData, ilItemNo);
+				dbg(DEBUG,"<%s>The New OFBL is <%s>", pclFunc, pclOfblNewData);
+				dbg(DEBUG,"<%s>The Old OFBL is <%s>", pclFunc, pclOfblOldData);
+				
+				//pstd, stod, etod, ofbl
+				BuildDepPart(&rlSentMsg, pclPstdNewData, pclStodNewData, pclEtodNewData, pclOfblNewData);
+				dbg(DEBUG,"<%s> After BuildDepPart, Show msg struct",pclFunc);
+				ShowMsgStruct(rlSentMsg);
+			}
+			else
+			{
+				dbg(TRACE,"<%s> Unknown ADID<%s>",pclFunc,pclAdidNewData);
+			}
+		}
+		else
+		{
+				dbg(DEBUG,"<%s> The number of element in field and data list does not match each other",pclFunc);
+				return RC_FAIL;
+		}
+		
+		//3) Getting STOA, ETOA, TMOA, ONBL for building the message
+		
+		/*4) If it is arrival flight, then finding the scheduled departure flight assigned the same parking stand
+		//   else if it is a towing flight, then do two things:
+		//   1)Sending the updated message for original parking stand
+		//	 2)Sendign the updated message for current parking stand
+		//	 else if it is a departure flight
+		*/
 	}
 	else
 	{
@@ -2703,7 +2981,7 @@ static int SendBatchFlights(MSG *rlMsg)
   ilRC = DB_SUCCESS;
   slFuncCode = START;
   
-  initMsg(rlMsg);
+  //initMsg(rlMsg);
   while(sql_if(slFuncCode, &slLocalCursor, pclSqlBuf, pclDataArea) == DB_SUCCESS)
   {
       if(ilRC == DB_SUCCESS)
@@ -2767,12 +3045,12 @@ static void BatBuildFullQuery(char *pcpSqlBuf,char *pcpWhere)
   dbg(DEBUG,"Full Query<%s>",pcpSqlBuf);
 }
  
-static void initMsg(MSG *msg) 
-{
-	memset( msg, 0, sizeof(*msg) );
-}
+//static void initMsg(MSG *msg) 
+//{
+//	memset( msg, 0, sizeof(*msg) );
+//}
 
-int TrimSpace( char *pcpInStr )
+static int TrimSpace( char *pcpInStr )
 {
     int ili = 0;
     int ilLen;
@@ -2810,3 +3088,130 @@ int TrimSpace( char *pcpInStr )
     if( pclOutStr != NULL )
         free( (char *)pclOutStr );
 }
+
+void PutDefaultValue(SENT_MSG *rpSentMsg)
+{
+	char *pclFunc = "PutDefaultValue";
+	char pclDefauleValueTime[16] = "..............";
+	
+	memset(rpSentMsg->pclPosi,0,sizeof(rpSentMsg->pclPosi));
+	memset(rpSentMsg->pclStoa,0,sizeof(rpSentMsg->pclStoa));
+	memset(rpSentMsg->pclEtoa,0,sizeof(rpSentMsg->pclEtoa));
+	memset(rpSentMsg->pclTmoa,0,sizeof(rpSentMsg->pclTmoa));
+	memset(rpSentMsg->pclOnbl,0,sizeof(rpSentMsg->pclOnbl));
+	memset(rpSentMsg->pclStod,0,sizeof(rpSentMsg->pclStod));
+	memset(rpSentMsg->pclEtod,0,sizeof(rpSentMsg->pclEtod));
+	memset(rpSentMsg->pclOfbl,0,sizeof(rpSentMsg->pclOfbl));
+	
+	//strncpy(rpSentMsg->pclPosi,'0000',strlen("0000"));
+	strncpy(rpSentMsg->pclStoa,pclDefauleValueTime,strlen(pclDefauleValueTime));
+	strncpy(rpSentMsg->pclEtoa,pclDefauleValueTime,strlen(pclDefauleValueTime));
+	strncpy(rpSentMsg->pclTmoa,pclDefauleValueTime,strlen(pclDefauleValueTime));
+	strncpy(rpSentMsg->pclOnbl,pclDefauleValueTime,strlen(pclDefauleValueTime));
+	strncpy(rpSentMsg->pclStod,pclDefauleValueTime,strlen(pclDefauleValueTime));
+	strncpy(rpSentMsg->pclEtod,pclDefauleValueTime,strlen(pclDefauleValueTime));
+	strncpy(rpSentMsg->pclOfbl,pclDefauleValueTime,strlen(pclDefauleValueTime));
+	
+	//ShowMsgStruct(*rpSentMsg);
+}
+
+void BuildArrPart(SENT_MSG *rpSentMsg, char *pcpPstaNewData, char *pcpStoaNewData, char *pcpEtoaNewData, char* pcpTmoaNewData, char *pcpOnblNewData)
+{
+	int ilCount = 0;
+	int ilNumOfZero = 0;
+	char *pclFunc = "BuildArrPart";
+	
+	TrimSpace(pcpPstaNewData);
+	TrimSpace(pcpStoaNewData);
+	TrimSpace(pcpEtoaNewData);
+	TrimSpace(pcpTmoaNewData);
+	TrimSpace(pcpOnblNewData);
+	
+	if (strlen(pcpPstaNewData) != 0 )
+	{
+		if (strlen(pcpPstaNewData) < POS_LEN)
+		{
+			ilNumOfZero = POS_LEN - strlen(pcpPstaNewData);
+			for(ilCount = 0; ilCount < ilNumOfZero; ilCount++)
+			{
+				strcat(rpSentMsg->pclPosi,"0");
+			}
+		}
+		strcat(rpSentMsg->pclPosi,pcpPstaNewData);
+	}
+	
+	if (strlen(pcpStoaNewData) != 0 )
+	{
+		strncpy(rpSentMsg->pclStoa,pcpStoaNewData,strlen(pcpStoaNewData));
+	}
+		
+	if (strlen(pcpEtoaNewData) != 0 )
+	{
+		strncpy(rpSentMsg->pclEtoa,pcpEtoaNewData,strlen(pcpEtoaNewData));
+	}
+	
+	if (strlen(pcpTmoaNewData) != 0 )
+	{
+		strncpy(rpSentMsg->pclTmoa,pcpTmoaNewData,strlen(pcpTmoaNewData));
+	}
+	
+	if (strlen(pcpOnblNewData) != 0 )
+	{
+		strncpy(rpSentMsg->pclOnbl,pcpOnblNewData,strlen(pcpOnblNewData));
+	}
+}
+
+void BuildDepPart(SENT_MSG *rpSentMsg, char *pcpPstdNewData, char *pcpStodaNewData, char *pcpEtodNewData, char *pcpOfblNewData)
+{
+	int ilCount = 0;
+	int ilNumOfZero = 0;
+	char *pclFunc = "BuildDepPart";
+	
+	TrimSpace(pcpPstdNewData);
+	TrimSpace(pcpStodaNewData);
+	TrimSpace(pcpEtodNewData);
+	TrimSpace(pcpOfblNewData);
+
+	if (strlen(pcpPstdNewData) != 0 )
+	{
+		if (strlen(pcpPstdNewData) < POS_LEN)
+		{
+			ilNumOfZero = POS_LEN - strlen(pcpPstdNewData);
+			for(ilCount = 0; ilCount < ilNumOfZero; ilCount++)
+			{
+				strcat(rpSentMsg->pclPosi,"0");
+			}
+		}
+		strcat(rpSentMsg->pclPosi,pcpPstdNewData);
+	}
+	
+	if (strlen(pcpStodaNewData) != 0 )
+	{
+		strncpy(rpSentMsg->pclStoa,pcpStodaNewData,strlen(pcpStodaNewData));
+	}
+		
+	if (strlen(pcpEtodNewData) != 0 )
+	{
+		strncpy(rpSentMsg->pclEtoa,pcpEtodNewData,strlen(pcpEtodNewData));
+	}
+	
+	if (strlen(pcpOfblNewData) != 0 )
+	{
+		strncpy(rpSentMsg->pclOnbl,pcpOfblNewData,strlen(pcpOfblNewData));
+	}
+}
+
+void ShowMsgStruct(SENT_MSG rpSentMsg)
+{
+	char *pclFunc = "ShowMsgStruct";
+	
+	dbg(DEBUG,"<%s> POS<%s>",pclFunc,rpSentMsg.pclPosi);
+  dbg(DEBUG,"<%s> STA<%s>",pclFunc,rpSentMsg.pclStoa);
+	dbg(DEBUG,"<%s> ETA<%s>",pclFunc,rpSentMsg.pclEtoa);
+  dbg(DEBUG,"<%s> TMO<%s>",pclFunc,rpSentMsg.pclTmoa);
+  dbg(DEBUG,"<%s> ONB<%s>",pclFunc,rpSentMsg.pclOnbl);
+  dbg(DEBUG,"<%s> STD<%s>",pclFunc,rpSentMsg.pclStod);
+  dbg(DEBUG,"<%s> ETD<%s>",pclFunc,rpSentMsg.pclEtod);
+  dbg(DEBUG,"<%s> OFB<%s>",pclFunc,rpSentMsg.pclOfbl);
+}
+	
