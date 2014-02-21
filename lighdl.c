@@ -1,7 +1,7 @@
 #ifndef _DEF_mks_version
   #define _DEF_mks_version
   #include "ufisvers.h" /* sets UFIS_VERSION, must be done before mks_version */
-  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/lighdl.c 1.4 2/20/2014 10:43:34 PM Exp  $";
+  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/lighdl.c 1.5 2/20/2014 10:43:34 PM Exp  $";
 #endif /* _DEF_mks_version */
 
 /******************************************************************************/
@@ -14,7 +14,7 @@
 /*                                                                            */
 /* Update history :                                                           */
 /*                                                                            */
-// 20121121 FYA:                                                                            
+/* 20121121 FYA: */                                                                           
 /******************************************************************************/
 /*                                                                            */
 /* source-code-control-system version string                                  */
@@ -72,7 +72,7 @@ static char sccs_hwecon[]="%Z% UFIS 4.5 (c) ABB AAT/I %M% %I% / %E% %U% / AKL";
 #define RC_RECVTIMEOUT 3
 #define RC_SENDTIMEOUT 4
 
-//fya 20140218
+/*fya 20140218*/
 #define TIMEFORMAT 16
 #define DB_SUCCESS RC_SUCCESS
 #define POS_LEN	4
@@ -134,27 +134,18 @@ static struct sockaddr_in my_client;
 static struct sockaddr my_client;
 #endif
 
-//static BOOL	bgSocketOpen = FALSE;		/* global flag for connection state */
 static BOOL	bgAlarm = FALSE;				/* global flag for time-out socket-read */
 static int	igSock = 0;							/* global tcp/ip socket for send/receive */
 
-//static int	igRecvTimeout = 0;			/* number of secs to wait for a valid telegram */
-//static int	igWaitForAck;						/* Time to wait for an ACK */
-//static int	igMaxSends;							/* Max retry count (send) */
 static int	igKeepAlive;						/* The Keep Alive interval (0 = no Keep Alive) */
 static int	igSendAck;							/* Flag for sending ACKs (0 or 1) */
-//static BOOL bgRemoveSuffix = FALSE;	/* Flag to remove suffix from stand numbers. DXB specific */
-//static BOOL	bgRemoveZero = FALSE;		/* Flag to remove zeros from stand numbers. DXB specific */
-//static int	igStandTagLen;					/* Length of the stand tag. DXB specific */
+
 static CFG	prgCfg;
-//static char	pcgGOS_Host[64];				/* buffer for the host that is connected */
-//static char	pcgRecvBuffer[M_BUFF];	/* global buffer for socket-read */
-//static char	pcgSendBuffer[M_BUFF];	/* global buffer for socket-write */
-//static int	igHeaderSize;
+
 static FILE	*pgReceiveLogFile = NULL;	/* log file pointer for all received messages */
 static FILE	*pgSendLogFile = NULL;		/* log file pointer for all sent messages */
 
-//Frank 20130107
+
 static int igConnectionNo = 0;
 
 static int	igReconIntv = 15;           /* global socket Reconnect interval Time (Second) */
@@ -186,8 +177,6 @@ static int	igConDly = 50;
 static int	igConnected = FALSE;   /* global socket Connect status  */
 static int	igOldCnnt = FALSE;
 
-//fya 20140218
-//static char pcgFieldList[126] = "urno,flno,rkey,adid,tifa,tifd,ftyp,psta,pstd,stoa,etoa,tmoa,onbl,stod,etod,ofbl";
 static char pcgFieldList[1024] = "ARR.URNO AURNO,DEP.URNO DURNO, DEP.RKEY DRKEY,ARR.ADID AADID, DEP.ADID DADID,ARR.FTYP AFTYP, DEP.FTYP DFTYP,ARR.PSTA PSTA,DEP.PSTD PSTD,ARR.STOA STOA,ARR.ETOA ETOA,ARR.TMOA TMOA,ARR.ONBL ONBL,DEP.STOD STOD,DEP.ETOD ETOD,DEP.OFBL OFBL, Arr.tifa tifa, dep.tifd tifd";
 static char pcgCurrentTime[TIMEFORMAT] = "\0";
 static char pcgTimeUpperLimit[TIMEFORMAT] = "\0";
@@ -233,7 +222,6 @@ static int Sockt_Reconnect(void);
 static int tcp_open_connection (int socket, char *Pservice, char *Phostname);
 static int FindMsgId(char *pcpData, char *pcpMsgId, int Mode);
 
-//fya 20140218
 static int SendRST_Command(void);
 static void BuildBatchFlightRng(void);
 static void BatBuildWhereClause(char * pcpWhere);
@@ -352,8 +340,6 @@ MAIN
     
 	if (igInitOK == TRUE)
 	{			
-		    /* No need to inform hwemgr - v1.0 */
-        //ilRc = SendCedaEvent(igModID_ConMgr,0,mod_name,"CEDA",pcgTwStart,pcgTwEnd,"INI","","","","","","",NETOUT_NO_ACK);
         
         igSock = 0;
   	    ilRc = OpenServerSocket();
@@ -361,15 +347,13 @@ MAIN
         {
           igConnected = TRUE;
           igOldCnnt = TRUE;
-          /* No need to inform hwemgr - v1.0 */
-          //ilRc = SendCedaEvent(igModID_ConMgr,0,mod_name,"CEDA",pcgTwStart,pcgTwEnd,"CONX","","","","","","",NETOUT_NO_ACK);
+          
         }
         else
         {
           igConnected = FALSE;
           igOldCnnt = FALSE;
-        	/* No need to inform hwemgr - v1.0 */
-          //ilRc = SendCedaEvent(igModID_ConMgr,0,mod_name,"CEDA",pcgTwStart,pcgTwEnd,"DROP","","","","","","",NETOUT_NO_ACK);
+        	
         }
 
 		now = time(NULL);
@@ -399,7 +383,7 @@ MAIN
 						}
 					}
 				}
-//			sleep(1);
+
 			}
 			now = time(NULL);
 		} 
@@ -486,7 +470,6 @@ static int Init_Handler()
 		Terminate(30);
 	}
 	
-	//fya 20140218
 	BuildBatchFlightRng();
 	
 	return (ilRc);
@@ -539,7 +522,6 @@ static void GetAllValidSlotsBuildWhereClause(char *pcpWhere)
 	
 	char pclWhere[2048] = "\0";
 	
-	//Seeking for related sequential arrival flight
 	sprintf(pclWhere,"WHERE (VAFR < '%s' and (VATO > '%s' or VATO = ' ' or VATO IS NULL))", pcgCurrentTime,pcgCurrentTime);
 
   strcpy(pcpWhere,pclWhere);
@@ -870,8 +852,6 @@ static int HandleInternalData()
 	
 	int ilCount = 0;
 	
-	//fya 20140220
-	//char *pclTmpPtr = NULL;
 	int ilItemNo = 0;
 	int ilItemNo1 = 0;
 	int ilNoEleField = 0;
@@ -925,13 +905,10 @@ static int HandleInternalData()
   char pclSqlBuf[2048] = "\0",pclSqlData[2048] = "\0",pclWhere[2048] = "\0";
   
   SENT_MSG rlSentMsg;
-	//
 	
 	memset(pclDataBuf,0,sizeof(pclDataBuf));
-	//memset(pclDataSent,0,sizeof(pclDataSent));
 	
 	memset(pclSqlBuf,0,sizeof(pclSqlBuf));
-	//memset(pclDataArea,0,sizeof(pclDataArea));
 	memset(pclWhere,0,sizeof(pclWhere));
 	
 	memset(pclRkey,0,sizeof(pclRkey));
@@ -987,7 +964,7 @@ static int HandleInternalData()
 	dbg(DEBUG,"TwStart:   <%s>",pcgTwStart);
 	dbg(DEBUG,"TwEnd:     <%s>",pcgTwEnd);
 	
-	//Command XMLO
+	/*Command XMLO*/
 	if (strcmp(cmdblk->command,"XMLO") == 0)
 	{
     /*
@@ -1001,7 +978,6 @@ static int HandleInternalData()
 		memset(pclData,0,sizeof(pclData));
 		strcpy(pclData,pclDataBuf);
         */
-		//dbg(DEBUG,"Data:      \n<%s>",pclDataBuf);
 		
     strcpy(pcgCurSendData, pclData);
     strcpy(pcgSendMsgId, pclSelection);
@@ -1079,20 +1055,19 @@ static int HandleInternalData()
       else
         ilQueRc = SendCedaEvent(igModID_ConMgr,0,mod_name,"CEDA",pcgTwStart,pcgTwEnd,"DROP","","","","","","",NETOUT_NO_ACK);
   }
-    //fya 20140218
 	else if (strcmp(cmdblk->command,"RST") == 0)
 	{
 		dbg(DEBUG,"RST command for sending the batch flights");
 		
 		SendBatchFlights(&rlMsg);
-	}//fya 20140220
+	}
 	else if (strcmp(cmdblk->command,"UFR") == 0 || strcmp(cmdblk->command,"IFR") == 0 || strcmp(cmdblk->command,"DFR") == 0)
 	{
 		dbg(DEBUG,"<%s> %s command is received", pclFunc,cmdblk->command);
 		
 		PutDefaultValue(&rlSentMsg);
 		
-		//Common Part->Getting data
+		/*Common Part->Getting data*/
 		TrimSpace(pclUrnoSelection);
 		if (strlen(pclUrnoSelection) == 0)
 		{
@@ -1113,13 +1088,13 @@ static int HandleInternalData()
 				dbg(TRACE, "<%s> No URNO Found in the field list, can't do anything", pclFunc);
 	      return RC_FAIL;
 			}
-			//1) Getting URNO -> Getting the URNO from selection statement
+			/*1) Getting URNO -> Getting the URNO from selection statement*/
     	get_real_item(pclUrnoNewData, pclNewData, ilItemNo);
     	get_real_item(pclUrnoOldData, pclOldData, ilItemNo);
     	dbg(DEBUG,"<%s>The New URNO is <%s>", pclFunc, pclUrnoNewData);
 			dbg(DEBUG,"<%s>The Old URNO is <%s>", pclFunc, pclUrnoOldData);
 			
-			//2)Getting ADID
+			/*2)Getting ADID*/
 			ilItemNo = get_item_no(pclFields, "ADID", 5) + 1;
 			if (ilItemNo <= 0)
 			{
@@ -1141,7 +1116,7 @@ static int HandleInternalData()
 			if ( strncmp(pclAdidNewData,"A",1) == 0 || strncmp(pclAdidNewData,"B",1) == 0)
 			{
 				dbg(DEBUG,"<%s>ADID = A|B",pclFunc);
-				//3) Getting the PSTA for building the message
+				/* 3) Getting the PSTA for building the message*/
 				ilItemNo = get_item_no(pclFields, "PSTA", 5) + 1;
 				if( ilItemNo <= 0)
     		{
@@ -1153,7 +1128,7 @@ static int HandleInternalData()
     		dbg(DEBUG,"<%s> New PSTA<%s>",pclFunc,pclPstaNewData);
     		dbg(DEBUG,"<%s> Old PSTA<%s>",pclFunc,pclPstaOldData);
     		
-    		//4) Getting the STOA for building the message
+    		/*4) Getting the STOA for building the message*/
 		  	ilItemNo =  get_item_no(pclFields, "STOA", 5) + 1;
 		  	if (ilItemNo <= 0)
 				{
@@ -1165,7 +1140,7 @@ static int HandleInternalData()
 				dbg(DEBUG,"<%s>The New STOA is <%s>", pclFunc, pclStoaNewData);
 				dbg(DEBUG,"<%s>The Old STOA is <%s>", pclFunc, pclStoaOldData);
 				
-				//5) Getting the ETOA for building the message
+				/*5) Getting the ETOA for building the message*/
 	    	ilItemNo =  get_item_no(pclFields, "ETOA", 5) + 1;
 	    	if (ilItemNo <= 0)
 				{
@@ -1177,7 +1152,7 @@ static int HandleInternalData()
 				dbg(DEBUG,"<%s>The New ETOA is <%s>", pclFunc, pclEtoaNewData);
 				dbg(DEBUG,"<%s>The Old ETOA is <%s>", pclFunc, pclEtoaOldData);
 				
-				//6) Getting the TMOA for building the message
+				/*6) Getting the TMOA for building the message*/
 	    	ilItemNo =  get_item_no(pclFields, "TMOA", 5) + 1;
 	    	if (ilItemNo <= 0)
 				{
@@ -1189,7 +1164,7 @@ static int HandleInternalData()
 				dbg(DEBUG,"<%s>The New TMOA is <%s>", pclFunc, pclTmoaNewData);
 				dbg(DEBUG,"<%s>The Old TMOA is <%s>", pclFunc, pclTmoaOldData);
 				
-				//7) Getting the TMOA for building the message
+				/*7) Getting the TMOA for building the message*/
 	    	ilItemNo =  get_item_no(pclFields, "ONBL", 5) + 1;
 	    	if (ilItemNo <= 0)
 				{
@@ -1201,13 +1176,12 @@ static int HandleInternalData()
 				dbg(DEBUG,"<%s>The New ONBL is <%s>", pclFunc, pclOnblNewData);
 				dbg(DEBUG,"<%s>The Old ONBL is <%s>", pclFunc, pclOnblOldData);
 				
-				//psta, stoa, etoa, tmoa, onbl
+				/*psta, stoa, etoa, tmoa, onbl*/
 				BuildArrPart(&rlSentMsg, pclPstaNewData, pclStoaNewData, pclEtoaNewData, pclTmoaNewData, pclOnblNewData);
 				dbg(DEBUG,"<%s> After BuildArrPart, Show msg struct",pclFunc);
-				//ShowMsgStruct(rlSentMsg);
+				/*ShowMsgStruct(rlSentMsg);*/
 				
-				//Next Step is to complete the Departure part in Msg
-				/*
+				/*Next Step is to complete the Departure part in Msg
 				1)Based on RKEY and REGN, finding the nearest corresponding followed departure/towing flight from afttab
 				1.1 Getting the REGN & RKEY from afttab
 				1.2 Getting sequential flight
@@ -1248,7 +1222,7 @@ static int HandleInternalData()
 			else if ( strncmp(pclAdidNewData,"D",1) == 0)
 			{
 				dbg(DEBUG,"<%s>ADID = D",pclFunc);
-				//3) Getting the PSTD for building the message
+				/*3) Getting the PSTD for building the message*/
 				ilItemNo = get_item_no(pclFields, "PSTD", 5) + 1;
 				if( ilItemNo <= 0)
     		{
@@ -1260,7 +1234,7 @@ static int HandleInternalData()
     		dbg(DEBUG,"<%s> New PSTD<%s>",pclFunc,pclPstdNewData);
     		dbg(DEBUG,"<%s> Old PSTD<%s>",pclFunc,pclPstdOldData);
     		
-    		//4) Getting the STOD for building the message
+    		/*4) Getting the STOD for building the message*/
 		  	ilItemNo =  get_item_no(pclFields, "STOD", 5) + 1;
 		  	if (ilItemNo <= 0)
 				{
@@ -1272,7 +1246,7 @@ static int HandleInternalData()
 				dbg(DEBUG,"<%s>The New STOD is <%s>", pclFunc, pclStodNewData);
 				dbg(DEBUG,"<%s>The Old STOD is <%s>", pclFunc, pclStodOldData);
 				
-				//5) Getting the ETOD for building the message
+				/*5) Getting the ETOD for building the message*/
 	    	ilItemNo =  get_item_no(pclFields, "ETOD", 5) + 1;
 	    	if (ilItemNo <= 0)
 				{
@@ -1284,7 +1258,7 @@ static int HandleInternalData()
 				dbg(DEBUG,"<%s>The New ETOD is <%s>", pclFunc, pclEtodNewData);
 				dbg(DEBUG,"<%s>The Old ETOD is <%s>", pclFunc, pclEtodOldData);
 				
-				//6) Getting the OFBL for building the message
+				/*6) Getting the OFBL for building the message*/
 	    	ilItemNo =  get_item_no(pclFields, "OFBL", 5) + 1;
 	    	if (ilItemNo <= 0)
 				{
@@ -1296,7 +1270,7 @@ static int HandleInternalData()
 				dbg(DEBUG,"<%s>The New OFBL is <%s>", pclFunc, pclOfblNewData);
 				dbg(DEBUG,"<%s>The Old OFBL is <%s>", pclFunc, pclOfblOldData);
 				
-				//pstd, stod, etod, ofbl
+				/*pstd, stod, etod, ofbl*/
 				BuildDepPart(&rlSentMsg, pclPstdNewData, pclStodNewData, pclEtodNewData, pclOfblNewData);
 				dbg(DEBUG,"<%s> After BuildDepPart, Show msg struct",pclFunc);
 				ShowMsgStruct(rlSentMsg);
@@ -1336,7 +1310,7 @@ static int HandleInternalData()
 			BuildSentData(pclDataSent,rlSentMsg);
 			dbg(TRACE,"<%s> pclDataSent<%s>",pclFunc,pclDataSent);
 			
-			//At this stage, the message struct is completed
+			/*At this stage, the message struct is completed*/
 			strcpy(pcgCurSendData,pclDataSent);
 	    strcpy(pcgSendMsgId,pclSelection);
 			
@@ -1391,13 +1365,13 @@ static int HandleInternalData()
 				return RC_FAIL;
 		}
 		
-		//3) Getting STOA, ETOA, TMOA, ONBL for building the message
+		/*3) Getting STOA, ETOA, TMOA, ONBL for building the message*/
 		
 		/*4) If it is arrival flight, then finding the scheduled departure flight assigned the same parking stand
-		//   else if it is a towing flight, then do two things:
-		//   1)Sending the updated message for original parking stand
-		//	 2)Sendign the updated message for current parking stand
-		//	 else if it is a departure flight
+		   else if it is a towing flight, then do two things:
+		   1)Sending the updated message for original parking stand
+			 2)Sendign the updated message for current parking stand
+			 else if it is a departure flight
 		*/
 	}
 	else
@@ -1789,8 +1763,6 @@ static int GetConfig()
 		} 
 	}   
   
-  //ilRC = ReadConfigEntry( pcgConfigFile, "MAIN","IP",pclSelection);
-  //ilRC = GetCfgEntry(pcgConfigFile,"MAIN","IP",CFG_STRING,pcgIP,CFG_PRINT,"");
   ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","IP",CFG_STRING,pcgIP);
   if(strlen(pcgIP)==0)
   {
@@ -1801,8 +1773,6 @@ static int GetConfig()
   	dbg(TRACE,"IP is not null<%s>",pcgIP);
   }
   
-  //ilRC = ReadConfigEntry( pcgConfigFile, "MAIN","PORT",pclSelection);
-  //ilRC = GetCfgEntry(pcgConfigFile,"MAIN","PORT",CFG_STRING,pclSelection,CFG_PRINT,"");
   ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","PORT",CFG_STRING,pcgPort);
 	if(strlen(pcgPort)==0)
 	  {
@@ -1854,13 +1824,13 @@ static int poll_q_and_sock()
 		/* now looking on ceda-queue */
 		/*---------------------------*/
 		
-		// dbg(DEBUG,"time before que<%d>",time(0));
+		/* dbg(DEBUG,"time before que<%d>",time(0));*/
                 ilReadQueCnt++;
 		if ( (ilRc = que(QUE_GETBIGNW,0,mod_id,PRIORITY_3,igItemLen,
 				(char *) &prgItem)) == RC_SUCCESS)
 		{
                         ilReadQueCnt = 0;
-		//	dbg(DEBUG,"time after1 que<%d>",time(0));
+		/*	dbg(DEBUG,"time after1 que<%d>",time(0));*/
 			/* depending on the size of the received item  */
 			/* a realloc could be made by the que function */
 			/* so do never forget to set event pointer !!! */
@@ -1880,7 +1850,6 @@ static int poll_q_and_sock()
 
 			switch(prgEvent->command)
 			{
-				//dbg(TRACE,"-------------command---------<%s>",prgEvent->command);
 				lgEvtCnt++;
 				
 				case HSB_STANDBY	:
@@ -1933,21 +1902,21 @@ static int poll_q_and_sock()
 						(ctrl_sta == HSB_ACTIVE) ||
 						(ctrl_sta == HSB_ACT_TO_SBY))
 					{
-					//	if (igSock > 0)
+					/*	if (igSock > 0)*/
 						{
 							dbg(TRACE,"Calling HandleInternalData");
 							ilRc = HandleInternalData();
 							if (ilRc == RC_FAIL)
 							{
 								dbg(TRACE,"PQS: HandleInternalData failed <%d>",ilRc);
-				//				HandleErr(&igSock);
+				/*				HandleErr(&igSock);*/
 							}
 						}
                      /*
 						else
 						{
 							dbg(TRACE,"No connection! Ignoring event!");
-							//dbg(TRACE,"PQS: No GOS-connection! Ignoring event!");
+							dbg(TRACE,"PQS: No GOS-connection! Ignoring event!");
 						}
                       */
 					}
@@ -1973,29 +1942,21 @@ static int poll_q_and_sock()
 		}
 		else
 		{	
-         //   dbg(DEBUG,"Read Que Result <%d>, Retry Read QueCnt<%d>",ilRc, ilReadQueCnt);
-         //   dbg(DEBUG,"time after2 que<%d>",time(0));
+         /*  dbg(DEBUG,"Read Que Result <%d>, Retry Read QueCnt<%d>",ilRc, ilReadQueCnt);
+            dbg(DEBUG,"time after2 que<%d>",time(0));*/
             if (ilReadQueCnt > 10)
                nap(300);
             if (ilReadQueCnt >= 80)
                ilReadQueCnt=0;
-         //   dbg(DEBUG,"time after3 que<%d>",time(0));
+         /*   dbg(DEBUG,"time after3 que<%d>",time(0));*/
 		}
 		ilRc = RC_FAIL; /* proceed */
 
 		if (igSock > 0)
 		{
-			//ilStartTime = time( 0 );
-  		    //ilEndTime = ilStartTime + (ilDuration * 60);
-  		    //memset(pclLastTimeSendingHeartbeat,0,sizeof(pclLastTimeSendingHeartbeat));
-  		
+			
   		    GetServerTimeStamp( "UTC", 1, 0, pclCurrentTime );
-  	        //	dbg(TRACE,"pclCurrentTime<%s>,pclLastTimeSendingHeartbeat<%s>",pclCurrentTime,pclLastTimeSendingHeartbeat);
-  		
-  		    //Frank v0.62 Comparing the day
-         //		dbg(TRACE,"pclTmpCurrent<%s>,pclTmpLast<%s>",pclTmpCurrent,pclTmpLast);
-         //		dbg(TRACE,"ilTmpCurrent<%d>,ilTmpLast<%d>",ilTmpCurrent,ilTmpLast);
-  		
+  	        
   		    if (strcmp(pclCurrentTime, pcgSendHeartBeatExpTime) >= 0)
   		    {
 	            ilRc = SendHeartbeatMsg(pclLastTimeSendingHeartbeat);
@@ -2018,7 +1979,7 @@ static int poll_q_and_sock()
 			}
 			else
 			{
-			   ; //	dbg(TRACE,"<%s>(ilTmpCurrent<%d> - ilTmpLast<%d>) <= 5",pclFunc,ilTmpCurrent,ilTmpLast);
+			   ; /*	dbg(TRACE,"<%s>(ilTmpCurrent<%d> - ilTmpLast<%d>) <= 5",pclFunc,ilTmpCurrent,ilTmpLast);*/
 			}
 			
 			if (igSock > 0)
@@ -2041,8 +2002,6 @@ static int SendHeartbeatMsg(char *pcpLastTimeSendingTime)
 {
 	int ilRC = RC_SUCCESS;
 	char pclFunc[] = "SendHeratbeatMsg:";
-	//char pclTmp[128]="\0";
-	//char pclCurrentTime[128]="\0";
 	char pclFormatTime[128]="\0";
 	char pclDataBuf[L_BUFF];
 	
@@ -2053,9 +2012,6 @@ static int SendHeartbeatMsg(char *pcpLastTimeSendingTime)
 	dbg(DEBUG,"<%s>========================= START-HeartBeat ===============================",pclFunc);
 	dbg(DEBUG,"<%s> Send Heartbeat Msg pclFormatTime<%s>",pclFunc,pclFormatTime);
 	
-	//Frank 20130107
-	//sprintf(pclDataBuf,pcgKeepAliveFormat,igMsgNoForHeartbeat,pclFormatTime);
-	
 	if(igMsgNoForHeartbeat == 65535)
   {    
 		igMsgNoForHeartbeat = 0;
@@ -2063,7 +2019,6 @@ static int SendHeartbeatMsg(char *pcpLastTimeSendingTime)
   
   sprintf(pclDataBuf,pcgKeepAliveFormat,pclFormatTime);
   igMsgNoForHeartbeat++;
-	//Frank 20130107
 	
 	ilRC = Send_data(igSock,pclDataBuf);
 	
@@ -2149,8 +2104,6 @@ static int ReceiveACK(int ipSock,int ipTimeOut)
 	{
 		case 0:
 			dbg(TRACE,"<%s>-------------------Select time out",pclFunc);
-			//return RC_SUCCESS;
-			//CloseTCP();
 			return RC_ACKTIMEOUT;
 			break;
 		case -1:
@@ -2193,7 +2146,7 @@ static int ReceiveACK(int ipSock,int ipTimeOut)
 						return RC_FAIL;
 					}	
 					*/
-					//sleep(1);
+				
 				}
 		  }
 			break;
@@ -2210,11 +2163,11 @@ static int Receive_data(int ipSock,int ipTimeOut)
 	int		ilRC = RC_SUCCESS;
 	char	pclFunc[] = "Receive_data:";
 	int		ilNo;
-	//int 	fd;
+	
 	int		ilMsgNo = 0;
 	int 	ilFound = 0;
 	struct timeval rlTimeout;
-	//static char	pclRecvBuffer[M_BUFF];
+	
 	static char	pclRecvBuffer[BUFF];
     char pclCurrentTime[64] = "\0";
 
@@ -2250,16 +2203,13 @@ static int Receive_data(int ipSock,int ipTimeOut)
 		case 0:
 		dbg(DEBUG, "<%s>-------------------Select time out -> no msg received",pclFunc);
             ilRC = RC_RECVTIMEOUT;
-			//return RC_FAIL;
-			//return RC_RECVTIMEOUT;
-			//CloseTCP();
-			//return RC_FAIL;
+		
 			break;
 		case -1:
 			dbg( TRACE,"<%s>ERROR Code<%d>Description<%s>!! SELECT fails!",pclFunc, errno, strerror(errno) );
 			igSock = -1;
             ilRC = RC_FAIL;
-			// return RC_FAIL;
+		
 			break;
 		default:
 			if (FD_ISSET( ipSock, &exceptfds ))
@@ -2279,7 +2229,7 @@ static int Receive_data(int ipSock,int ipTimeOut)
 		    	
 		    	    if( ilNo > 0 )
 		          {
-		      	        //if(strstr(pclRecvBuffer,"heartbeat") == 0)
+		      	        
 		      	            dbg(TRACE,"<%s> Len<%d>Complete message<%s>",pclFunc,ilNo,pclRecvBuffer);
 	      	            
 	      	            if (strstr(pclRecvBuffer,"ack")!=0)
@@ -2296,7 +2246,7 @@ static int Receive_data(int ipSock,int ipTimeOut)
 			      	             ilRC = SendCedaEvent(igModID_ConMgr,0,mod_name,"CEDA",pcgTwStart,pcgTwEnd,"RACK","",pcgSendMsgId,"","","","",NETOUT_NO_ACK);
                        nap(igMgrDly);
                             }
-					        // return RC_SUCCESS;
+					        
 		      	        }
 		      	        else if(strstr(pclRecvBuffer,"heartbeat") == 0)
 		      	        {
@@ -2304,7 +2254,7 @@ static int Receive_data(int ipSock,int ipTimeOut)
                           strcpy(pcgMsgNoForACK, pclTmpBuf);
                           if (strcmp(pcgMsgNoForACK, "0") != 0 )
                           {
-			      	        // Send the ACK
+			      	        /* Send the ACK*/
 						    dbg(DEBUG,"<%s> Sending ACK message",pclFunc);
 						    SendAckMsg();
 			      	        ilRC = SendCedaEvent(igModID_ConSTB,0,mod_name,"CEDA",pcgTwStart,pcgTwEnd,"SACK","",pcgMsgNoForACK,"","","","",NETOUT_NO_ACK);
@@ -2317,7 +2267,7 @@ static int Receive_data(int ipSock,int ipTimeOut)
 	                        {
 	            	            dbg(TRACE,"<%s>SendCedaEvent<%d> executes unsuccessfully",pclFunc,igModID_Rcvr);
 	                        }
-						   // return RC_SUCCESS;
+						   
                           }
           	            }
                         ilRC = RC_SUCCESS;
@@ -2326,12 +2276,11 @@ static int Receive_data(int ipSock,int ipTimeOut)
 		          }    
 		          else if( ilNo == 0 )
 			      {
-					    // dbg(DEBUG,"<%s>Received empty msg",pclFunc);
+					    
 					    ilRC = RC_SUCCESS;
-                        //GetServerTimeStamp( "UTC", 1, 0, pcgRcvHeartBeatExpTime);
-                        //AddSecondsToCEDATime(pcgRcvHeartBeatExpTime, igHeartBeatTimOut, 1);
+                       
 				  }	
-					//sleep(1);
+					
 				}
 		    }
 			break;
@@ -2398,7 +2347,7 @@ int OpenServerSocket()
 		dbg(TRACE,"<%s>: Client socket already open",pclFunc);
 		ilRC = RC_SUCCESS;
 	}
-	else // Create socket
+	else /* Create socket*/
 	{
 		ilRC = tcp_socket(&igSock);
 		
@@ -2423,7 +2372,7 @@ int OpenServerSocket()
 	return ilRC;
 }/* end OpenServerSocket */
 
-static void my_alarm()
+static void my_alarm(int x)
 {
 }
 
@@ -2433,10 +2382,6 @@ static int tcp_socket(int	*ilAcceptSocket)
 	char *pclFunc = "tcp_socket";
 	
 	int ilTcpfd = 0;
-	//int ilAttempts = 0;
-	
-	//Frank 20130107
-  //int ilMaxAttempt = 5;
   
   int ilOn = 1;
   
@@ -2444,7 +2389,7 @@ static int tcp_socket(int	*ilAcceptSocket)
   int ili = 0;
 
   struct sockaddr_in rlSin;
-  struct linger rlLinger;
+  /*struct linger rlLinger;*/
   
   char pclMessage[2000] = "\0";
   
@@ -2453,8 +2398,6 @@ static int tcp_socket(int	*ilAcceptSocket)
   
   int ilProcessId = 0;
   
-  //Frank 20130107
-  //ilMaxAttempt = igReconMax;
   
   dbg( TRACE,"<%s>Going to run TCP(Client) connecting to IP<%s> at PORT<%s>",pclFunc,pcgIP,pcgPort);
   
@@ -2474,13 +2417,13 @@ static int tcp_socket(int	*ilAcceptSocket)
   	dbg( TRACE,"<%s>Socket created ilTcpfd<%d>",pclFunc,ilTcpfd);
   }
   
-  //TRYAGAIN:	ilAttempts = 0;
+  /*TRYAGAIN:	ilAttempts = 0;
   
-  //Frank 20130107
-	//while(ilAttempts < ilMaxAttempt )
-	//{
+  Frank 20130107
+	while(ilAttempts < ilMaxAttempt )
+	{*/
 		alarm(CONNECT_TIMEOUT);
-		//ilRc = connect( ilTcpfd, (struct sockaddr *)&rlSin, sizeof(rlSin) );
+		
 		ilRc = tcp_open_connection(ilTcpfd, pcgPort , pcgIP );
 		alarm(0);
 		
@@ -2496,15 +2439,15 @@ static int tcp_socket(int	*ilAcceptSocket)
     	break;
     }
     */
-	//}
+	/*}*/
 	
-	//Pay attention to this line
+	/*Pay attention to this line*/
 	(*ilAcceptSocket) = ilTcpfd;
 	
 	return ilRc;
 	
-	//Frank 20130107
-	/*
+	/*Frank 20130107
+	
 	if( ilAttempts >= ilMaxAttempt )
   {
   	dbg( TRACE,"<%s>Still cannot connect! EXIT!!",pclFunc );
@@ -2546,9 +2489,9 @@ static int tcp_socket(int	*ilAcceptSocket)
   {
   	return RC_FAIL;
   }
-  */
-  	//Frank 20130107
-  //}
+  
+   Frank 20130107
+  }*/
 }
 
 /* ***************************************************************** */
@@ -2743,8 +2686,8 @@ static int Send_data(int ipSock,char *pcpData)
          bgAlarm = FALSE;
          ilRc = RC_SENDTIMEOUT;
       }
-      //CloseTCP();
-      //igSock = 0;
+      /*CloseTCP();
+      igSock = 0;*/
 		}
 		else
 		{
@@ -2786,7 +2729,6 @@ static int SendAckMsg()
 	
 	memset(pclDataBuf,0,sizeof(pclDataBuf));
 	
-	//FormatTime(pclFormatTime);
 	FormatTime(pclFormatTime,pclLastTimeSendingTime);
 
 	dbg(DEBUG,"<%s>========================= START-ACK ===============================",pclFunc);
@@ -2859,15 +2801,14 @@ static int Sockt_Reconnect(void)
 	int ilQueRc = RC_SUCCESS;
     int ilCount = 0;
     
-    //Frank 20130107
     igConnectionNo++;
     
     igOldCnnt = igConnected;
     CloseTCP();
     igSock = 0;
 		dbg(TRACE,"<%s>Keep trying to connect <%s><%s>",pclFunc,pcgIP,pcgPort);
-//    for (ilCount = 0; ilCount < igReconMax; ilCount++)
-	//{
+/*    for (ilCount = 0; ilCount < igReconMax; ilCount++)
+	{*/
 	 	 ilRc = OpenServerSocket();
 		 dbg(DEBUG,"<%s>ilRc<%d>",pclFunc,ilRc);
 		 ilCount++;
@@ -2876,17 +2817,15 @@ static int Sockt_Reconnect(void)
           CloseTCP();
      			igSock = 0;
      }
-	//}
+	/*}*/
 				
 		if(ilRc == RC_SUCCESS)
     {
         dbg(TRACE,"<%s>ilCount[%d]igSock<%d>, connection success,reset ilConnectionNo",pclFunc,ilCount,igSock);
         igConnected = TRUE;
         
-        //Frank 20130107
         igConnectionNo = 0;
         
-        //fya 20140218
         dbg(TRACE,"<%s> Calling SendRST_Command",pclFunc);
         SendRST_Command();
     }
@@ -2900,10 +2839,9 @@ static int Sockt_Reconnect(void)
     {
         if (igConnected == TRUE)
         	;
-	        //ilQueRc = SendCedaEvent(igModID_ConMgr,0,mod_name,"CEDA",pcgTwStart,pcgTwEnd,"CONX","","","","","","",NETOUT_NO_ACK);
         else
         	;
-	        //ilQueRc = SendCedaEvent(igModID_ConMgr,0,mod_name,"CEDA",pcgTwStart,pcgTwEnd,"DROP","","","","","","",NETOUT_NO_ACK);
+	        
     }
     
     GetServerTimeStamp( "UTC", 1, 0, pcgReconExpTime);
@@ -2912,10 +2850,6 @@ static int Sockt_Reconnect(void)
     AddSecondsToCEDATime(pcgRcvHeartBeatExpTime, igHeartBeatTimOut, 1);
     
     dbg(DEBUG," <%s> pcgReconExpTime<%s>Heartbeat Exp Rec Time<%s> igHeartBeatTimOut<%d>", pclFunc,pcgReconExpTime,pcgRcvHeartBeatExpTime,igHeartBeatTimOut);
-   
-   //Frank 20130107
-   //dbg(TRACE,"%s Getting the XMLO command from %s IPC que",pclFunc,mod_name);
-   //GetFromQue();
     
 	return ilRc;
 }
@@ -3077,7 +3011,7 @@ static void GetFromQue()
 					(ctrl_sta == HSB_ACTIVE) ||
 					(ctrl_sta == HSB_ACT_TO_SBY))
 				{
-					//ShwoIPCQueMessage();
+					/*ShwoIPCQueMessage();*/
 				}
 				else
 				{
@@ -3217,7 +3151,7 @@ static int SendBatchFlights(MSG *rlMsg)
 	for(ilCount = 1; ilCount <= ilSoltNumber; ilCount++)
 	{
 		get_real_item(pclParkstand,pclAllValidSlots,ilCount);
-		//dbg(DEBUG,"<%s> ilCount<%d> pclParkstand<%s>",pclFunc,ilCount,pclParkstand);
+		/*dbg(DEBUG,"<%s> ilCount<%d> pclParkstand<%s>",pclFunc,ilCount,pclParkstand);*/
 		
 		
 	}
@@ -3240,8 +3174,6 @@ static void BatBuildWhereClause(char * pcpWhere)
 	char *pclFunc = "BatBuildWhereClause";
 	
 	char pclWhere[2048] = "\0";
-	
-	//sprintf(pclWhere,"((trim(PSTA) is not null) or (trim(PSTD) is not null)) and ((TIFA between '%s' and '%s') or (TIFD between '%s' and '%s')) ORDER BY", pcgCurrentTime, pcgTimeUpperLimit,pcgCurrentTime, pcgTimeUpperLimit);
   
   sprintf(pclWhere,"arr.urno = dep.rkey and dep.adid = 'D' AND arr.adid = 'A' and trim(arr.psta) is not null and trim(dep.pstd) is not null and arr.psta = dep.pstd and (arr.tifa between '201401%%' and '201402%%') order by arr.tifa", pcgCurrentTime, pcgTimeUpperLimit,pcgCurrentTime, pcgTimeUpperLimit);
 
@@ -3256,16 +3188,10 @@ static void BatBuildFullQuery(char *pcpSqlBuf,char *pcpWhere)
 	char pclSqlBuf[2048] = "\0";
 	
 	sprintf(pclSqlBuf, "SELECT %s FROM afttab arr, afttab dep WHERE %s",pcgFieldList, pcpWhere);
-  //CheckWhereClause(TRUE, pclSqlBuf, FALSE, TRUE, "\0");
   
   strcpy(pcpSqlBuf,pclSqlBuf);
   dbg(DEBUG,"Full Query<%s>",pcpSqlBuf);
 }
- 
-//static void initMsg(MSG *msg) 
-//{
-//	memset( msg, 0, sizeof(*msg) );
-//}
 
 static int TrimSpace( char *pcpInStr )
 {
@@ -3322,7 +3248,6 @@ static void PutDefaultValue(SENT_MSG *rpSentMsg)
 	memset(rpSentMsg->pclRegn,0,sizeof(rpSentMsg->pclRegn));
 	memset(rpSentMsg->pclRkey,0,sizeof(rpSentMsg->pclRkey));
 	
-	//strncpy(rpSentMsg->pclPosi,'0000',strlen("0000"));
 	strncpy(rpSentMsg->pclStoa,pclDefauleValueTime,strlen(pclDefauleValueTime));
 	strncpy(rpSentMsg->pclEtoa,pclDefauleValueTime,strlen(pclDefauleValueTime));
 	strncpy(rpSentMsg->pclTmoa,pclDefauleValueTime,strlen(pclDefauleValueTime));
@@ -3330,8 +3255,6 @@ static void PutDefaultValue(SENT_MSG *rpSentMsg)
 	strncpy(rpSentMsg->pclStod,pclDefauleValueTime,strlen(pclDefauleValueTime));
 	strncpy(rpSentMsg->pclEtod,pclDefauleValueTime,strlen(pclDefauleValueTime));
 	strncpy(rpSentMsg->pclOfbl,pclDefauleValueTime,strlen(pclDefauleValueTime));
-	
-	//ShowMsgStruct(*rpSentMsg);
 }
 
 void BuildArrPart(SENT_MSG *rpSentMsg, char *pcpPstaNewData, char *pcpStoaNewData, char *pcpEtoaNewData, char* pcpTmoaNewData, char *pcpOnblNewData)
@@ -3432,9 +3355,6 @@ static void ShowMsgStruct(SENT_MSG rpSentMsg)
   dbg(DEBUG,"<%s> STD<%s>",pclFunc,rpSentMsg.pclStod);
   dbg(DEBUG,"<%s> ETD<%s>",pclFunc,rpSentMsg.pclEtod);
   dbg(DEBUG,"<%s> OFB<%s>",pclFunc,rpSentMsg.pclOfbl);
-  
-  //dbg(DEBUG,"<%s> TIFA<%s>",pclFunc,rpSentMsg.pclTifa);
-  //dbg(DEBUG,"<%s> TIFD<%s>",pclFunc,rpSentMsg.pclTifd);
 }
 
 static int GetSeqFlight(SENT_MSG *rpSentMsg,char *pcpADFlag)
@@ -3453,7 +3373,6 @@ static int GetSeqFlight(SENT_MSG *rpSentMsg,char *pcpADFlag)
 	char pclEtod[16] = "\0";
 	char pclTmoa[16] = "\0";
   
-  //TrimSpace(pcpADFlag);
   if (strlen(pcpADFlag) == 0)
   {
   	dbg(TRACE,"<%s> pcpADFlag is null<%s>",pclFunc,pcpADFlag);
@@ -3539,7 +3458,6 @@ static int UpdBuildWhereClause(SENT_MSG *rpSentMsg, char *pcpWhere, char *pcpADF
 	
 	char pclWhere[2048] = "\0";
 	
-	//TrimSpace(pcpADFlag);
 	if (strlen(pcpADFlag) == 0)
   {
   	dbg(TRACE,"<%s> pcpADFlag is null<%s>",pclFunc,pcpADFlag);
@@ -3549,12 +3467,12 @@ static int UpdBuildWhereClause(SENT_MSG *rpSentMsg, char *pcpWhere, char *pcpADF
 	
 	if (strncmp(pcpADFlag,"D",1) == 0)
   {
-  	//Seeking for related sequential departure flight
+  	/*Seeking for related sequential departure flight*/
   	sprintf(pclWhere,"(REGN = '%s' and RKEY = '%s') AND (TIFD > %s) AND FTYP NOT IN ('X','N') ORDER BY TIFD", rpSentMsg->pclRegn, rpSentMsg->pclRkey,rpSentMsg->pclTifa);
   }
   else if (strncmp(pcpADFlag,"A",1) == 0)
   {
-  	//Seeking for related sequential arrival flight
+  	/*Seeking for related sequential arrival flight*/
   	sprintf(pclWhere,"(REGN = '%s' and RKEY = '%s') AND (TIFA < %s) AND FTYP NOT IN ('X','N') ORDER BY TIFA", rpSentMsg->pclRegn, rpSentMsg->pclRkey,rpSentMsg->pclTifd);
   }
 
@@ -3587,7 +3505,6 @@ static int UpdBuildFullQuery(char *pcpSqlBuf, char *pcpWhere, char *pcpADFlag)
 	
 	char pclSqlBuf[2048] = "\0";
 	
-	//TrimSpace(pcpADFlag);
 	if (strlen(pcpADFlag) == 0)
   {
   	dbg(TRACE,"<%s> pcpADFlag is null<%s>",pclFunc,pcpADFlag);
@@ -3619,31 +3536,24 @@ static void BuildSentData(char *pcpDataSent,SENT_MSG rpSentMsg)
 	strcat(pcpDataSent,pcgPrefix);
 	
 	strcat(pcpDataSent,rpSentMsg.pclPosi);
-	//strcat(pcpDataSent,",");
 	strcat(pcpDataSent,pcgSeparator);
 	
 	strcat(pcpDataSent,rpSentMsg.pclStoa);
-	//strcat(pcpDataSent,",");
 	strcat(pcpDataSent,pcgSeparator);
 	
 	strcat(pcpDataSent,rpSentMsg.pclEtoa);
-	//strcat(pcpDataSent,",");
 	strcat(pcpDataSent,pcgSeparator);
 	
 	strcat(pcpDataSent,rpSentMsg.pclTmoa);
-	//strcat(pcpDataSent,",");
 	strcat(pcpDataSent,pcgSeparator);
 	 
 	strcat(pcpDataSent,rpSentMsg.pclOnbl);
-	//strcat(pcpDataSent,",");
 	strcat(pcpDataSent,pcgSeparator);
 	
 	strcat(pcpDataSent,rpSentMsg.pclStod);
-	//strcat(pcpDataSent,",");
 	strcat(pcpDataSent,pcgSeparator);
 	
 	strcat(pcpDataSent,rpSentMsg.pclEtod);
-	//strcat(pcpDataSent,",");
 	strcat(pcpDataSent,pcgSeparator);
 	
 	strcat(pcpDataSent,rpSentMsg.pclOfbl);
