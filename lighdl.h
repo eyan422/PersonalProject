@@ -1,3 +1,5 @@
+//v1.4
+
 /*static char pcgFieldList[1024] = "
 ARR.URNO AURNO,
 DEP.URNO DURNO, 
@@ -67,4 +69,7 @@ typedef struct
 	
 	char pclRegn[64];
 	char pclRkey[64];
+	
+	char pclTifa[16];         /* Arrival TIFA */
+  char pclTifd[16];         /* Departure TIFD  */
 }SENT_MSG;
