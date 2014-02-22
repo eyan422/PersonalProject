@@ -182,6 +182,7 @@ static char pcgCurrentTime[TIMEFORMAT] = "\0";
 static char pcgTimeUpperLimit[TIMEFORMAT] = "\0";
 static int igTimeRange = 0;
 static long lgEvtCnt = 0;
+static int igConfigTime = 0;
 
 static int	Init_Handler();
 static int	Reset(void);                        /* Reset program          */
@@ -235,12 +236,15 @@ static void ShowMsgStruct(SENT_MSG rpSentMsg);
 static void PutDefaultValue(SENT_MSG *rpSentMsg);
 static int GetSeqFlight(SENT_MSG *rpSentMsg,char *pcpADFlag);
 static int RunSQL(char *pcpSelection, char *pcpData );
-static int UpdBuildWhereClause(SENT_MSG *rpSentMsg, char * pcpWhere, char * pcpADFlag);
-static int UpdBuildFullQuery(char *pcpSqlBuf, char *pcpWhere, char *pcpADFlag);
+static void UpdBuildWhereClause(SENT_MSG *rpSentMsg, char * pcpWhere, char * pcpADFlag);
+static void UpdBuildFullQuery(char *pcpSqlBuf, char *pcpWhere, char *pcpADFlag);
 static void BuildSentData(char *pcpDataSent,SENT_MSG rpSentMsg);
 static void GetAllValidSlotsBuildWhereClause(char *pcpWhere);
 static void GetAllValidSlotsBuildFullQuery(char *pcpSqlBuf,char *pcpWhere);
 static void GetAllValidSlots(char *pcpAllValidSlots,int *ipSoltNumber);
+static void function_PST_USAGE(SENT_MSG *rpSentMsg, char *pcpParkstand, int ipConfigTime);
+static void FindActualUseBuildWhereClause(char *pcpParkstand, char *pclWhere, int ipConfigTime);
+static void FindActualUseBuildFullQuery(char *pclSqlBuf, char *pclWhere);
 /******************************************************************************/
 /*                                                                            */
 /* The MAIN program                                                           */
@@ -1486,7 +1490,7 @@ static int GetConfig()
 		strcpy(pcgServerChars,"\260\261\262\263\263");
 		ilRC = RC_SUCCESS;
 	}
-
+	
 	/*
 	dbg(TRACE,"Now read parameters for interface");
 	if ((ilRC=GetCfgEntry(pcgConfigFile,"MAIN","MODE",CFG_STRING,&prgCfg.mode,CFG_ALPHA,"REAL"))
@@ -1631,7 +1635,19 @@ static int GetConfig()
       igTimeRange = atoi(pclTmpBuf);
   else
       igTimeRange = 30;
-
+      
+      
+  ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","CONFIG_TIME",CFG_STRING,pclTmpBuf);
+  if (ilRC == RC_SUCCESS)
+      igConfigTime = atoi(pclTmpBuf);
+  else
+      igConfigTime = 1;   
+  
+	ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","CONFIG_SHIFT",CFG_STRING,pclTmpBuf);
+  if (ilRC == RC_SUCCESS)
+      igConfigShift = atoi(pclTmpBuf);
+  else
+      igConfigShift = 1;   
 	/*
 	if ((ilRC=GetCfgEntry(pcgConfigFile,"MAIN","HEADER_PREFIX",CFG_STRING,&prgCfg.header_prefix,CFG_PRINT,"#"))
                         != RC_SUCCESS)
@@ -3138,10 +3154,12 @@ static int SendBatchFlights(MSG *rlMsg)
 	int  ilRC = RC_SUCCESS;
 	short slLocalCursor = 0, slFuncCode = 0;
 	char pclParkstand[16] = "\0"; 
+	char pclDataSent[1024] = "\0";
 	
 	char pclSqlBuf[2048] = "\0",pclDataArea[2048] = "\0",pclWhere[2048] = "\0";
 	static char pclAllValidSlots[4096] = "\0";
 	
+	SENT_MSG rlSentMsg;
 	/* fya 20140221 
 	Getting all valid parking stand from basic data 
 	*/
@@ -3151,10 +3169,265 @@ static int SendBatchFlights(MSG *rlMsg)
 	for(ilCount = 1; ilCount <= ilSoltNumber; ilCount++)
 	{
 		get_real_item(pclParkstand,pclAllValidSlots,ilCount);
-		/*dbg(DEBUG,"<%s> ilCount<%d> pclParkstand<%s>",pclFunc,ilCount,pclParkstand);*/
+		dbg(DEBUG,"<%s> ilCount<%d> pclParkstand<%s>",pclFunc,ilCount,pclParkstand);
 		
+		/* Get the latest actual use for parking stand before NOW_TIME*/
+		function_PST_USAGE(rpSentMsg,pclParkstand,igConfigTime);
 		
+		BuildSentData(pclDataSent,rlSentMsg);
 	}
+}
+
+static int function_PST_USAGE(SENT_MSG *rpSentMsg;, char *pcpParkstand, int ipConfigTime)
+{
+	char * pclFunc = "function_PST_USAGE";
+	int  ilRC = RC_SUCCESS;
+	
+	char pclSCHUseStartTime[TIMEFORMAT] = "\0";
+	char pclSqlBuf[2048] = "\0",pclSqlData[2048] = "\0",pclWhere[2048] = "\0";
+	
+	char pclUrno[16] = "\0";
+	char pclAdid[16] = "\0";
+	char pclRkey[16] = "\0";
+	char pclRkey[16] = "\0";
+	char pclStoa[16] = "\0";
+	char pclStod[16] = "\0";
+	char pclTifa[16] = "\0";
+	char pclTifd[16] = "\0";
+	char pclPsta[16] = "\0";
+	char pclPstd[16] = "\0";
+	char pclEtai[16] = "\0";
+	char pclEtdi[16] = "\0";
+	
+	INTERMEDIATE rlIntermediateLatestUse;
+	/*INTERMEDIATE rlIntermediateEndUse;*/
+	/*
+	1 Build the where clause
+	2 Build the full query
+	3 Run query
+	4 Check the return value
+	*/
+	FindActualUseBuildWhereClause(pcpParkstand,pclWhere,ipConfigTime);
+	FindActualUseBuildFullQuery(pclSqlBuf,pclWhere);
+	
+	ilRC = RunSQL(pclSqlBuf,pclSqlData);
+	if (ilRC != DB_SUCCESS) 
+	{
+  	dbg(DEBUG, "<%s> Not found in AFTTAB", pclFunc);
+  	return RC_FAIL;
+	}
+	
+	switch(ilRC)
+	{
+		case FOUND:
+			/*To find the actual end use for the parking stand*/
+					
+			/*
+			URNO,ADID,RKEY,REGN,
+			STOA,STOD,TIFA,TIFD,
+			ONBL,OFBL,LAND,AIRB,
+			PSTA,PSTD,ETAI,ETDI
+			 */
+			get_fld(pclSqlData,FIELD_1,STR,20,pclUrno); TrimSpace(pclUrno); 
+			get_fld(pclSqlData,FIELD_1,STR,20,pclAdid); TrimSpace(pclAdid);
+			get_fld(pclSqlData,FIELD_1,STR,20,pclRkey); TrimSpace(pclRkey);
+			get_fld(pclSqlData,FIELD_1,STR,20,pclRegn); TrimSpace(pclRegn);
+			
+			get_fld(pclSqlData,FIELD_1,STR,20,pclStoa); TrimSpace(pclStoa);
+			get_fld(pclSqlData,FIELD_1,STR,20,pclStod); TrimSpace(pclStod);
+			get_fld(pclSqlData,FIELD_1,STR,20,pclTifa); TrimSpace(pclTifa);
+			get_fld(pclSqlData,FIELD_1,STR,20,pclTifd); TrimSpace(pclTifd);
+			
+			get_fld(pclSqlData,FIELD_1,STR,20,pclPsta); TrimSpace(pclPsta);
+			get_fld(pclSqlData,FIELD_1,STR,20,pclPstd); TrimSpace(pclPstd);
+			get_fld(pclSqlData,FIELD_1,STR,20,pclEtai); TrimSpace(pclEtai);
+			get_fld(pclSqlData,FIELD_1,STR,20,pclEtdi); TrimSpace(pclEtdi);
+			
+			strcpy(rlIntermediateLatestUse->pclUrno,pclUrno);
+			strcpy(rlIntermediateLatestUse->pclAdid,pclAdid);
+			strcpy(rlIntermediateLatestUse->pclRegn,pclRegn);
+			strcpy(rlIntermediateLatestUse->pclRkey,pclRkey);
+			strcpy(rlIntermediateLatestUse->pclStoa,pclStoa);
+			strcpy(rlIntermediateLatestUse->pclStoa,pclStod);
+			strcpy(rlIntermediateLatestUse->pclTifa,pclTifa);
+			strcpy(rlIntermediateLatestUse->pclTifd,pclTifd);
+			strcpy(rlIntermediateLatestUse->pclPsta,pclPsta);
+			strcpy(rlIntermediateLatestUse->pclPstd,pclPstd);
+			strcpy(rlIntermediateLatestUse->pclEtai,pclEtai);
+			strcpy(rlIntermediateLatestUse->pclEtdi,pclEtdi);
+			
+			strcpy(rpSentMsg->pclPosi,pcpParkstand);
+			strcpy(rpSentMsg->pclStoa,pclStoa);
+			strcpy(rpSentMsg->pclEtoa,pclEtoa);
+			strcpy(rpSentMsg->pclTmoa,pclTmoa);
+			strcpy(rpSentMsg->pclOnbl,pclOnbl);
+			
+			/*To find the actual end use for the parking stand*/
+			FindEndUseBuildWhereClause(rlIntermediateLatestUse,pcpParkstand,ipActualTime);
+			FindEndUseBuildFullQuery(pclSqlBuf,pclWhere);
+			
+			memset(pclSqlData,0,sizeof(pclSqlData));
+			
+			ilRC = RunSQL(pclSqlBuf,pclSqlData);
+			if (ilRC != DB_SUCCESS) 
+			{
+		  	dbg(DEBUG, "<%s> Not found in AFTTAB", pclFunc);
+		  	return RC_FAIL;
+			}
+			
+			pclUrno = NULL;
+			pclAdid = NULL
+			pclRkey = NULL
+			pclRkey = NULL
+			pclStoa = NULL
+			pclStod = NULL
+			pclTifa = NULL
+			pclTifd = NULL
+			pclPsta = NULL
+			pclPstd = NULL
+			pclEtai = NULL
+		  pclEtdi = NULL
+			
+			switch(ilRC)
+			{
+				case FOUND:
+					igFlagUseEST_SCHStartUse = TRUE;
+			
+					strcpy(pclSCHUseStartTime,pcgCurrentTime);
+					AddSecondsToCEDATime(pclSCHUseStartTime, -igConfigShift*60*60*24, 1);
+					break;
+				case NOT_FOUND:
+					
+					/* To find finish useage for This aircraft in this Park stand */
+					FindFinishUsageBuildWhereClause(rlIntermediateLatestUse,pcpParkstand,ipActualTime,ipConfigEndShiftTime);
+					FindFinishUsageBuildFullQuery(pclSqlBuf,pclWhere);
+					
+					ilRC = RunSQL(pclSqlBuf,pclSqlData);
+					if (ilRC != DB_SUCCESS) 
+					{
+				  	dbg(DEBUG, "<%s> Not found in AFTTAB", pclFunc);
+				  	return RC_FAIL;
+					}
+					
+					/*
+					URNO,ADID,RKEY,REGN,
+					STOA,STOD,TIFA,TIFD,
+					ONBL,OFBL,LAND,AIRB,
+					PSTA,PSTD,ETAI,ETDI
+					*/
+					get_fld(pclSqlData,FIELD_1,STR,20,pclUrno); TrimSpace(pclUrno);
+					get_fld(pclSqlData,FIELD_1,STR,20,pclAdid); TrimSpace(pclAdid);
+					get_fld(pclSqlData,FIELD_1,STR,20,pclRkey); TrimSpace(pclRkey);
+					get_fld(pclSqlData,FIELD_1,STR,20,pclRegn); TrimSpace(pclRegn);
+					
+					get_fld(pclSqlData,FIELD_1,STR,20,pclStoa); TrimSpace(pclStoa);
+					get_fld(pclSqlData,FIELD_1,STR,20,pclStod); TrimSpace(pclStod);
+					get_fld(pclSqlData,FIELD_1,STR,20,pclTifa); TrimSpace(pclTifa);
+					get_fld(pclSqlData,FIELD_1,STR,20,pclTifd); TrimSpace(pclTifd);
+					
+					get_fld(pclSqlData,FIELD_1,STR,20,pclPsta); TrimSpace(pclPsta);
+					get_fld(pclSqlData,FIELD_1,STR,20,pclPstd); TrimSpace(pclPstd);
+					get_fld(pclSqlData,FIELD_1,STR,20,pclEtai); TrimSpace(pclEtai);
+					get_fld(pclSqlData,FIELD_1,STR,20,pclEtdi); TrimSpace(pclEtdi);
+					/*
+					strcpy(rlIntermediateFinishUsage->pclUrno,pclUrno);
+					strcpy(rlIntermediateFinishUsage->pclAdid,pclAdid);
+					strcpy(rlIntermediateFinishUsage->pclRkey,pclRkey);
+					strcpy(rlIntermediateFinishUsage->pclRkey,pclRkey);
+					
+					strcpy(rlIntermediateFinishUsage->pclStoa,pclStoa);
+					strcpy(rlIntermediateFinishUsage->pclStoa,pclStod);
+					strcpy(rlIntermediateFinishUsage->pclTifa,pclTifa);
+					strcpy(rlIntermediateFinishUsage->pclTifd,pclTifd);
+					
+					strcpy(rlIntermediateFinishUsage->pclPsta,pclPsta);
+					strcpy(rlIntermediateFinishUsage->pclPstd,pclPstd);
+					strcpy(rlIntermediateFinishUsage->pclEtai,pclEtai);
+					strcpy(rlIntermediateFinishUsage->pclEtdi,pclEtdi);
+					*/
+					strcpy(rpSentMsg->pclStod,pclStod);
+					strcpy(rpSentMsg->pclEtod,pclEtod);
+					strcpy(rpSentMsg->pclOfbl,pclOfbl);
+					
+					return 3;
+					break;
+				default:
+					dbg(DEBUG,"<%s>The return value<%s> is unknown",pclFunc,ilRC);
+					break;
+			}
+			break;
+		case NOT_FOUND:
+			igFlagUseEST_SCHStartUse = TRUE;
+			
+			strcpy(pclSCHUseStartTime,pcgCurrentTime);
+			AddSecondsToCEDATime(pclSCHUseStartTime, -igConfigShift*60*60*24, 1);
+			break;
+		default:
+			dbg(DEBUG,"<%s>The return value<%s> is unknown",pclFunc,ilRC);
+			break;
+	}
+	
+	if (igFlagUseEST_SCHStartUse == TRUE)
+	{
+		FindEST_SCHBuildWhereClause(rlIntermediateLatestUse,pcpParkstand,pclSCHUseStartTime);
+		FindEST_SCHBuildFullQuery(pclSqlBuf,pclWhere);
+		
+		memset(pclSqlData,0,sizeof(pclSqlData));
+			
+		ilRC = RunSQL(pclSqlBuf,pclSqlData);
+		if (ilRC != DB_SUCCESS) 
+		{
+	  	dbg(DEBUG, "<%s> Not found in AFTTAB", pclFunc);
+	  	return RC_FAIL;
+		}
+		
+		switch(ilRC)
+		{
+			case FOUND:
+				ilFlagFindNetSeqFlight = TRUE;
+				break;
+			case NOT_FOUND:
+				FindEarliest_Start_LeaveBuildWhereClause(rlIntermediateLatestUse,pcpParkstand,ipConfigEndShiftTime);
+				FindEarliest_Start_LeaveBuildFullQuery(pclSqlBuf,pclWhere);
+				
+				ilRC = RunSQL(pclSqlBuf,pclSqlData);
+				if (ilRC != DB_SUCCESS) 
+				{
+			  	dbg(DEBUG, "<%s> Not found in AFTTAB", pclFunc);
+			  	return RC_FAIL;
+				}
+				
+				/*get_real_fld(pclAdid);*/
+				/*get_real_fld(pclPosi);*/
+				/*get_real_fld(pclPosa);*/
+				/*get_real_fld(pclPosd);*/
+				switch(ilRC)
+				{
+					case FOUND:
+						if ((strcmp(ADID,"A") == 0 || strcmp(ADID,"B")) || strcmp(pclPosa,pcpParkstand)==0)
+	                  ilFlagStart_use_found = TRUE;
+	                	ilFlagFind_Next_Seq_flight = TRUE;
+	          else if (strcmp(pclPstd,pcpParkstand)==0)
+				   				ilFlagStart_use_found = No_Start
+				   				ilFlagEnd_use_found = TRUE
+						break;
+					case NOT_FOUND:
+						ilFlagEnd_Use_Found = NO_END
+						break;
+					default:
+						break;
+				}
+				break;
+			case default:
+				break;
+		}
+		
+		if (ilFlagFind_Next_Seq_flight == TRUE)
+		{
+			GetSeqFlight(&rlSentMsg,"D");
+		}
+	}
+	
 }
 
 static void BuildBatchFlightRng(void)
@@ -3452,7 +3725,7 @@ static int GetSeqFlight(SENT_MSG *rpSentMsg,char *pcpADFlag)
 	return ilRC;
 }
 
-static int UpdBuildWhereClause(SENT_MSG *rpSentMsg, char *pcpWhere, char *pcpADFlag)
+static void UpdBuildWhereClause(SENT_MSG *rpSentMsg, char *pcpWhere, char *pcpADFlag)
 {
 	char *pclFunc = "UpdBuildWhereClause";
 	
@@ -3499,7 +3772,7 @@ static int RunSQL(char *pcpSelection, char *pcpData )
     return ilRc;
 }
 
-static int UpdBuildFullQuery(char *pcpSqlBuf, char *pcpWhere, char *pcpADFlag)
+static void UpdBuildFullQuery(char *pcpSqlBuf, char *pcpWhere, char *pcpADFlag)
 {
 	char *pclFunc = "UpdBuildFullQuery";
 	
@@ -3572,3 +3845,30 @@ static void BuildSentData(char *pcpDataSent,SENT_MSG rpSentMsg)
   */
 }
 
+static void FindActualUseBuildWhereClause(char *pcpParkstand, char *pcpWhere, int ipConfigTime)
+{
+	char *pclFunc = "FindActualUseBuildWhereClause";
+	char pclWhere[2048] = "\0";
+	char pclTmpTime[TIMEFORMAT] = "\0";
+	
+	memset(pcpWhere,0,sizeof(pcpWhere));
+	strcpy(pclTmpTime,pcgCurrentTime);
+	AddSecondsToCEDATime(pclTmpTime, -ipConfigTime*60*60*24, 1);
+	
+	sprintf(pclWhere,"PSTA = '%s' and FTYP NOT IN ('X','N') and (ADID in ('A','B') and (ONBL between '%s' and '%s') order by ONBL decs",pcpParkstand,pclTmpTime,pcgCurrentTime);
+	
+	strcpy(pcpWhere,pclWhere);
+  dbg(DEBUG,"<%s>Where Clause<%s>",pclFunc,pcpWhere);
+}
+
+static void FindActualUseBuildFullQuery(char *pcpSqlBuf, char *pcpWhere)
+{
+	char *pclFunc = "UpdBuildFullQuery";
+	char pclSqlBuf[2048] = "\0";
+	
+	memset(pcpSqlBuf,0,sizeof(pcpSqlBuf));
+	sprintf(pclSqlBuf, "SELECT URNO,ADID,RKEY,REGN,STOA,STOD,TIFA,TIFD,ONBL,OFBL,LAND,AIRB,PSTA,PSTD,ETAI,ETDI FROM AFTTAB WHERE %s", pcpWhere);
+  
+  strcpy(pcpSqlBuf,pclSqlBuf);
+  dbg(DEBUG,"Full Query<%s>",pcpSqlBuf);
+}
