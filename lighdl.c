@@ -1,7 +1,7 @@
 #ifndef _DEF_mks_version
   #define _DEF_mks_version
   #include "ufisvers.h" /* sets UFIS_VERSION, must be done before mks_version */
-  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/lighdl.c 1.5 2/20/2014 10:43:34 PM Exp  $";
+  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/lighdl.c 1.6b 2/23/2014 11:35:04 AM Exp  $";
 #endif /* _DEF_mks_version */
 
 /******************************************************************************/
@@ -58,6 +58,7 @@ static char sccs_hwecon[]="%Z% UFIS 4.5 (c) ABB AAT/I %M% %I% / %E% %U% / AKL";
 #include "helpful.h"
 #include "timdef.h"
 #include "lighdl.h"
+#include "urno_fn.h"
 
 #define XS_BUFF  128
 #define S_BUFF   512
@@ -76,7 +77,8 @@ static char sccs_hwecon[]="%Z% UFIS 4.5 (c) ABB AAT/I %M% %I% / %E% %U% / AKL";
 #define TIMEFORMAT 16
 #define DB_SUCCESS RC_SUCCESS
 #define POS_LEN	4
-
+#define NO_END	1
+#define No_Start 2
 /******************************************************************************/
 /* External variables                                                         */
 /******************************************************************************/
@@ -161,6 +163,11 @@ static int	igSckWaitACK = FALSE;       /* global socket ACK status from Server w
 static int	igSckTryACKCnt = 0;         /* global socket Wait ACK receive retry Count  */
 static char	pcgSckWaitACKExpTime[64] = "\0";  /* global Send heartbeat expect time */
 
+static int igConfigTime;
+static int igConfigShift;
+static int igConfigEndShiftTime;
+static int igActualUseTime;
+
 static char	pcgCurSendData[4096] = "\0"; /* global CurSendData */
 static char	pcgSendHeartBeatExpTime[64] = "\0";  /* global Send heartbeat expect time */
 static char	pcgRcvHeartBeatExpTime[64] = "\0";   /* global Receive heartbeat expire time */
@@ -182,7 +189,6 @@ static char pcgCurrentTime[TIMEFORMAT] = "\0";
 static char pcgTimeUpperLimit[TIMEFORMAT] = "\0";
 static int igTimeRange = 0;
 static long lgEvtCnt = 0;
-static int igConfigTime = 0;
 
 static int	Init_Handler();
 static int	Reset(void);                        /* Reset program          */
@@ -195,6 +201,7 @@ static void	HandleQueues(void);                 /* Waiting for Sts.-switch*/
 static char pcgPrefix[16] = "\0";
 static char	pcgSuffix[16] = "\0";
 static char	pcgSeparator[16] = "\0";
+static char  cgHopo[8];
 /******************************************************************************/
 /* Function prototypes														  */
 /******************************************************************************/
@@ -235,16 +242,31 @@ static void BuildDepPart(SENT_MSG *rpSentMsg, char *pcpPstdNewData, char *pcpSto
 static void ShowMsgStruct(SENT_MSG rpSentMsg);
 static void PutDefaultValue(SENT_MSG *rpSentMsg);
 static int GetSeqFlight(SENT_MSG *rpSentMsg,char *pcpADFlag);
-static int RunSQL(char *pcpSelection, char *pcpData );
-static void UpdBuildWhereClause(SENT_MSG *rpSentMsg, char * pcpWhere, char * pcpADFlag);
-static void UpdBuildFullQuery(char *pcpSqlBuf, char *pcpWhere, char *pcpADFlag);
+/*static int RunSQL(char *pcpSelection, char *pcpData );*/
+static int UpdBuildWhereClause(SENT_MSG *rpSentMsg, char * pcpWhere, char * pcpADFlag);
+static int UpdBuildFullQuery(char *pcpSqlBuf, char *pcpWhere, char *pcpADFlag);
 static void BuildSentData(char *pcpDataSent,SENT_MSG rpSentMsg);
 static void GetAllValidSlotsBuildWhereClause(char *pcpWhere);
 static void GetAllValidSlotsBuildFullQuery(char *pcpSqlBuf,char *pcpWhere);
 static void GetAllValidSlots(char *pcpAllValidSlots,int *ipSoltNumber);
-static void function_PST_USAGE(SENT_MSG *rpSentMsg, char *pcpParkstand, int ipConfigTime);
-static void FindActualUseBuildWhereClause(char *pcpParkstand, char *pclWhere, int ipConfigTime);
-static void FindActualUseBuildFullQuery(char *pclSqlBuf, char *pclWhere);
+static int StoreSentData(char *pcpDataSent,char *pcpUaft,char *pcpFlagTowing);
+static void SearchTowingFlightBuildWhereClause(char *pcpRkey, char *pcpRegn, char *pcpWhere);
+static void SearchTowingFlightBuildFullQuery(char *pcpSqlBuf, char *pcpWhere);
+static void NTI_FlightBuildFullQuery(char *pcpSqlBuf,char *pcpWhere);
+static void NTI_FlightBuildWhereClause(char *pcpWhere);
+static void Upd_NTI_FlightBuildFullQuery(char *pcpSqlBuf,char *pcpWhere);
+static void Upd_NTI_FlightBuildWhereClause(char *pcpWhere,char *pcpUrno);
+static int function_PST_USAGE(SENT_MSG *rpSentMsg, char *pcpParkstand, int ipConfigTime);
+static void FindActualUseBuildWhereClause(char *pcpParkstand, char *pcpWhere, int ipConfigTime);
+static void FindActualUseBuildFullQuery(char *pcpSqlBuf, char *pcpWhere);
+static void FindEndUseBuildWhereClause(TOWING rpIntermediateLatestUse,char *pcpWhere,char *pcpParkstand,int ipActualUseTime);
+static void FindEndUseBuildFullQuery(char *pcpSqlBuf, char *pclWhere);
+static void FindFinishUsageBuildWhereClause(TOWING rlIntermediateLatestUse,char *pcpWhere,char *pcpParkstand,int ipActualUseTime,int ipConfigEndShiftTime);
+static void FindFinishUsageBuildFullQuery(char *pcpSqlBuf,char *pclWhere);
+static void FindEST_SCHBuildFullQuery(char *pcpSqlBuf,char *pcpWhere);
+static void FindEST_SCHBuildWhereClause(char *pcpWhere,char *pcpParkstand,char *pcpSCHUseStartTime);
+static void FindEarliest_Start_LeaveBuildFullQuery(char *pcpSqlBuf,char *pcpWhere);
+static void FindEarliest_Start_LeaveBuildWhereClause(char *pcpParkstand,char *pcpWhere,int ipConfigEndShiftTime);
 /******************************************************************************/
 /*                                                                            */
 /* The MAIN program                                                           */
@@ -376,14 +398,14 @@ MAIN
 					if( igConnectionNo < igReconMax )
 					{
 						ilRc = Sockt_Reconnect();
-						SendRST_Command();
+						/*SendRST_Command();*/
 					}
 					else
 					{
 			    	if ( ((igConnected == FALSE) && (strcmp(pclCurrentTime, pcgReconExpTime) >= 0)) || (igConnected == TRUE) )
 			    	{
 			        ilRc = Sockt_Reconnect();
-			        SendRST_Command();
+			        /*SendRST_Command();*/
 						}
 					}
 				}
@@ -849,12 +871,13 @@ static int HandleInternalData()
 	CMDBLK  *cmdblk = NULL; 
 	int ilLen;
 	char *pclFunc = "HandleInternalData";
-	
-	char pclDataBuf[M_BUFF];
+	char pclDataBuf[M_BUFF] = "\0";
 	
 	MSG rlMsg;
 	
 	int ilCount = 0;
+	int ilCountTowing = 0;
+	int ilCountT = 0;
 	
 	int ilItemNo = 0;
 	int ilItemNo1 = 0;
@@ -862,64 +885,75 @@ static int HandleInternalData()
 	int ilNoEleNewData = 0;
 	int ilNoEleOldData = 0;
 	
-	char pclUrnoSelection[50] = "\0";
-	char pclUrnoOldData[50] = "\0";
-	char pclUrnoNewData[50] = "\0";
-	
 	char pclAdidOldData[2] = "\0";
 	char pclAdidNewData[2] = "\0";
-	
 	char pclPstaNewData[16] = "\0";
 	char pclPstaOldData[16] = "\0";
 	char pclPstdNewData[16] = "\0";
 	char pclPstdOldData[16] = "\0";
-	
 	char pclStoaNewData[16] = "\0";
 	char pclStoaOldData[16] = "\0";
-	
 	char pclStodNewData[16] = "\0";
 	char pclStodOldData[16] = "\0";
-	
 	char pclEtoaNewData[16] = "\0";
 	char pclEtoaOldData[16] = "\0";
-	
 	char pclEtodNewData[16] = "\0";
 	char pclEtodOldData[16] = "\0";
-	
 	char pclTmoaNewData[16] = "\0";
 	char pclTmoaOldData[16] = "\0";	
-	
 	char pclOnblNewData[16] = "\0";
 	char pclOnblOldData[16] = "\0";	
-	
 	char pclOfblNewData[16] = "\0";
 	char pclOfblOldData[16] = "\0";	
-	
-	char pclNewData[512000] = "\0"; 
-  char pclOldData[512000] = "\0";
-  
-  char pclRkey[16] = "\0";
+	char pclRkey[16] = "\0";
   char pclRegn[16] = "\0";
-  
   char pclTifa[16] = "\0";
   char pclTifd[16] = "\0";
-  
+  /*URNO,ADID,RKEY,REGN,STOA,STOD,ETOA,ETOD,TIFA,TIFD,ONBL,OFBL,PSTA,PSTD*/
+  char pclUrno[16] = "\0";
+  char pclUaft[16] = "\0";
+  char pclType[16] = "\0";
+  char pclStat[16] = "\0";
+  char pclTrit[16] = "\0";
+  char pclCdat[16] = "\0";
+	char pclAdid[16] = "\0";
+	/*char pclRkey[16] = "\0";*/
+	/*char pclRegn[16] = "\0";*/
+	char pclStoa[16] = "\0";
+	char pclStod[16] = "\0";
+	char pclEtoa[16] = "\0";
+	char pclEtod[16] = "\0";
+	char pclOnbl[16] = "\0";
+	char pclOfbl[16] = "\0";
+	char pclPsta[16] = "\0";
+	char pclPstd[16] = "\0";
+	char pclTmoa[16] = "\0";
+  char pclUrnoSelection[50] = "\0";
+	char pclUrnoOldData[50] = "\0";
+	char pclUrnoNewData[50] = "\0";
   char pclDataSent[1024] = "\0";
-  
+	char pclNewData[512000] = "\0"; 
+  char pclOldData[512000] = "\0";
   char pclSqlBuf[2048] = "\0",pclSqlData[2048] = "\0",pclWhere[2048] = "\0";
+  char pclSqlBufT[2048] = "\0",pclSqlDataT[2048] = "\0";
+  short slLocalCursor = 0, slFuncCode = 0;
+  short slLocalCursorT = 0, slFuncCodeT = 0;
+  
+  char pclDataT[1024] = "\0";
   
   SENT_MSG rlSentMsg;
+  TOWING   rlTowing[20];
+	SENT_MSG rlSentMsgTowing[20];
+	char pclDataSentTowing[1024] = "\0";
 	
 	memset(pclDataBuf,0,sizeof(pclDataBuf));
-	
 	memset(pclSqlBuf,0,sizeof(pclSqlBuf));
 	memset(pclWhere,0,sizeof(pclWhere));
-	
 	memset(pclRkey,0,sizeof(pclRkey));
 	memset(pclRegn,0,sizeof(pclRegn));
-	
 	memset(pclTifa,0,sizeof(pclTifa));
 	memset(pclTifd,0,sizeof(pclTifd));
+	memset(pclDataT,0,sizeof(pclDataT));
 
 	bchd  = (BC_HEAD *) ((char *)prgEvent + sizeof(EVENT));
 	cmdblk= (CMDBLK  *) ((char *)bchd->data);
@@ -1006,7 +1040,7 @@ static int HandleInternalData()
 	      {
 	      	dbg(DEBUG, "<%s>Send_data error",pclFunc);
         	ilRC = Sockt_Reconnect();
-        	SendRST_Command();
+        	/*SendRST_Command();*/
 	      }
 	      else if(ilRC == RC_SENDTIMEOUT)
 	      {
@@ -1018,7 +1052,7 @@ static int HandleInternalData()
         if ((igConnected == TRUE) || (igOldCnnt == TRUE))
         {    
         	ilRC = Sockt_Reconnect();
-      		SendRST_Command();
+      		/*SendRST_Command();*/
         }
         else
       		ilRC = RC_FAIL;
@@ -1069,6 +1103,12 @@ static int HandleInternalData()
 	{
 		dbg(DEBUG,"<%s> %s command is received", pclFunc,cmdblk->command);
 		
+		if (strcmp(cmdblk->command,"DFR") == 0)
+		{
+			dbg(TRACE,"<%s> The command is DFR, do nothing",pclFunc);
+			return RC_SUCCESS;
+		}
+		
 		PutDefaultValue(&rlSentMsg);
 		
 		/*Common Part->Getting data*/
@@ -1079,7 +1119,7 @@ static int HandleInternalData()
 			return RC_FAIL;
 		}
 		
-		ilNoEleField = GetNoOfElements(pclFields, ',');
+		ilNoEleField    = GetNoOfElements(pclFields, ',');
 		ilNoEleNewData  = GetNoOfElements(pclNewData, ',');
 		ilNoEleOldData  = GetNoOfElements(pclOldData, ',');
 		
@@ -1182,6 +1222,7 @@ static int HandleInternalData()
 				
 				/*psta, stoa, etoa, tmoa, onbl*/
 				BuildArrPart(&rlSentMsg, pclPstaNewData, pclStoaNewData, pclEtoaNewData, pclTmoaNewData, pclOnblNewData);
+				
 				dbg(DEBUG,"<%s> After BuildArrPart, Show msg struct",pclFunc);
 				/*ShowMsgStruct(rlSentMsg);*/
 				
@@ -1220,8 +1261,131 @@ static int HandleInternalData()
 				
 				ShowMsgStruct(rlSentMsg);
 				
-				GetSeqFlight(&rlSentMsg,"D");
-				
+				if (strncmp(pclAdidNewData,"A",1) == 0)
+				{
+					GetSeqFlight(&rlSentMsg,"D");
+				}
+				else if (strncmp(pclAdidNewData,"B",1) == 0)
+				{
+					/*Search all related towing flights and store them into FYATAB
+					Towing Flights are triggered by NTICH command in every minutes*/
+					
+					SearchTowingFlightBuildWhereClause(pclRkey,pclRegn,pclWhere);
+					SearchTowingFlightBuildFullQuery(pclSqlBuf,pclWhere);
+					
+					memset(pclUrno,0,sizeof(pclUrno));
+					memset(pclAdid,0,sizeof(pclAdid));
+					memset(pclRkey,0,sizeof(pclRkey));
+					memset(pclRegn,0,sizeof(pclRegn));
+					memset(pclStoa,0,sizeof(pclStoa));
+					memset(pclStod,0,sizeof(pclStod));
+					memset(pclEtoa,0,sizeof(pclEtoa));
+					memset(pclEtod,0,sizeof(pclEtod));
+					memset(pclTifa,0,sizeof(pclTifa));
+					memset(pclTifd,0,sizeof(pclTifd));
+					memset(pclOnbl,0,sizeof(pclOnbl));
+					memset(pclOfbl,0,sizeof(pclOfbl));
+					memset(pclPsta,0,sizeof(pclPsta));
+					memset(pclPstd,0,sizeof(pclPstd));
+					memset(pclPstd,0,sizeof(pclTmoa));
+					
+					ilCountTowing = 0;
+					slLocalCursor = 0;
+					slFuncCode = START;
+					memset(pclSqlData,0,sizeof(pclSqlData));
+					memset(rlTowing,0,sizeof(rlTowing));
+					while(sql_if(slFuncCode, &slLocalCursor, pclSqlBuf, pclSqlData) == DB_SUCCESS)
+					{
+					  slFuncCode = NEXT;
+					  
+					  /*URNO,ADID,RKEY,REGN,STOA,STOD,ETOA,ETOD,TIFA,TIFD,ONBL,OFBL,PSTA,PSTD*/
+					 	get_fld(pclSqlData,FIELD_1,STR,20,pclUrno); TrimSpace(pclUrno); 
+						get_fld(pclSqlData,FIELD_2,STR,20,pclAdid); TrimSpace(pclAdid);
+						get_fld(pclSqlData,FIELD_3,STR,20,pclRkey); TrimSpace(pclRkey);
+						get_fld(pclSqlData,FIELD_4,STR,20,pclRegn); TrimSpace(pclRegn);
+			
+						get_fld(pclSqlData,FIELD_5,STR,20,pclStoa); TrimSpace(pclStoa);
+						get_fld(pclSqlData,FIELD_6,STR,20,pclStod); TrimSpace(pclStod);
+						get_fld(pclSqlData,FIELD_7,STR,20,pclEtoa); TrimSpace(pclEtoa);
+						get_fld(pclSqlData,FIELD_8,STR,20,pclEtod); TrimSpace(pclEtod);
+						
+						get_fld(pclSqlData,FIELD_9,STR,20,pclTifa); TrimSpace(pclTifa);
+						get_fld(pclSqlData,FIELD_10,STR,20,pclTifd); TrimSpace(pclTifd);
+						get_fld(pclSqlData,FIELD_11,STR,20,pclOnbl); TrimSpace(pclOnbl);
+						get_fld(pclSqlData,FIELD_12,STR,20,pclOfbl); TrimSpace(pclOfbl);
+						get_fld(pclSqlData,FIELD_13,STR,20,pclPsta); TrimSpace(pclPsta);
+						get_fld(pclSqlData,FIELD_14,STR,20,pclPstd); TrimSpace(pclPstd);
+						get_fld(pclSqlData,FIELD_15,STR,20,pclTmoa); TrimSpace(pclTmoa);
+						
+						strcpy(rlTowing[ilCountTowing].pclUrno,pclUrno);
+						strcpy(rlTowing[ilCountTowing].pclAdid,pclAdid);
+						strcpy(rlTowing[ilCountTowing].pclRkey,pclRkey);
+						strcpy(rlTowing[ilCountTowing].pclRegn,pclRegn);
+						
+						strcpy(rlTowing[ilCountTowing].pclStoa,pclStoa);
+						strcpy(rlTowing[ilCountTowing].pclStod,pclStod);
+						strcpy(rlTowing[ilCountTowing].pclEtoa,pclEtoa);
+						strcpy(rlTowing[ilCountTowing].pclEtod,pclEtod);
+						strcpy(rlTowing[ilCountTowing].pclTifa,pclTifa);
+						strcpy(rlTowing[ilCountTowing].pclTifd,pclTifd);
+						strcpy(rlTowing[ilCountTowing].pclOnbl,pclOnbl);
+						strcpy(rlTowing[ilCountTowing].pclOfbl,pclOfbl);
+						strcpy(rlTowing[ilCountTowing].pclPsta,pclPsta);
+						strcpy(rlTowing[ilCountTowing].pclPstd,pclPstd);
+						strcpy(rlTowing[ilCountTowing].pclTmoa,pclTmoa);
+						
+						ilCountTowing++;
+					}
+					close_my_cursor(&slLocalCursor);
+					
+					for(ilCountT=0; ilCountT<ilCountTowing; ilCountT++)
+					{
+						dbg(DEBUG,"+++++++++++++++++++++++++++<%d>+++++++++++++++++++++++++++++++++++++",ilCountT);
+						dbg(DEBUG,"<%s> rlTowing[%d].pclUrno<%s>",pclFunc,ilCountT,rlTowing[ilCountT].pclUrno);
+						dbg(DEBUG,"<%s> rlTowing[%d].pclAdid<%s>",pclFunc,ilCountT,rlTowing[ilCountT].pclAdid);
+						dbg(DEBUG,"<%s> rlTowing[%d].pclRkey<%s>",pclFunc,ilCountT,rlTowing[ilCountT].pclRkey);
+						dbg(DEBUG,"<%s> rlTowing[%d].pclRegn<%s>",pclFunc,ilCountT,rlTowing[ilCountT].pclRegn);
+						
+						dbg(DEBUG,"<%s> rlTowing[%d].pclStoa<%s>",pclFunc,ilCountT,rlTowing[ilCountT].pclStoa);
+						dbg(DEBUG,"<%s> rlTowing[%d].pclStod<%s>",pclFunc,ilCountT,rlTowing[ilCountT].pclStod);
+						dbg(DEBUG,"<%s> rlTowing[%d].pclEtoa<%s>",pclFunc,ilCountT,rlTowing[ilCountT].pclEtoa);
+						dbg(DEBUG,"<%s> rlTowing[%d].pclEtod<%s>",pclFunc,ilCountT,rlTowing[ilCountT].pclEtod);
+						
+						dbg(DEBUG,"<%s> rlTowing[%d].pclTifa<%s>",pclFunc,ilCountT,rlTowing[ilCountT].pclTifa);
+						dbg(DEBUG,"<%s> rlTowing[%d].pclTifd<%s>",pclFunc,ilCountT,rlTowing[ilCountT].pclTifd);
+						dbg(DEBUG,"<%s> rlTowing[%d].pclOnbl<%s>",pclFunc,ilCountT,rlTowing[ilCountT].pclOnbl);
+						dbg(DEBUG,"<%s> rlTowing[%d].pclOfbl<%s>",pclFunc,ilCountT,rlTowing[ilCountT].pclOfbl);
+						
+						dbg(DEBUG,"<%s> rlTowing[%d].pclPsta<%s>",pclFunc,ilCountT,rlTowing[ilCountT].pclPsta);
+						dbg(DEBUG,"<%s> rlTowing[%d].pclPstd<%s>",pclFunc,ilCountT,rlTowing[ilCountT].pclPstd);
+						dbg(DEBUG,"<%s> rlTowing[%d].pclTmoa<%s>",pclFunc,ilCountT,rlTowing[ilCountT].pclTmoa);
+					}
+					
+					memset(rlSentMsgTowing,0,sizeof(rlSentMsgTowing));
+					/*Build the send msg based on the towing records*/
+					for(ilCountT=0; ilCountT+1<ilCountTowing; ilCountT++)
+					{
+						strcpy(rlSentMsgTowing[ilCountT].pclPosi, rlTowing[ilCountT].pclPsta);
+						strcpy(rlSentMsgTowing[ilCountT].pclStoa, rlTowing[ilCountT].pclStoa);
+						strcpy(rlSentMsgTowing[ilCountT].pclEtoa, rlTowing[ilCountT].pclEtoa);
+						strcpy(rlSentMsgTowing[ilCountT].pclTmoa, rlTowing[ilCountT].pclTmoa);
+						strcpy(rlSentMsgTowing[ilCountT].pclOnbl, rlTowing[ilCountT].pclOnbl);
+						
+						strcpy(rlSentMsgTowing[ilCountT].pclStod, rlTowing[ilCountT+1].pclStod);
+						strcpy(rlSentMsgTowing[ilCountT].pclEtod, rlTowing[ilCountT+1].pclEtod);
+						strcpy(rlSentMsgTowing[ilCountT].pclOfbl, rlTowing[ilCountT+1].pclOfbl);
+						
+						dbg(DEBUG,"******************<%d>*************",ilCountT);
+						/*ShowMsgStruct(rlSentMsgTowing[ilCountT]);*/
+						
+						BuildSentData(pclDataSentTowing,rlSentMsgTowing[ilCountT]);
+						dbg(TRACE,"<%s> pclDataSentTowing<%s>",pclFunc,pclDataSentTowing);
+						
+						StoreSentData(pclDataSentTowing,pclUrnoNewData,"Towing");
+					}
+					/*Towing flights msgs have been inserted into fyatab, waitting for NTI command*/
+					return RC_SUCCESS;
+				}				
 			}
 			else if ( strncmp(pclAdidNewData,"D",1) == 0)
 			{
@@ -1276,6 +1440,7 @@ static int HandleInternalData()
 				
 				/*pstd, stod, etod, ofbl*/
 				BuildDepPart(&rlSentMsg, pclPstdNewData, pclStodNewData, pclEtodNewData, pclOfblNewData);
+				
 				dbg(DEBUG,"<%s> After BuildDepPart, Show msg struct",pclFunc);
 				ShowMsgStruct(rlSentMsg);
 				
@@ -1303,8 +1468,9 @@ static int HandleInternalData()
 				strncpy(rlSentMsg.pclRegn,pclRegn,strlen(pclRegn));
 				strncpy(rlSentMsg.pclTifa,pclRkey,strlen(pclTifa));
 				strncpy(rlSentMsg.pclTifd,pclRegn,strlen(pclTifd));
-				
+
 				GetSeqFlight(&rlSentMsg,"A");
+
 			}
 			else
 			{
@@ -1313,6 +1479,8 @@ static int HandleInternalData()
 			
 			BuildSentData(pclDataSent,rlSentMsg);
 			dbg(TRACE,"<%s> pclDataSent<%s>",pclFunc,pclDataSent);
+			
+			StoreSentData(pclDataSent,pclUrnoNewData,"Normal");
 			
 			/*At this stage, the message struct is completed*/
 			strcpy(pcgCurSendData,pclDataSent);
@@ -1338,7 +1506,7 @@ static int HandleInternalData()
 		      {
 		      	dbg(DEBUG, "<%s>Send_data error",pclFunc);
 		        ilRC = Sockt_Reconnect();
-		        SendRST_Command();
+		        /*SendRST_Command();*/
 		      }
 		      else if(ilRC == RC_SENDTIMEOUT)
 		      {
@@ -1350,7 +1518,7 @@ static int HandleInternalData()
 	        if ((igConnected == TRUE) || (igOldCnnt == TRUE))
 	        {
 	       		ilRC = Sockt_Reconnect();
-	        	SendRST_Command();
+	        	/*SendRST_Command();*/
 	        }
 	        else
 	        	  ilRC = RC_FAIL;
@@ -1377,6 +1545,108 @@ static int HandleInternalData()
 			 2)Sendign the updated message for current parking stand
 			 else if it is a departure flight
 		*/
+	}
+	else if (strcmp(cmdblk->command,"NTI") == 0)
+	{
+		slLocalCursor = 0;
+		slFuncCode = START;
+		
+		NTI_FlightBuildWhereClause(pclWhere);
+		NTI_FlightBuildFullQuery(pclSqlBuf,pclWhere);
+		
+		memset(pclUrno,0,sizeof(pclUrno));
+		memset(pclUaft,0,sizeof(pclUaft));
+		memset(pclType,0,sizeof(pclType));
+		memset(pclData,0,sizeof(pclData));
+		memset(pclStat,0,sizeof(pclStat));
+		memset(pclTrit,0,sizeof(pclTrit));
+		memset(pclCdat,0,sizeof(pclCdat));
+		
+		while(sql_if(slFuncCode, &slLocalCursor, pclSqlBuf, pclSqlData) == DB_SUCCESS)
+		{
+		  slFuncCode = NEXT;
+		  
+			/*URNO,UAFT,TYPE,DATA,STAT,TRIT,CDAT*/
+		 	get_fld(pclSqlData,FIELD_1,STR,20,pclUrno); TrimSpace(pclUrno); 
+			get_fld(pclSqlData,FIELD_2,STR,20,pclUaft); TrimSpace(pclUaft);
+			get_fld(pclSqlData,FIELD_3,STR,20,pclType); TrimSpace(pclType);
+			get_fld(pclSqlData,FIELD_4,STR,256,pclDataT); TrimSpace(pclDataT);
+			get_fld(pclSqlData,FIELD_1,STR,20,pclStat); TrimSpace(pclStat); 
+			get_fld(pclSqlData,FIELD_2,STR,20,pclTrit); TrimSpace(pclTrit);
+			get_fld(pclSqlData,FIELD_2,STR,20,pclCdat); TrimSpace(pclCdat);
+			
+			dbg(DEBUG,"<%s> Sending Towing Records in FYATAB",pclFunc);
+			dbg(DEBUG,"<%s> pclUrno<%s>",pclFunc,pclUrno);
+			dbg(DEBUG,"<%s> pclUaft<%s>",pclFunc,pclUaft);
+			dbg(DEBUG,"<%s> pclType<%s>",pclFunc,pclType);
+			dbg(DEBUG,"<%s> pclDataT<%s>",pclFunc,pclDataT);
+			dbg(DEBUG,"<%s> pclStat<%s>",pclFunc,pclStat);
+			dbg(DEBUG,"<%s> pclTrit<%s>",pclFunc,pclTrit);
+			dbg(DEBUG,"<%s> pclCdat<%s>",pclFunc,pclCdat);
+			
+			/*At this stage, the message struct is completed*/
+			strcpy(pcgCurSendData,pclDataT);
+	    strcpy(pcgSendMsgId,pclSelection);
+			
+	    for (ilCount = 0; ilCount < igReSendMax; ilCount++)
+	    {
+	  		if (igSock > 0)
+	      {
+	    		ilRC = Send_data(igSock,pclDataSent);
+	      	dbg(DEBUG, "<%s>ilRC<%d>",pclFunc,ilRC);
+	
+		      if (ilRC == RC_SUCCESS)
+		      {
+	          igSckWaitACK = TRUE;
+	          igSckTryACKCnt = 0;
+	
+	          GetServerTimeStamp( "UTC", 1, 0, pcgSckWaitACKExpTime);
+	          AddSecondsToCEDATime(pcgSckWaitACKExpTime, igSckACKCWait, 1);
+	          break;
+		      }
+	        else if(ilRC == RC_FAIL)
+		      {
+		      	dbg(DEBUG, "<%s>Send_data error",pclFunc);
+		        ilRC = Sockt_Reconnect();
+		        /*SendRST_Command();*/
+		      }
+		      else if(ilRC == RC_SENDTIMEOUT)
+		      {
+		      	dbg(DEBUG,"<%s>Send_data timeout, Re send again",pclFunc);
+		      }
+	      }
+	      else
+	      { 
+	        if ((igConnected == TRUE) || (igOldCnnt == TRUE))
+	        {
+	       		ilRC = Sockt_Reconnect();
+	        	/*SendRST_Command();*/
+	        }
+	        else
+	        	  ilRC = RC_FAIL;
+	      }
+	    }
+	
+			if( ilCount >= igReSendMax)
+			{
+				dbg(TRACE,"<%s>Send_data <%d>Times failed, drop msg",pclFunc, ilCount);
+				return RC_FAIL;
+			}
+			
+			/* Update the STAT from 'R' to 'S' */
+			slLocalCursorT = 0;
+			slFuncCodeT = START;
+			
+			Upd_NTI_FlightBuildWhereClause(pclWhere,pclUrno);
+			Upd_NTI_FlightBuildFullQuery(pclSqlBufT,pclWhere);
+			ilRC = sql_if(slFuncCodeT, &slLocalCursorT, pclSqlBufT, pclSqlDataT);
+			if( ilRC != DB_SUCCESS )
+			{
+				ilRC = RC_FAIL;
+			}
+			close_my_cursor(&slLocalCursorT);
+		}
+		close_my_cursor(&slLocalCursor);
 	}
 	else
 	{
@@ -1490,7 +1760,7 @@ static int GetConfig()
 		strcpy(pcgServerChars,"\260\261\262\263\263");
 		ilRC = RC_SUCCESS;
 	}
-	
+
 	/*
 	dbg(TRACE,"Now read parameters for interface");
 	if ((ilRC=GetCfgEntry(pcgConfigFile,"MAIN","MODE",CFG_STRING,&prgCfg.mode,CFG_ALPHA,"REAL"))
@@ -1635,9 +1905,8 @@ static int GetConfig()
       igTimeRange = atoi(pclTmpBuf);
   else
       igTimeRange = 30;
-      
-      
-  ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","CONFIG_TIME",CFG_STRING,pclTmpBuf);
+	
+	ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","CONFIG_TIME",CFG_STRING,pclTmpBuf);
   if (ilRC == RC_SUCCESS)
       igConfigTime = atoi(pclTmpBuf);
   else
@@ -1648,6 +1917,19 @@ static int GetConfig()
       igConfigShift = atoi(pclTmpBuf);
   else
       igConfigShift = 1;   
+  
+  ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","CONFIG_END_SHIFT",CFG_STRING,pclTmpBuf);
+  if (ilRC == RC_SUCCESS)
+      igConfigEndShiftTime = atoi(pclTmpBuf);
+  else
+      igConfigEndShiftTime = 1;    
+  
+  ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","ACTUAL_USE_TIME",CFG_STRING,pclTmpBuf);
+  if (ilRC == RC_SUCCESS)
+      igActualUseTime = atoi(pclTmpBuf);
+  else
+      igActualUseTime = 1;  
+   
 	/*
 	if ((ilRC=GetCfgEntry(pcgConfigFile,"MAIN","HEADER_PREFIX",CFG_STRING,&prgCfg.header_prefix,CFG_PRINT,"#"))
                         != RC_SUCCESS)
@@ -2315,7 +2597,7 @@ static int Receive_data(int ipSock,int ipTimeOut)
                 igSckTryACKCnt++; 
                 if (igSock <= 0)
                    ilRC = Sockt_Reconnect();
-                   SendRST_Command();
+                   /*SendRST_Command();*/
 
                 if (igSock > 0)
                 {
@@ -2334,7 +2616,7 @@ static int Receive_data(int ipSock,int ipTimeOut)
            igSckTryACKCnt = 0;
            ilRC = SendCedaEvent(igModID_ConMgr,0,mod_name,"CEDA",pcgTwStart,pcgTwEnd,"NACK","","","","","","",NETOUT_NO_ACK);
            ilRC = Sockt_Reconnect();
-           SendRST_Command();
+           /*SendRST_Command();*/
            GetServerTimeStamp( "UTC", 1, 0, pcgSckWaitACKExpTime);
            AddSecondsToCEDATime(pcgSckWaitACKExpTime, igSckACKCWait, 1);
        }
@@ -2344,7 +2626,7 @@ static int Receive_data(int ipSock,int ipTimeOut)
     {
        dbg(DEBUG,"Current Time<%s>, Heartbeat Exp Rec Time<%s>", pclCurrentTime, pcgRcvHeartBeatExpTime);
        (void) Sockt_Reconnect();
-       SendRST_Command();
+        /*SendRST_Command();*/
     }
     return ilRC;
 } /* end of Receive_data() */
@@ -2791,22 +3073,21 @@ static int GetMsgno(char *pcpMsg)
 	else
 		/* Search for the first digit */
 		
-		pclP += strlen(prgCfg.msgno_keyword);
+	pclP += strlen(prgCfg.msgno_keyword);
+	
+	for (ilLoop = 0; ilLoop < 16 && blFound == FALSE; ilLoop++)
+	{
+		pclP+= ilLoop;
 		
-		for (ilLoop = 0; ilLoop < 16 && blFound == FALSE; ilLoop++)
+		if (isdigit(*pclP))
 		{
-			pclP+= ilLoop;
+			/* Found a digit, translate sequence to integer */
 			
-			if (isdigit(*pclP))
-			{
-				/* Found a digit, translate sequence to integer */
+			ilMsgNo = atoi(pclP);
+			blFound = TRUE;
+		} /* end if */
+	} /* end for */
 				
-				ilMsgNo = atoi(pclP);
-				blFound = TRUE;
-			} /* end if */
-		} /* end for */
-				
-
 	return ilMsgNo;
 } /* End of GetMsgno() */
 
@@ -2815,57 +3096,57 @@ static int Sockt_Reconnect(void)
 	char * pclFunc = "Sockt_Reconnect";
 	int ilRc = RC_SUCCESS;
 	int ilQueRc = RC_SUCCESS;
-    int ilCount = 0;
+  int ilCount = 0;
     
-    igConnectionNo++;
-    
-    igOldCnnt = igConnected;
-    CloseTCP();
-    igSock = 0;
-		dbg(TRACE,"<%s>Keep trying to connect <%s><%s>",pclFunc,pcgIP,pcgPort);
+  igConnectionNo++;
+  
+  igOldCnnt = igConnected;
+  CloseTCP();
+  igSock = 0;
+	dbg(TRACE,"<%s>Keep trying to connect <%s><%s>",pclFunc,pcgIP,pcgPort);
 /*    for (ilCount = 0; ilCount < igReconMax; ilCount++)
-	{*/
-	 	 ilRc = OpenServerSocket();
-		 dbg(DEBUG,"<%s>ilRc<%d>",pclFunc,ilRc);
-		 ilCount++;
-	 	 if (ilRc != RC_SUCCESS)
-		 {
-          CloseTCP();
-     			igSock = 0;
-     }
-	/*}*/
-				
-		if(ilRc == RC_SUCCESS)
-    {
-        dbg(TRACE,"<%s>ilCount[%d]igSock<%d>, connection success,reset ilConnectionNo",pclFunc,ilCount,igSock);
-        igConnected = TRUE;
-        
-        igConnectionNo = 0;
-        
-        dbg(TRACE,"<%s> Calling SendRST_Command",pclFunc);
-        SendRST_Command();
-    }
-		else
-    { 
-        dbg(TRACE,"<%s>ilCount[%d]igSock<%d>, connection fails",pclFunc,ilCount,igSock);
-        igConnected = FALSE;
-    }
+{*/
+ 	 ilRc = OpenServerSocket();
+	 dbg(DEBUG,"<%s>ilRc<%d>",pclFunc,ilRc);
+	 ilCount++;
+ 	 if (ilRc != RC_SUCCESS)
+	 {
+        CloseTCP();
+   			igSock = 0;
+   }
+/*}*/
+			
+	if(ilRc == RC_SUCCESS)
+  {
+      dbg(TRACE,"<%s>ilCount[%d]igSock<%d>, connection success,reset ilConnectionNo",pclFunc,ilCount,igSock);
+      igConnected = TRUE;
+      
+      igConnectionNo = 0;
+      
+      dbg(TRACE,"<%s> Calling SendRST_Command",pclFunc);
+      SendRST_Command();
+  }
+	else
+  { 
+      dbg(TRACE,"<%s>ilCount[%d]igSock<%d>, connection fails",pclFunc,ilCount,igSock);
+      igConnected = FALSE;
+  }
 
-    if (igOldCnnt != igConnected)
-    {
-        if (igConnected == TRUE)
-        	;
-        else
-        	;
-	        
-    }
+  if (igOldCnnt != igConnected)
+  {
+      if (igConnected == TRUE)
+      	;
+      else
+      	;
+        
+  }
     
-    GetServerTimeStamp( "UTC", 1, 0, pcgReconExpTime);
-    strcpy(pcgRcvHeartBeatExpTime, pcgReconExpTime);
-    AddSecondsToCEDATime(pcgReconExpTime, igReconIntv, 1);
-    AddSecondsToCEDATime(pcgRcvHeartBeatExpTime, igHeartBeatTimOut, 1);
-    
-    dbg(DEBUG," <%s> pcgReconExpTime<%s>Heartbeat Exp Rec Time<%s> igHeartBeatTimOut<%d>", pclFunc,pcgReconExpTime,pcgRcvHeartBeatExpTime,igHeartBeatTimOut);
+  GetServerTimeStamp( "UTC", 1, 0, pcgReconExpTime);
+  strcpy(pcgRcvHeartBeatExpTime, pcgReconExpTime);
+  AddSecondsToCEDATime(pcgReconExpTime, igReconIntv, 1);
+  AddSecondsToCEDATime(pcgRcvHeartBeatExpTime, igHeartBeatTimOut, 1);
+  
+  dbg(DEBUG," <%s> pcgReconExpTime<%s>Heartbeat Exp Rec Time<%s> igHeartBeatTimOut<%d>", pclFunc,pcgReconExpTime,pcgRcvHeartBeatExpTime,igHeartBeatTimOut);
     
 	return ilRc;
 }
@@ -3155,7 +3436,6 @@ static int SendBatchFlights(MSG *rlMsg)
 	short slLocalCursor = 0, slFuncCode = 0;
 	char pclParkstand[16] = "\0"; 
 	char pclDataSent[1024] = "\0";
-	
 	char pclSqlBuf[2048] = "\0",pclDataArea[2048] = "\0",pclWhere[2048] = "\0";
 	static char pclAllValidSlots[4096] = "\0";
 	
@@ -3169,265 +3449,15 @@ static int SendBatchFlights(MSG *rlMsg)
 	for(ilCount = 1; ilCount <= ilSoltNumber; ilCount++)
 	{
 		get_real_item(pclParkstand,pclAllValidSlots,ilCount);
-		dbg(DEBUG,"<%s> ilCount<%d> pclParkstand<%s>",pclFunc,ilCount,pclParkstand);
+		/*dbg(DEBUG,"<%s> ilCount<%d> pclParkstand<%s>",pclFunc,ilCount,pclParkstand);*/
 		
 		/* Get the latest actual use for parking stand before NOW_TIME*/
-		function_PST_USAGE(rpSentMsg,pclParkstand,igConfigTime);
+		function_PST_USAGE(&rlSentMsg,pclParkstand,igConfigTime);
 		
 		BuildSentData(pclDataSent,rlSentMsg);
-	}
-}
-
-static int function_PST_USAGE(SENT_MSG *rpSentMsg;, char *pcpParkstand, int ipConfigTime)
-{
-	char * pclFunc = "function_PST_USAGE";
-	int  ilRC = RC_SUCCESS;
-	
-	char pclSCHUseStartTime[TIMEFORMAT] = "\0";
-	char pclSqlBuf[2048] = "\0",pclSqlData[2048] = "\0",pclWhere[2048] = "\0";
-	
-	char pclUrno[16] = "\0";
-	char pclAdid[16] = "\0";
-	char pclRkey[16] = "\0";
-	char pclRkey[16] = "\0";
-	char pclStoa[16] = "\0";
-	char pclStod[16] = "\0";
-	char pclTifa[16] = "\0";
-	char pclTifd[16] = "\0";
-	char pclPsta[16] = "\0";
-	char pclPstd[16] = "\0";
-	char pclEtai[16] = "\0";
-	char pclEtdi[16] = "\0";
-	
-	INTERMEDIATE rlIntermediateLatestUse;
-	/*INTERMEDIATE rlIntermediateEndUse;*/
-	/*
-	1 Build the where clause
-	2 Build the full query
-	3 Run query
-	4 Check the return value
-	*/
-	FindActualUseBuildWhereClause(pcpParkstand,pclWhere,ipConfigTime);
-	FindActualUseBuildFullQuery(pclSqlBuf,pclWhere);
-	
-	ilRC = RunSQL(pclSqlBuf,pclSqlData);
-	if (ilRC != DB_SUCCESS) 
-	{
-  	dbg(DEBUG, "<%s> Not found in AFTTAB", pclFunc);
-  	return RC_FAIL;
-	}
-	
-	switch(ilRC)
-	{
-		case FOUND:
-			/*To find the actual end use for the parking stand*/
-					
-			/*
-			URNO,ADID,RKEY,REGN,
-			STOA,STOD,TIFA,TIFD,
-			ONBL,OFBL,LAND,AIRB,
-			PSTA,PSTD,ETAI,ETDI
-			 */
-			get_fld(pclSqlData,FIELD_1,STR,20,pclUrno); TrimSpace(pclUrno); 
-			get_fld(pclSqlData,FIELD_1,STR,20,pclAdid); TrimSpace(pclAdid);
-			get_fld(pclSqlData,FIELD_1,STR,20,pclRkey); TrimSpace(pclRkey);
-			get_fld(pclSqlData,FIELD_1,STR,20,pclRegn); TrimSpace(pclRegn);
-			
-			get_fld(pclSqlData,FIELD_1,STR,20,pclStoa); TrimSpace(pclStoa);
-			get_fld(pclSqlData,FIELD_1,STR,20,pclStod); TrimSpace(pclStod);
-			get_fld(pclSqlData,FIELD_1,STR,20,pclTifa); TrimSpace(pclTifa);
-			get_fld(pclSqlData,FIELD_1,STR,20,pclTifd); TrimSpace(pclTifd);
-			
-			get_fld(pclSqlData,FIELD_1,STR,20,pclPsta); TrimSpace(pclPsta);
-			get_fld(pclSqlData,FIELD_1,STR,20,pclPstd); TrimSpace(pclPstd);
-			get_fld(pclSqlData,FIELD_1,STR,20,pclEtai); TrimSpace(pclEtai);
-			get_fld(pclSqlData,FIELD_1,STR,20,pclEtdi); TrimSpace(pclEtdi);
-			
-			strcpy(rlIntermediateLatestUse->pclUrno,pclUrno);
-			strcpy(rlIntermediateLatestUse->pclAdid,pclAdid);
-			strcpy(rlIntermediateLatestUse->pclRegn,pclRegn);
-			strcpy(rlIntermediateLatestUse->pclRkey,pclRkey);
-			strcpy(rlIntermediateLatestUse->pclStoa,pclStoa);
-			strcpy(rlIntermediateLatestUse->pclStoa,pclStod);
-			strcpy(rlIntermediateLatestUse->pclTifa,pclTifa);
-			strcpy(rlIntermediateLatestUse->pclTifd,pclTifd);
-			strcpy(rlIntermediateLatestUse->pclPsta,pclPsta);
-			strcpy(rlIntermediateLatestUse->pclPstd,pclPstd);
-			strcpy(rlIntermediateLatestUse->pclEtai,pclEtai);
-			strcpy(rlIntermediateLatestUse->pclEtdi,pclEtdi);
-			
-			strcpy(rpSentMsg->pclPosi,pcpParkstand);
-			strcpy(rpSentMsg->pclStoa,pclStoa);
-			strcpy(rpSentMsg->pclEtoa,pclEtoa);
-			strcpy(rpSentMsg->pclTmoa,pclTmoa);
-			strcpy(rpSentMsg->pclOnbl,pclOnbl);
-			
-			/*To find the actual end use for the parking stand*/
-			FindEndUseBuildWhereClause(rlIntermediateLatestUse,pcpParkstand,ipActualTime);
-			FindEndUseBuildFullQuery(pclSqlBuf,pclWhere);
-			
-			memset(pclSqlData,0,sizeof(pclSqlData));
-			
-			ilRC = RunSQL(pclSqlBuf,pclSqlData);
-			if (ilRC != DB_SUCCESS) 
-			{
-		  	dbg(DEBUG, "<%s> Not found in AFTTAB", pclFunc);
-		  	return RC_FAIL;
-			}
-			
-			pclUrno = NULL;
-			pclAdid = NULL
-			pclRkey = NULL
-			pclRkey = NULL
-			pclStoa = NULL
-			pclStod = NULL
-			pclTifa = NULL
-			pclTifd = NULL
-			pclPsta = NULL
-			pclPstd = NULL
-			pclEtai = NULL
-		  pclEtdi = NULL
-			
-			switch(ilRC)
-			{
-				case FOUND:
-					igFlagUseEST_SCHStartUse = TRUE;
-			
-					strcpy(pclSCHUseStartTime,pcgCurrentTime);
-					AddSecondsToCEDATime(pclSCHUseStartTime, -igConfigShift*60*60*24, 1);
-					break;
-				case NOT_FOUND:
-					
-					/* To find finish useage for This aircraft in this Park stand */
-					FindFinishUsageBuildWhereClause(rlIntermediateLatestUse,pcpParkstand,ipActualTime,ipConfigEndShiftTime);
-					FindFinishUsageBuildFullQuery(pclSqlBuf,pclWhere);
-					
-					ilRC = RunSQL(pclSqlBuf,pclSqlData);
-					if (ilRC != DB_SUCCESS) 
-					{
-				  	dbg(DEBUG, "<%s> Not found in AFTTAB", pclFunc);
-				  	return RC_FAIL;
-					}
-					
-					/*
-					URNO,ADID,RKEY,REGN,
-					STOA,STOD,TIFA,TIFD,
-					ONBL,OFBL,LAND,AIRB,
-					PSTA,PSTD,ETAI,ETDI
-					*/
-					get_fld(pclSqlData,FIELD_1,STR,20,pclUrno); TrimSpace(pclUrno);
-					get_fld(pclSqlData,FIELD_1,STR,20,pclAdid); TrimSpace(pclAdid);
-					get_fld(pclSqlData,FIELD_1,STR,20,pclRkey); TrimSpace(pclRkey);
-					get_fld(pclSqlData,FIELD_1,STR,20,pclRegn); TrimSpace(pclRegn);
-					
-					get_fld(pclSqlData,FIELD_1,STR,20,pclStoa); TrimSpace(pclStoa);
-					get_fld(pclSqlData,FIELD_1,STR,20,pclStod); TrimSpace(pclStod);
-					get_fld(pclSqlData,FIELD_1,STR,20,pclTifa); TrimSpace(pclTifa);
-					get_fld(pclSqlData,FIELD_1,STR,20,pclTifd); TrimSpace(pclTifd);
-					
-					get_fld(pclSqlData,FIELD_1,STR,20,pclPsta); TrimSpace(pclPsta);
-					get_fld(pclSqlData,FIELD_1,STR,20,pclPstd); TrimSpace(pclPstd);
-					get_fld(pclSqlData,FIELD_1,STR,20,pclEtai); TrimSpace(pclEtai);
-					get_fld(pclSqlData,FIELD_1,STR,20,pclEtdi); TrimSpace(pclEtdi);
-					/*
-					strcpy(rlIntermediateFinishUsage->pclUrno,pclUrno);
-					strcpy(rlIntermediateFinishUsage->pclAdid,pclAdid);
-					strcpy(rlIntermediateFinishUsage->pclRkey,pclRkey);
-					strcpy(rlIntermediateFinishUsage->pclRkey,pclRkey);
-					
-					strcpy(rlIntermediateFinishUsage->pclStoa,pclStoa);
-					strcpy(rlIntermediateFinishUsage->pclStoa,pclStod);
-					strcpy(rlIntermediateFinishUsage->pclTifa,pclTifa);
-					strcpy(rlIntermediateFinishUsage->pclTifd,pclTifd);
-					
-					strcpy(rlIntermediateFinishUsage->pclPsta,pclPsta);
-					strcpy(rlIntermediateFinishUsage->pclPstd,pclPstd);
-					strcpy(rlIntermediateFinishUsage->pclEtai,pclEtai);
-					strcpy(rlIntermediateFinishUsage->pclEtdi,pclEtdi);
-					*/
-					strcpy(rpSentMsg->pclStod,pclStod);
-					strcpy(rpSentMsg->pclEtod,pclEtod);
-					strcpy(rpSentMsg->pclOfbl,pclOfbl);
-					
-					return 3;
-					break;
-				default:
-					dbg(DEBUG,"<%s>The return value<%s> is unknown",pclFunc,ilRC);
-					break;
-			}
-			break;
-		case NOT_FOUND:
-			igFlagUseEST_SCHStartUse = TRUE;
-			
-			strcpy(pclSCHUseStartTime,pcgCurrentTime);
-			AddSecondsToCEDATime(pclSCHUseStartTime, -igConfigShift*60*60*24, 1);
-			break;
-		default:
-			dbg(DEBUG,"<%s>The return value<%s> is unknown",pclFunc,ilRC);
-			break;
-	}
-	
-	if (igFlagUseEST_SCHStartUse == TRUE)
-	{
-		FindEST_SCHBuildWhereClause(rlIntermediateLatestUse,pcpParkstand,pclSCHUseStartTime);
-		FindEST_SCHBuildFullQuery(pclSqlBuf,pclWhere);
 		
-		memset(pclSqlData,0,sizeof(pclSqlData));
-			
-		ilRC = RunSQL(pclSqlBuf,pclSqlData);
-		if (ilRC != DB_SUCCESS) 
-		{
-	  	dbg(DEBUG, "<%s> Not found in AFTTAB", pclFunc);
-	  	return RC_FAIL;
-		}
-		
-		switch(ilRC)
-		{
-			case FOUND:
-				ilFlagFindNetSeqFlight = TRUE;
-				break;
-			case NOT_FOUND:
-				FindEarliest_Start_LeaveBuildWhereClause(rlIntermediateLatestUse,pcpParkstand,ipConfigEndShiftTime);
-				FindEarliest_Start_LeaveBuildFullQuery(pclSqlBuf,pclWhere);
-				
-				ilRC = RunSQL(pclSqlBuf,pclSqlData);
-				if (ilRC != DB_SUCCESS) 
-				{
-			  	dbg(DEBUG, "<%s> Not found in AFTTAB", pclFunc);
-			  	return RC_FAIL;
-				}
-				
-				/*get_real_fld(pclAdid);*/
-				/*get_real_fld(pclPosi);*/
-				/*get_real_fld(pclPosa);*/
-				/*get_real_fld(pclPosd);*/
-				switch(ilRC)
-				{
-					case FOUND:
-						if ((strcmp(ADID,"A") == 0 || strcmp(ADID,"B")) || strcmp(pclPosa,pcpParkstand)==0)
-	                  ilFlagStart_use_found = TRUE;
-	                	ilFlagFind_Next_Seq_flight = TRUE;
-	          else if (strcmp(pclPstd,pcpParkstand)==0)
-				   				ilFlagStart_use_found = No_Start
-				   				ilFlagEnd_use_found = TRUE
-						break;
-					case NOT_FOUND:
-						ilFlagEnd_Use_Found = NO_END
-						break;
-					default:
-						break;
-				}
-				break;
-			case default:
-				break;
-		}
-		
-		if (ilFlagFind_Next_Seq_flight == TRUE)
-		{
-			GetSeqFlight(&rlSentMsg,"D");
-		}
+		/*Send Batch Data*/
 	}
-	
 }
 
 static void BuildBatchFlightRng(void)
@@ -3725,7 +3755,7 @@ static int GetSeqFlight(SENT_MSG *rpSentMsg,char *pcpADFlag)
 	return ilRC;
 }
 
-static void UpdBuildWhereClause(SENT_MSG *rpSentMsg, char *pcpWhere, char *pcpADFlag)
+static int UpdBuildWhereClause(SENT_MSG *rpSentMsg, char *pcpWhere, char *pcpADFlag)
 {
 	char *pclFunc = "UpdBuildWhereClause";
 	
@@ -3753,6 +3783,7 @@ static void UpdBuildWhereClause(SENT_MSG *rpSentMsg, char *pcpWhere, char *pcpAD
   dbg(DEBUG,"Where Clause<%s>",pcpWhere);
 }
 
+/* it is defined in urno_fn.h
 static int RunSQL(char *pcpSelection, char *pcpData )
 {
     int ilRc = DB_SUCCESS;
@@ -3771,8 +3802,9 @@ static int RunSQL(char *pcpSelection, char *pcpData )
     }   
     return ilRc;
 }
+*/
 
-static void UpdBuildFullQuery(char *pcpSqlBuf, char *pcpWhere, char *pcpADFlag)
+static int UpdBuildFullQuery(char *pcpSqlBuf, char *pcpWhere, char *pcpADFlag)
 {
 	char *pclFunc = "UpdBuildFullQuery";
 	
@@ -3845,29 +3877,584 @@ static void BuildSentData(char *pcpDataSent,SENT_MSG rpSentMsg)
   */
 }
 
+static int StoreSentData(char *pcpDataSent,char *pcpUaft,char *pcpFlagTowing)
+{ 
+	int ilRCdb = RC_SUCCESS;
+	int ilRC   = RC_SUCCESS;
+	char *pclFunc = "StoreSentData";
+	short slCursor = 0;
+	short slFkt = 0;
+	int ilNextUrno = 0;
+	char pclUrno[16] = "\0";
+	char pclbuffer[33] = "\0";
+	char pclCurrentTime[64] = "\0";
+	char pclTriggerTime[64] = "\0";
+	char pclSqlBuf[2048] = "\0";
+	char pclDataBuf[2048] = "\0";
+	char pclFieldList[2048] = "\0"; 
+	char pclDataList[2048] = "\0";
+	
+	memset(pclCurrentTime,0x00,TIMEFORMAT);
+	GetServerTimeStamp( "UTC", 1, 0, pclCurrentTime );
+	
+	strcpy(pclTriggerTime,pclCurrentTime);
+	AddSecondsToCEDATime(pclTriggerTime, igTimeRange*60, 1);
+	
+	/*Get New Urno*/
+	ilNextUrno = NewUrnos( "FYATAB", 1 );
+  if(ilNextUrno > 0)
+  {
+      if(itoa(ilNextUrno,pclbuffer,10) == NULL)
+      {
+          dbg(DEBUG,"line<%d>Error getting new URNO",__LINE__);
+          return RC_FAIL;
+      }
+      else
+      {
+          strncpy(pclUrno,pclbuffer,strlen(pclbuffer));
+      }
+  }
+  else
+  {
+        dbg(DEBUG,"line<%d>Error getting new URNO",__LINE__);
+    return RC_FAIL;
+  }
+
+  dbg(DEBUG,"the URNO for FYATAB is <%s>",pclUrno);
+  
+  /*Insert the normal flight which is not towing ones into FYATAB
+  And STAT is null
+  */
+  if( strcmp(pcpFlagTowing,"Towing") !=0 )
+  {
+  	strcpy(pclFieldList,"URNO,UAFT,TYPE,DATA,STAT,TRIT,CDAT");
+		sprintf(pclDataList,"%s,'%s','%s','%s','%s','%s','%s'",pclUrno,pcpUaft,"NormalFlight",pcpDataSent,"","",pclCurrentTime);
+	}
+	else
+	{
+		strcpy(pclFieldList,"URNO,UAFT,TYPE,DATA,STAT,TRIT,CDAT");
+		sprintf(pclDataList,"%s,'%s','%s','%s','%s','%s','%s'",pclUrno,pcpUaft,"TowingFlight",pcpDataSent,"R",pclTriggerTime,pclCurrentTime);
+  }
+  
+  sprintf(pclSqlBuf,"INSERT INTO FYATAB FIELDS(%s) VALUES(%s)",pclFieldList,pclDataList);
+  slCursor = 0;
+	slFkt = START;
+  dbg(DEBUG,"%s SQL = <%s>",pclFunc,pclSqlBuf);
+  ilRCdb = sql_if(slFkt,&slCursor,pclSqlBuf,pclDataBuf);
+  if (ilRCdb == DB_SUCCESS)
+     commit_work();
+  else
+  {
+     dbg(TRACE,"%s Error inserting into RARTAB",pclFunc);
+     ilRC = RC_FAIL;
+  }
+  close_my_cursor(&slCursor);
+  
+  return ilRC;
+}
+
+static void SearchTowingFlightBuildWhereClause(char *pcpRkey, char *pcpRegn, char *pcpWhere)
+{
+	char *pclFunc = "SearchTowingFlightBuildWhereClause";
+	char pclWhere[2048] = "\0";
+	
+	memset(pcpWhere,0,sizeof(pcpWhere));
+	
+ 	sprintf(pclWhere,"RKEY = '%s' and REGN = '%s' order by TIFA", pcpRkey,pcpRegn);
+
+	strcpy(pcpWhere,pclWhere);
+	dbg(DEBUG,"Where Clause<%s>",pcpWhere);
+}
+
+static void SearchTowingFlightBuildFullQuery(char *pcpSqlBuf, char *pcpWhere)
+{
+	char *pclFunc = "SearchTowingFlightBuildFullQuery";
+	char pclSqlBuf[2048] = "\0";
+	
+	memset(pcpSqlBuf,0,sizeof(pcpSqlBuf));
+	
+	/*
+	URNO,ADID,RKEY,REGN,
+	STOA,STOD,TIFA,TIFD,
+	ONBL,OFBL,LAND,AIRB,
+	PSTA,PSTD,ETAI,ETDI
+	 */
+	sprintf(pclSqlBuf, "SELECT URNO,ADID,RKEY,REGN,STOA,STOD,ETOA,ETOD,TIFA,TIFD,ONBL,OFBL,PSTA,PSTD,TMOA FROM AFTTAB WHERE %s", pcpWhere);
+	
+	strcpy(pcpSqlBuf,pclSqlBuf);
+	dbg(DEBUG,"Full Query<%s>",pcpSqlBuf);
+}
+
+static void NTI_FlightBuildWhereClause(char *pcpWhere)
+{
+	char *pclFunc = "NTI_FlightBuildWhereClause";
+	char pclCurrentTime[64] = "\0";
+	char pclWhere[2048] = "\0";
+	
+	memset(pcpWhere,0,sizeof(pcpWhere));
+	
+  GetServerTimeStamp( "UTC", 1, 0, pclCurrentTime );
+	
+ 	sprintf(pclWhere,"TYPE = 'TowingFlight' and STAT = 'R' and TRIT <= '%s' order by URNO", pclCurrentTime);
+
+	strcpy(pcpWhere,pclWhere);
+	dbg(DEBUG,"Where Clause<%s>",pcpWhere);
+}
+
+static void NTI_FlightBuildFullQuery(char *pcpSqlBuf,char *pcpWhere)
+{
+	char *pclFunc = "NTI_FlightBuildFullQuery";
+	
+	char pclSqlBuf[2048] = "\0";
+	
+	memset(pcpSqlBuf,0,sizeof(pcpSqlBuf));
+
+	sprintf(pclSqlBuf, "SELECT URNO,UAFT,TYPE,DATA,STAT,TRIT,CDAT FROM FYATAB WHERE %s", pcpWhere);
+	
+	strcpy(pcpSqlBuf,pclSqlBuf);
+	dbg(DEBUG,"Full Query<%s>",pcpSqlBuf);
+}
+
+static void Upd_NTI_FlightBuildWhereClause(char *pcpWhere,char *pcpUrno)
+{
+	char *pclFunc = "Upd_NTI_FlightBuildWhereClause";
+	char pclCurrentTime[64] = "\0";
+	char pclWhere[2048] = "\0";
+	
+	memset(pcpWhere,0,sizeof(pcpWhere));
+	
+  GetServerTimeStamp( "UTC", 1, 0, pclCurrentTime );
+	
+ 	sprintf(pclWhere,"TYPE = 'TowingFlight' and STAT = 'R' and TRIT <= '%s'", pclCurrentTime);
+
+	strcpy(pcpWhere,pclWhere);
+	dbg(DEBUG,"Where Clause<%s>",pcpWhere);
+}
+
+static void Upd_NTI_FlightBuildFullQuery(char *pcpSqlBuf,char *pcpWhere)
+{
+	char *pclFunc = "Upd_NTI_FlightBuildFullQuery";
+	char pclSqlBuf[2048] = "\0";
+	
+	memset(pcpSqlBuf,0,sizeof(pcpSqlBuf));
+	
+	sprintf(pclSqlBuf, "UPDATE FYATAB SET STAT = 'S' WHERE %s", pcpWhere);
+	
+	strcpy(pcpSqlBuf,pclSqlBuf);
+	dbg(DEBUG,"Full Query<%s>",pcpSqlBuf);
+}
+
+static int function_PST_USAGE(SENT_MSG *rpSentMsg, char *pcpParkstand, int ipConfigTime)
+{
+	char * pclFunc = "function_PST_USAGE";
+	int  ilRC = RC_SUCCESS;
+		
+	static int ilFlagUseEST_SCHStartUse = FALSE;
+	static int ilFlagFindNetSeqFlight = FALSE;
+	static int ilFlagStart_use_found = TRUE;
+	static int ilFlagFind_Next_Seq_flight = TRUE;
+	static int ilFlagEnd_Use_found = TRUE;
+
+	
+	char pclSCHUseStartTime[TIMEFORMAT] = "\0";
+	
+	char pclUrno[16] = "\0";
+	char pclAdid[16] = "\0";
+	char pclRkey[16] = "\0";
+	char pclRegn[16] = "\0";
+	char pclStoa[16] = "\0";
+	char pclStod[16] = "\0";
+	char pclTifa[16] = "\0";
+	char pclTifd[16] = "\0";
+	char pclPsta[16] = "\0";
+	char pclPstd[16] = "\0";
+	char pclEtoa[16] = "\0";
+	char pclEtod[16] = "\0";
+	char pclTmoa[16] = "\0";
+	char pclOnbl[16] = "\0";
+	char pclOfbl[16] = "\0";
+	char pclPosa[16] = "\0";
+	char pclSqlBuf[2048] = "\0",pclSqlData[2048] = "\0",pclWhere[2048] = "\0";
+
+	TOWING rlIntermediateLatestUse;
+	/*INTERMEDIATE rlIntermediateEndUse;*/
+	/*
+	1 Build the where clause
+	2 Build the full query
+	3 Run query
+	4 Check the return value
+	*/
+	FindActualUseBuildWhereClause(pcpParkstand,pclWhere,ipConfigTime);
+	FindActualUseBuildFullQuery(pclSqlBuf,pclWhere);
+	
+	ilRC = RunSQL(pclSqlBuf,pclSqlData);
+	if (ilRC != DB_SUCCESS) 
+	{
+  	dbg(DEBUG, "<%s> Not found in AFTTAB", pclFunc);
+  	return RC_FAIL;
+	}
+
+	switch(ilRC)
+	{
+		case NOTFOUND:
+			ilFlagUseEST_SCHStartUse = TRUE;
+
+			strcpy(pclSCHUseStartTime,pcgCurrentTime);
+			AddSecondsToCEDATime(pclSCHUseStartTime, -igConfigShift*60*60*24, 1);
+			break;
+		default:
+			/*To find the actual end use for the parking stand*/
+
+			/*
+			URNO,ADID,RKEY,REGN,
+			STOA,STOD,TIFA,TIFD,
+			PSTA,PSTD,ETOA,ETOD,
+			ONBL,OFBL,TMOA
+			*/
+			get_fld(pclSqlData,FIELD_1,STR,20,pclUrno); TrimSpace(pclUrno); 
+			get_fld(pclSqlData,FIELD_2,STR,20,pclAdid); TrimSpace(pclAdid);
+			get_fld(pclSqlData,FIELD_3,STR,20,pclRkey); TrimSpace(pclRkey);
+			get_fld(pclSqlData,FIELD_4,STR,20,pclRegn); TrimSpace(pclRegn);
+			get_fld(pclSqlData,FIELD_5,STR,20,pclStoa); TrimSpace(pclStoa);
+			get_fld(pclSqlData,FIELD_6,STR,20,pclStod); TrimSpace(pclStod);
+			get_fld(pclSqlData,FIELD_7,STR,20,pclTifa); TrimSpace(pclTifa);
+			get_fld(pclSqlData,FIELD_8,STR,20,pclTifd); TrimSpace(pclTifd);
+			get_fld(pclSqlData,FIELD_9,STR,20,pclPsta); TrimSpace(pclPsta);
+			get_fld(pclSqlData,FIELD_10,STR,20,pclPstd); TrimSpace(pclPstd);
+			get_fld(pclSqlData,FIELD_11,STR,20,pclEtoa); TrimSpace(pclEtoa);
+			get_fld(pclSqlData,FIELD_12,STR,20,pclEtod); TrimSpace(pclEtod);
+			get_fld(pclSqlData,FIELD_13,STR,20,pclOnbl); TrimSpace(pclOnbl);
+			get_fld(pclSqlData,FIELD_14,STR,20,pclOfbl); TrimSpace(pclOfbl);
+			get_fld(pclSqlData,FIELD_15,STR,20,pclTmoa); TrimSpace(pclTmoa);
+
+			strcpy(rlIntermediateLatestUse.pclUrno,pclUrno);
+			strcpy(rlIntermediateLatestUse.pclAdid,pclAdid);
+			strcpy(rlIntermediateLatestUse.pclRkey,pclRkey);
+			strcpy(rlIntermediateLatestUse.pclRegn,pclRegn);
+			strcpy(rlIntermediateLatestUse.pclStoa,pclStoa);
+			strcpy(rlIntermediateLatestUse.pclStod,pclStod);
+			strcpy(rlIntermediateLatestUse.pclTifa,pclTifa);
+			strcpy(rlIntermediateLatestUse.pclTifd,pclTifd);
+			strcpy(rlIntermediateLatestUse.pclPsta,pclPsta);
+			strcpy(rlIntermediateLatestUse.pclPstd,pclPstd);
+			strcpy(rlIntermediateLatestUse.pclEtoa,pclEtoa);
+			strcpy(rlIntermediateLatestUse.pclEtod,pclEtod);
+			strcpy(rlIntermediateLatestUse.pclOnbl,pclOnbl);
+			strcpy(rlIntermediateLatestUse.pclOfbl,pclOfbl);
+			strcpy(rlIntermediateLatestUse.pclTmoa,pclTmoa);
+
+			strcpy(rpSentMsg->pclPosi,pcpParkstand);
+			strcpy(rpSentMsg->pclStoa,pclStoa);
+			strcpy(rpSentMsg->pclEtoa,pclEtoa);
+			strcpy(rpSentMsg->pclTmoa,pclTmoa);
+			strcpy(rpSentMsg->pclOnbl,pclOnbl);
+
+			/*To find the actual end use for the parking stand*/
+			FindEndUseBuildWhereClause(rlIntermediateLatestUse,pclWhere,pcpParkstand,igActualUseTime);
+			FindEndUseBuildFullQuery(pclSqlBuf,pclWhere);
+
+			memset(pclSqlData,0,sizeof(pclSqlData));
+
+			ilRC = RunSQL(pclSqlBuf,pclSqlData);
+			if (ilRC != DB_SUCCESS) 
+			{
+		  	dbg(DEBUG, "<%s> Not found in AFTTAB", pclFunc);
+		  	return RC_FAIL;
+			}
+
+			memset(pclUrno,0,sizeof(pclUrno));
+			memset(pclAdid,0,sizeof(pclAdid));
+			memset(pclRkey,0,sizeof(pclRkey));
+			memset(pclRkey,0,sizeof(pclRegn));
+			memset(pclStoa,0,sizeof(pclStoa));
+			memset(pclStod,0,sizeof(pclStod));
+			memset(pclTifa,0,sizeof(pclTifa));
+			memset(pclTifd,0,sizeof(pclTifd));
+			memset(pclPsta,0,sizeof(pclPsta));
+			memset(pclPstd,0,sizeof(pclPstd));
+			memset(pclEtoa,0,sizeof(pclEtoa));
+			memset(pclEtod,0,sizeof(pclEtod));
+			memset(pclOnbl,0,sizeof(pclOnbl));
+			memset(pclOfbl,0,sizeof(pclOfbl));
+			memset(pclTmoa,0,sizeof(pclTmoa));
+			
+			switch(ilRC)
+			{
+				case NOT_FOUND:
+
+					/* To find finish useage for This aircraft in this Park stand */
+					FindFinishUsageBuildWhereClause(rlIntermediateLatestUse,pclWhere,pcpParkstand,igActualUseTime,igConfigEndShiftTime);
+					FindFinishUsageBuildFullQuery(pclSqlBuf,pclWhere);
+
+					ilRC = RunSQL(pclSqlBuf,pclSqlData);
+					if (ilRC != DB_SUCCESS) 
+					{
+				  	dbg(DEBUG, "<%s> Not found in AFTTAB", pclFunc);
+				  	return RC_FAIL;
+					}
+
+					/*
+					URNO,ADID,RKEY,REGN,
+					STOA,STOD,TIFA,TIFD,
+					PSTA,PSTD,ETOA,ETOD,
+					ONBL,OFBL,TMOA
+					*/
+					get_fld(pclSqlData,FIELD_1,STR,20,pclUrno); TrimSpace(pclUrno); 
+					get_fld(pclSqlData,FIELD_2,STR,20,pclAdid); TrimSpace(pclAdid);
+					get_fld(pclSqlData,FIELD_3,STR,20,pclRkey); TrimSpace(pclRkey);
+					get_fld(pclSqlData,FIELD_4,STR,20,pclRegn); TrimSpace(pclRegn);
+					get_fld(pclSqlData,FIELD_5,STR,20,pclStoa); TrimSpace(pclStoa);
+					get_fld(pclSqlData,FIELD_6,STR,20,pclStod); TrimSpace(pclStod);
+					get_fld(pclSqlData,FIELD_7,STR,20,pclTifa); TrimSpace(pclTifa);
+					get_fld(pclSqlData,FIELD_8,STR,20,pclTifd); TrimSpace(pclTifd);
+					get_fld(pclSqlData,FIELD_9,STR,20,pclPsta); TrimSpace(pclPsta);
+					get_fld(pclSqlData,FIELD_10,STR,20,pclPstd); TrimSpace(pclPstd);
+					get_fld(pclSqlData,FIELD_11,STR,20,pclEtoa); TrimSpace(pclEtoa);
+					get_fld(pclSqlData,FIELD_12,STR,20,pclEtod); TrimSpace(pclEtod);
+					get_fld(pclSqlData,FIELD_13,STR,20,pclOnbl); TrimSpace(pclOnbl);
+					get_fld(pclSqlData,FIELD_14,STR,20,pclOfbl); TrimSpace(pclOfbl);
+					get_fld(pclSqlData,FIELD_15,STR,20,pclTmoa); TrimSpace(pclTmoa);
+					
+					strcpy(rpSentMsg->pclStod,pclStod);
+					strcpy(rpSentMsg->pclEtod,pclEtod);
+					strcpy(rpSentMsg->pclOfbl,pclOfbl);
+
+					return 3;
+					break;
+				default:
+					ilFlagUseEST_SCHStartUse = TRUE;
+
+					strcpy(pclSCHUseStartTime,pcgCurrentTime);
+					AddSecondsToCEDATime(pclSCHUseStartTime, -igConfigShift*60*60*24, 1);
+					break;
+					break;
+			}
+			break;
+	}
+	
+	if (ilFlagUseEST_SCHStartUse == TRUE)
+	{
+		FindEST_SCHBuildWhereClause(pclWhere,pcpParkstand,pclSCHUseStartTime);
+		FindEST_SCHBuildFullQuery(pclSqlBuf,pclWhere);
+
+		memset(pclSqlData,0,sizeof(pclSqlData));
+
+		ilRC = RunSQL(pclSqlBuf,pclSqlData);
+		if (ilRC != DB_SUCCESS) 
+		{
+	  	dbg(DEBUG, "<%s> Not found in AFTTAB", pclFunc);
+	  	return RC_FAIL;
+		}
+
+		switch(ilRC)
+		{
+			case NOT_FOUND:
+				FindEarliest_Start_LeaveBuildWhereClause(pcpParkstand,pclWhere,igConfigEndShiftTime);
+				FindEarliest_Start_LeaveBuildFullQuery(pclSqlBuf,pclWhere);
+
+				ilRC = RunSQL(pclSqlBuf,pclSqlData);
+				if (ilRC != DB_SUCCESS) 
+				{
+			  	dbg(DEBUG, "<%s> Not found in AFTTAB", pclFunc);
+			  	return RC_FAIL;
+				}
+
+				/*get_real_fld(pclAdid);
+				get_real_fld(pclPosi);
+				get_real_fld(pclPosa);
+				get_real_fld(pclPosd);*/
+				switch(ilRC)
+				{
+					case NOT_FOUND:
+						ilFlagEnd_Use_found = NO_END;
+						break;
+					default:
+						if ((strcmp(pclAdid,"A") == 0 || strcmp(pclAdid,"B")) || strcmp(pclPosa,pcpParkstand)==0)
+						{
+              ilFlagStart_use_found = TRUE;
+            	ilFlagFind_Next_Seq_flight = TRUE;
+	          }
+	          else if (strcmp(pclPstd,pcpParkstand)==0)
+				   	{
+		   				ilFlagStart_use_found = No_Start;
+		   				ilFlagEnd_Use_found = TRUE;
+						}
+						break;
+				}
+				break;
+			default:
+				ilFlagFindNetSeqFlight = TRUE;
+				break;
+		}
+
+		if (ilFlagFind_Next_Seq_flight == TRUE)
+		{
+			GetSeqFlight(rpSentMsg,"D");
+		}
+	}
+	
+}
+
 static void FindActualUseBuildWhereClause(char *pcpParkstand, char *pcpWhere, int ipConfigTime)
 {
 	char *pclFunc = "FindActualUseBuildWhereClause";
 	char pclWhere[2048] = "\0";
 	char pclTmpTime[TIMEFORMAT] = "\0";
-	
+
 	memset(pcpWhere,0,sizeof(pcpWhere));
 	strcpy(pclTmpTime,pcgCurrentTime);
 	AddSecondsToCEDATime(pclTmpTime, -ipConfigTime*60*60*24, 1);
-	
-	sprintf(pclWhere,"PSTA = '%s' and FTYP NOT IN ('X','N') and (ADID in ('A','B') and (ONBL between '%s' and '%s') order by ONBL decs",pcpParkstand,pclTmpTime,pcgCurrentTime);
-	
+
+	sprintf(pclWhere,"PSTA = '%s' and FTYP NOT IN ('X','N') and ADID in ('A','B') and (ONBL between '%s' and '%s') order by ONBL decs",pcpParkstand,pclTmpTime,pcgCurrentTime);
+
 	strcpy(pcpWhere,pclWhere);
   dbg(DEBUG,"<%s>Where Clause<%s>",pclFunc,pcpWhere);
 }
 
 static void FindActualUseBuildFullQuery(char *pcpSqlBuf, char *pcpWhere)
 {
-	char *pclFunc = "UpdBuildFullQuery";
+	char *pclFunc = "FindActualUseBuildFullQuery";
 	char pclSqlBuf[2048] = "\0";
-	
+
 	memset(pcpSqlBuf,0,sizeof(pcpSqlBuf));
-	sprintf(pclSqlBuf, "SELECT URNO,ADID,RKEY,REGN,STOA,STOD,TIFA,TIFD,ONBL,OFBL,LAND,AIRB,PSTA,PSTD,ETAI,ETDI FROM AFTTAB WHERE %s", pcpWhere);
+	/*sprintf(pclSqlBuf, "SELECT URNO,ADID,RKEY,REGN,STOA,STOD,TIFA,TIFD,ONBL,OFBL,LAND,AIRB,PSTA,PSTD,ETOA,ETOD,TMOA FROM AFTTAB WHERE %s", pcpWhere);*/
+	
+	sprintf(pclSqlBuf, "SELECT URNO,ADID,RKEY,REGN,STOA,STOD,TIFA,TIFD,PSTA,PSTD,ETOA,ETOD,ONBL,OFBL,TMOA FROM AFTTAB WHERE %s", pcpWhere);
+	
+	/*pclTmoa*/
+  
+  strcpy(pcpSqlBuf,pclSqlBuf);
+  dbg(DEBUG,"Full Query<%s>",pcpSqlBuf);
+}
+
+static void FindEndUseBuildWhereClause(TOWING rpIntermediateLatestUse,char *pcpWhere,char *pcpParkstand,int ipActualUseTime)
+{
+	char *pclFunc = "FindEndUseBuildWhereClause";
+	char pclCurrentTime[64] = "\0";
+	char pclWhere[2048] = "\0";
+	char pclTmpTime[TIMEFORMAT] = "\0";
+	
+	memset(pcpWhere,0,sizeof(pcpWhere));
+	GetServerTimeStamp( "UTC", 1, 0, pclCurrentTime );
+	
+	strcpy(pclTmpTime,pclCurrentTime);
+	AddSecondsToCEDATime(pclTmpTime, -ipActualUseTime*60*60*24, 1);
+	
+	sprintf(pclWhere,"PSTD = '%s' and REGN = '%s' and (((ADID = 'D' and AIRB <> ' ') or (ADID = 'B' and ONBL <> ' ') ) and TIFD between '%s' and  '%s'",pcpParkstand,rpIntermediateLatestUse.pclRegn,pclTmpTime,pclCurrentTime);
+
+	strcpy(pcpWhere,pclWhere);
+  dbg(DEBUG,"<%s>Where Clause<%s>",pclFunc,pcpWhere);
+}
+
+static void FindEndUseBuildFullQuery(char *pcpSqlBuf, char *pcpWhere)
+{
+	char *pclFunc = "FindEndUseBuildFullQuery";
+	char pclSqlBuf[2048] = "\0";
+
+	memset(pcpSqlBuf,0,sizeof(pcpSqlBuf));
+	
+	sprintf(pclSqlBuf, "SELECT URNO,ADID,RKEY,REGN,STOA,STOD,TIFA,TIFD,PSTA,PSTD,ETOA,ETOD,ONBL,OFBL,TMOA FROM AFTTAB WHERE %s", pcpWhere);
+  
+  strcpy(pcpSqlBuf,pclSqlBuf);
+  dbg(DEBUG,"Full Query<%s>",pcpSqlBuf);
+}
+
+static void FindFinishUsageBuildWhereClause(TOWING rpIntermediateLatestUse,char *pcpWhere,char *pcpParkstand,int ipActualUseTime,int ipConfigEndShiftTime)
+{
+	char *pclFunc = "FindFinishUsageBuildWhereClause";
+	char pclCurrentTime[64] = "\0";
+	char pclWhere[2048] = "\0";
+	char pclTmpActualTime[TIMEFORMAT] = "\0";
+	char pclTmpConfigEndShiftTime[TIMEFORMAT] = "\0";
+	
+	memset(pcpWhere,0,sizeof(pcpWhere));
+	GetServerTimeStamp( "UTC", 1, 0, pclCurrentTime );
+	
+	strcpy(pclTmpActualTime,pclCurrentTime);
+	strcpy(pclTmpConfigEndShiftTime,pclCurrentTime);
+	
+	AddSecondsToCEDATime(pclTmpActualTime, -ipActualUseTime*60*60*24, 1);
+	AddSecondsToCEDATime(pclTmpConfigEndShiftTime, ipConfigEndShiftTime*60*60*24, 1);
+	
+	sprintf(pclWhere,"PSTD = '%s' and REGN = '%s' and TIFD between '%s' and  '%s' order by TIFD",pcpParkstand,rpIntermediateLatestUse.pclRegn,pclTmpActualTime,pclTmpConfigEndShiftTime);
+
+	strcpy(pcpWhere,pclWhere);
+  dbg(DEBUG,"<%s>Where Clause<%s>",pclFunc,pcpWhere);
+}
+
+static void FindFinishUsageBuildFullQuery(char *pcpSqlBuf,char *pcpWhere)
+{
+	char *pclFunc = "FindFinishUsageBuildFullQuery";
+	char pclSqlBuf[2048] = "\0";
+
+	memset(pcpSqlBuf,0,sizeof(pcpSqlBuf));
+	
+	sprintf(pclSqlBuf, "SELECT URNO,ADID,RKEY,REGN,STOA,STOD,TIFA,TIFD,PSTA,PSTD,ETOA,ETOD,ONBL,OFBL,TMOA FROM AFTTAB WHERE %s", pcpWhere);
+  
+  strcpy(pcpSqlBuf,pclSqlBuf);
+  dbg(DEBUG,"Full Query<%s>",pcpSqlBuf);
+}
+
+static void FindEST_SCHBuildWhereClause(char *pcpWhere,char *pcpParkstand,char *pcpSCHUseStartTime)
+{
+	char *pclFunc = "FindEST_SCHBuildWhereClause";
+	char pclCurrentTime[64] = "\0";
+	char pclWhere[2048] = "\0";
+	/*char pclTmpConfigEndShiftTime[TIMEFORMAT] = "\0";*/
+	
+	memset(pcpWhere,0,sizeof(pcpWhere));
+	GetServerTimeStamp( "UTC", 1, 0, pclCurrentTime );
+	
+	/*strcpy(pclTmpConfigEndShiftTime,pclCurrentTime);
+	
+	AddSecondsToCEDATime(pclTmpConfigEndShiftTime, ipConfigEndShiftTime*60*60*24, 1);*/
+	
+	sprintf(pclWhere,"PSTA = '%s' and FTYP NOT IN ('X','N') and (ADID in ('A','B') and (TIFA between '%s' and '%s') order by TIFA decs",pcpParkstand,pcpSCHUseStartTime,pclCurrentTime);
+
+	strcpy(pcpWhere,pclWhere);
+  dbg(DEBUG,"<%s>Where Clause<%s>",pclFunc,pcpWhere);
+}
+static void FindEST_SCHBuildFullQuery(char *pcpSqlBuf,char *pcpWhere)
+{
+	char *pclFunc = "FindEST_SCHBuildFullQuery";
+	char pclSqlBuf[2048] = "\0";
+
+	memset(pcpSqlBuf,0,sizeof(pcpSqlBuf));
+	
+	sprintf(pclSqlBuf, "SELECT URNO,ADID,RKEY,REGN,STOA,STOD,TIFA,TIFD,PSTA,PSTD,ETOA,ETOD,ONBL,OFBL,TMOA FROM AFTTAB WHERE %s", pcpWhere);
+  
+  strcpy(pcpSqlBuf,pclSqlBuf);
+  dbg(DEBUG,"Full Query<%s>",pcpSqlBuf);
+}
+
+static void FindEarliest_Start_LeaveBuildWhereClause(char *pcpParkstand,char *pcpWhere,int ipConfigEndShiftTime)
+{
+	char *pclFunc = "FindEarliest_Start_LeaveBuildWhereClause";
+	char pclCurrentTime[64] = "\0";
+	char pclWhere[2048] = "\0";
+	char pclTmpConfigEndShiftTime[TIMEFORMAT] = "\0";
+	
+	memset(pcpWhere,0,sizeof(pcpWhere));
+	GetServerTimeStamp( "UTC", 1, 0, pclCurrentTime );
+	
+	strcpy(pclTmpConfigEndShiftTime,pclCurrentTime);
+	
+	AddSecondsToCEDATime(pclTmpConfigEndShiftTime, ipConfigEndShiftTime*60*60*24, 1);
+	
+	sprintf(pclWhere,"((PSTA = '%s' and TIFA between '%s' and '%s')or (PSTD = '%s' and TIFD between '%s' and '%s')) and FTYP NOT IN ('X','N') ORDER BY DECODE(ADID,'A',TIFA,'D',TIFD,'B',TIFA)",pcpParkstand,pclCurrentTime,pclTmpConfigEndShiftTime,pcpParkstand,pclCurrentTime,pclTmpConfigEndShiftTime);
+
+	strcpy(pcpWhere,pclWhere);
+  dbg(DEBUG,"<%s>Where Clause<%s>",pclFunc,pcpWhere);
+}
+
+static void FindEarliest_Start_LeaveBuildFullQuery(char *pcpSqlBuf,char *pcpWhere)
+{
+	char *pclFunc = "FindEarliest_Start_LeaveBuildFullQuery";
+	char pclSqlBuf[2048] = "\0";
+
+	memset(pcpSqlBuf,0,sizeof(pcpSqlBuf));
+	
+	sprintf(pclSqlBuf, "SELECT URNO,ADID,RKEY,REGN,STOA,STOD,TIFA,TIFD,PSTA,PSTD,ETOA,ETOD,ONBL,OFBL,TMOA FROM AFTTAB WHERE %s", pcpWhere);
   
   strcpy(pcpSqlBuf,pclSqlBuf);
   dbg(DEBUG,"Full Query<%s>",pcpSqlBuf);

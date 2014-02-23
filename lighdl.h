@@ -1,4 +1,4 @@
-/*v1.5*/
+/*v1.6b*/
 
 /*static char pcgFieldList[1024] = "
 ARR.URNO AURNO,
@@ -20,6 +20,7 @@ DEP.OFBL OFBL,
 ARR.TIFA TIFA, 
 DEP.TIFD TIFD,
 ARR.AIRB AIRB";*/
+
 typedef struct 
 {
     BOOL ilInit;
@@ -73,3 +74,22 @@ typedef struct
 	char pclTifa[16];         /* Arrival TIFA */
   char pclTifd[16];         /* Departure TIFD  */
 }SENT_MSG;
+
+typedef struct
+{
+	char pclUrno[16];
+	char pclAdid[16];
+	char pclRkey[16];
+	char pclRegn[16];
+	char pclStoa[16];
+	char pclStod[16];
+	char pclEtoa[16];
+	char pclEtod[16];
+	char pclTifa[16];
+	char pclTifd[16];
+	char pclOnbl[16];
+	char pclOfbl[16];
+	char pclPsta[16];
+	char pclPstd[16];
+	char pclTmoa[16];	
+}TOWING;
