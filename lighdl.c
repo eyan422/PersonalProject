@@ -1,11 +1,7 @@
 #ifndef _DEF_mks_version
   #define _DEF_mks_version
   #include "ufisvers.h" /* sets UFIS_VERSION, must be done before mks_version */
-<<<<<<< HEAD
-  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/lighdl.c 1.6d 2/23/2014 11:35:04 AM Exp  $";
-=======
-  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/lighdl.c 1.6b 2/23/2014 11:35:04 AM Exp  $";
->>>>>>> 7700822d3bdb5c522c2d3b5afde4bbcc0953cd9a
+  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/lighdl.c 1.6h 2/23/2014 11:35:04 AM Exp  $";
 #endif /* _DEF_mks_version */
 
 /******************************************************************************/
@@ -57,6 +53,10 @@ static char sccs_hwecon[]="%Z% UFIS 4.5 (c) ABB AAT/I %M% %I% / %E% %U% / AKL";
 #include <cedatime.h>
 #include "goshdl.h"
 
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/time.h>
+
 #include <netdb.h>
 #include "tools.h"
 #include "helpful.h"
@@ -82,12 +82,8 @@ static char sccs_hwecon[]="%Z% UFIS 4.5 (c) ABB AAT/I %M% %I% / %E% %U% / AKL";
 #define DB_SUCCESS RC_SUCCESS
 #define POS_LEN	4
 #define NO_END	1
-<<<<<<< HEAD
 #define NO_START 2
 #define TEST
-=======
-#define No_Start 2
->>>>>>> 7700822d3bdb5c522c2d3b5afde4bbcc0953cd9a
 /******************************************************************************/
 /* External variables                                                         */
 /******************************************************************************/
@@ -251,10 +247,7 @@ static void BuildDepPart(SENT_MSG *rpSentMsg, char *pcpPstdNewData, char *pcpSto
 static void ShowMsgStruct(SENT_MSG rpSentMsg);
 static void PutDefaultValue(SENT_MSG *rpSentMsg);
 static int GetSeqFlight(SENT_MSG *rpSentMsg,char *pcpADFlag);
-<<<<<<< HEAD
 
-=======
->>>>>>> 7700822d3bdb5c522c2d3b5afde4bbcc0953cd9a
 /*static int RunSQL(char *pcpSelection, char *pcpData );*/
 static int UpdBuildWhereClause(SENT_MSG *rpSentMsg, char * pcpWhere, char * pcpADFlag);
 static int UpdBuildFullQuery(char *pcpSqlBuf, char *pcpWhere, char *pcpADFlag);
@@ -269,11 +262,7 @@ static void NTI_FlightBuildFullQuery(char *pcpSqlBuf,char *pcpWhere);
 static void NTI_FlightBuildWhereClause(char *pcpWhere);
 static void Upd_NTI_FlightBuildFullQuery(char *pcpSqlBuf,char *pcpWhere);
 static void Upd_NTI_FlightBuildWhereClause(char *pcpWhere,char *pcpUrno);
-<<<<<<< HEAD
 static int function_PST_USAGE(SENT_MSG *rpSentMsg, char *pcpParkstand, int ipConfigTime, char *pcpUrno);
-=======
-static int function_PST_USAGE(SENT_MSG *rpSentMsg, char *pcpParkstand, int ipConfigTime);
->>>>>>> 7700822d3bdb5c522c2d3b5afde4bbcc0953cd9a
 static void FindActualUseBuildWhereClause(char *pcpParkstand, char *pcpWhere, int ipConfigTime);
 static void FindActualUseBuildFullQuery(char *pcpSqlBuf, char *pcpWhere);
 static void FindEndUseBuildWhereClause(TOWING rpIntermediateLatestUse,char *pcpWhere,char *pcpParkstand,int ipActualUseTime);
@@ -284,11 +273,11 @@ static void FindEST_SCHBuildFullQuery(char *pcpSqlBuf,char *pcpWhere);
 static void FindEST_SCHBuildWhereClause(char *pcpWhere,char *pcpParkstand,char *pcpSCHUseStartTime);
 static void FindEarliest_Start_LeaveBuildFullQuery(char *pcpSqlBuf,char *pcpWhere);
 static void FindEarliest_Start_LeaveBuildWhereClause(char *pcpParkstand,char *pcpWhere,int ipConfigEndShiftTime);
-<<<<<<< HEAD
 static void Upd_ACK_FlightBuildWhereClause(char *pcpWhere,char *pclRecvBuffer);
 static void Upd_ACK_FlightBuildFullQuery(char *pcpSqlBuf,char *pcpWhere);
-=======
->>>>>>> 7700822d3bdb5c522c2d3b5afde4bbcc0953cd9a
+static void BuildEmptyData(char *pcpDataSent,char *pcpPosi);
+static void BuildSentDataDep(char *pcpDataSent,SENT_MSG rpSentMsg);
+static void BuildSentDataArr(char *pcpDataSent,SENT_MSG rpSentMsg);
 /******************************************************************************/
 /*                                                                            */
 /* The MAIN program                                                           */
@@ -585,7 +574,9 @@ static void GetAllValidSlotsBuildFullQuery(char *pcpSqlBuf,char *pcpWhere)
 	sprintf(pclSqlBuf, "SELECT distinct(PNAM) FROM PSTTAB %s", pcpWhere);
   
   strcpy(pcpSqlBuf,pclSqlBuf);
-  dbg(DEBUG,"<%s>Full Query<%s>",pclFunc,pcpSqlBuf);
+  
+  dbg(DEBUG,"*******************<%s>*******************",pclFunc);
+	dbg(DEBUG,"<%s>Full Query<%s>",pclFunc,pcpSqlBuf);
 }
 
 /*********************************************************************
@@ -906,7 +897,7 @@ static int HandleInternalData()
 	int ilNoEleField = 0;
 	int ilNoEleNewData = 0;
 	int ilNoEleOldData = 0;
-	
+	int ilFlag = 0;
 	char pclAdidOldData[2] = "\0";
 	char pclAdidNewData[2] = "\0";
 	char pclPstaNewData[16] = "\0";
@@ -1287,7 +1278,8 @@ static int HandleInternalData()
 				
 				if (strncmp(pclAdidNewData,"A",1) == 0)
 				{
-					GetSeqFlight(&rlSentMsg,"D");
+					ilRC = GetSeqFlight(&rlSentMsg,"D");
+					ilFlag = 1;
 				}
 				else if (strncmp(pclAdidNewData,"B",1) == 0)
 				{
@@ -1493,7 +1485,8 @@ static int HandleInternalData()
 				strncpy(rlSentMsg.pclTifa,pclRkey,strlen(pclTifa));
 				strncpy(rlSentMsg.pclTifd,pclRegn,strlen(pclTifd));
 
-				GetSeqFlight(&rlSentMsg,"A");
+				ilRC = GetSeqFlight(&rlSentMsg,"A");
+				ilFlag = 2;
 
 			}
 			else
@@ -1501,7 +1494,20 @@ static int HandleInternalData()
 				dbg(TRACE,"<%s> Unknown ADID<%s>",pclFunc,pclAdidNewData);
 			}
 			
-			BuildSentData(pclDataSent,rlSentMsg);
+			dbg(DEBUG,"Comes here");
+			
+			if(ilFlag == 1 && ilRC == RC_FAIL)
+			{
+				BuildSentDataArr(pclDataSent,rlSentMsg);
+			}
+			else if(ilFlag == 2 && ilRC == RC_FAIL)
+			{
+				BuildSentDataDep(pclDataSent,rlSentMsg);
+			}
+			else
+			{
+				BuildSentData(pclDataSent,rlSentMsg);
+			}
 			dbg(TRACE,"<%s> pclDataSent<%s>",pclFunc,pclDataSent);
 			
 			StoreSentData(pclDataSent,pclUrnoNewData,"Normal");
@@ -1611,12 +1617,8 @@ static int HandleInternalData()
 			
 			/*At this stage, the message struct is completed*/
 			strcpy(pcgCurSendData,pclDataT);
-<<<<<<< HEAD
 	    /*strcpy(pcgSendMsgId,pclSelection);*/
 	    strcpy(pcgSendMsgId,pclDataT);
-=======
-	    strcpy(pcgSendMsgId,pclSelection);
->>>>>>> 7700822d3bdb5c522c2d3b5afde4bbcc0953cd9a
 			
 	    for (ilCount = 0; ilCount < igReSendMax; ilCount++)
 	    {
@@ -2087,6 +2089,9 @@ static int GetConfig()
 		{
 			ilLen = fread(pcgSendAckFormat,1,1023,fplFp);
 			pcgSendAckFormat[ilLen] = '\0';
+			
+			dbg(DEBUG,"pcgSendAckFormat<%s>",pcgSendAckFormat);
+			
 			fclose(fplFp);
 		} 
 	}   
@@ -2334,20 +2339,66 @@ static int SendHeartbeatMsg(char *pcpLastTimeSendingTime)
 	char pclFunc[] = "SendHeratbeatMsg:";
 	char pclFormatTime[128]="\0";
 	char pclDataBuf[L_BUFF];
+	int ilNumOfZero = 0;
+	int ilCount = 0;
+	char pclBuffer[33] = "\0";
+	char pclMsgNoForHeartbeat[32] = "\0";
+	char pclCurrentTime[64] = "\0";
 	
 	memset(pclDataBuf,0,sizeof(pclDataBuf));
+	memset(pclMsgNoForHeartbeat,0,sizeof(pclMsgNoForHeartbeat));
+	/*FormatTime(pclFormatTime,pcpLastTimeSendingTime);*/
 	
-	FormatTime(pclFormatTime,pcpLastTimeSendingTime);
+	memset(pclCurrentTime,0x00,32);
+	GetServerTimeStamp( "UTC", 1, 0, pclCurrentTime );
+	
+	if(igMsgNoForHeartbeat > 0)
+	{
+		if(itoa(igMsgNoForHeartbeat,pclBuffer,10) == NULL)
+		{
+			dbg(TRACE,"<%s> pclBuffer is null",pclFunc);
+		}
+		else
+		{
+			if (strlen(pclBuffer) < POS_LEN)
+		  {    
+			  ilNumOfZero = POS_LEN - strlen(pclBuffer);
+			  for(ilCount = 0; ilCount < ilNumOfZero; ilCount++)
+			  {    
+			  	strcat(pclMsgNoForHeartbeat,"0");
+			  }
+			  strcat(pclMsgNoForHeartbeat,pclBuffer);    
+		  }
+		  else if (strlen(pclBuffer) == POS_LEN)
+		  {
+		  	strcpy(pclMsgNoForHeartbeat,pclBuffer); 
+		  }
+		  else
+		  {
+		  	strncpy(pclMsgNoForHeartbeat,pclBuffer,4);
+		  }
+		}
+	}
+	else if(igMsgNoForHeartbeat == 0)
+	{
+		strcpy(pclMsgNoForHeartbeat,"0000");
+	}
+	
+	dbg(DEBUG,"<%s> igMsgNoForHeartbeat<%d>pclBuffer<%s>pclMsgNoForHeartbeat<%s>",pclFunc,igMsgNoForHeartbeat,pclBuffer,pclMsgNoForHeartbeat);
 	
 	dbg(DEBUG,"<%s>========================= START-HeartBeat ===============================",pclFunc);
-	dbg(DEBUG,"<%s> Send Heartbeat Msg pclFormatTime<%s>",pclFunc,pclFormatTime);
+	/*dbg(DEBUG,"<%s> Send Heartbeat Msg pclFormatTime<%s>",pclFunc,pclFormatTime);*/
 	
-	if(igMsgNoForHeartbeat == 65535)
+	sprintf(pclDataBuf,pcgKeepAliveFormat,pclMsgNoForHeartbeat,"ufis",pclCurrentTime,pclCurrentTime);
+	
+	dbg(DEBUG,"<%s> Send Ack Msg MsgNoForACK - pclMsgNoForHeartbeat<%s> pclCurrentTime<%s> strlen(pclDataBuf) - 1 <%d>",pclFunc,pclMsgNoForHeartbeat,pclCurrentTime,strlen(pclDataBuf)-1);
+	
+	if(igMsgNoForHeartbeat == 9999)
   {    
 		igMsgNoForHeartbeat = 0;
   }            
   
-  sprintf(pclDataBuf,pcgKeepAliveFormat,pclFormatTime);
+  /*sprintf(pclDataBuf,pcgKeepAliveFormat,pclFormatTime);*/
   igMsgNoForHeartbeat++;
 	
 	ilRC = Send_data(igSock,pclDataBuf);
@@ -2500,10 +2551,11 @@ static int Receive_data(int ipSock,int ipTimeOut)
 	
 	static char	pclRecvBuffer[BUFF] = "\0";
   char pclCurrentTime[64] = "\0";
-
+	char pclTmp[16] = "\0";
   char *pclMsgIdEnd = NULL;
   char *pclMsgIdBgn = NULL;
   char pclTmpBuf[10] = "\0";
+  char *pclTmpHead = NULL;
 	char pclSqlBuf[2048] = "\0",pclSqlData[2048] = "\0",pclWhere[2048] = "\0";
   /*
   if (igSckWaitACK == TRUE)
@@ -2562,7 +2614,7 @@ static int Receive_data(int ipSock,int ipTimeOut)
       	  	dbg(TRACE,"<%s> Len<%d>Complete message<%s>",pclFunc,ilNo,pclRecvBuffer);
     	            
     	      /*if (strstr(pclRecvBuffer,"ack")!=0)*/
-    	      if (strstr(pclRecvBuffer,"STX_") != 0 && strstr(pclRecvBuffer,"ETX_") != 0)
+    	      if (strstr(pclRecvBuffer,"ACK_") != 0 && strstr(pclRecvBuffer,"ETX_") != 0)
 		        {
 			      	dbg(DEBUG,"<%s> Received the ack message",pclFunc);
               /*(void) FindMsgId(pclRecvBuffer, pclTmpBuf, 1);*/
@@ -2575,6 +2627,8 @@ static int Receive_data(int ipSock,int ipTimeOut)
               /*
               Assume the opponent echo the received message back for ack 
               */
+              
+              /*Later finish this part - fya*/
               if (strcmp(pclRecvBuffer, pcgSendMsgId) == 0)	
               {
               	igSckWaitACK = FALSE;
@@ -2608,11 +2662,18 @@ static int Receive_data(int ipSock,int ipTimeOut)
               	*/
               }
       	    }
-      	    else if(strstr(pclRecvBuffer,"heartbeat") == 0)
+      	    /*else if(strstr(pclRecvBuffer,"heartbeat") == 0)*/
+      	   	else if (strstr(pclRecvBuffer,"HBT_") != 0 && strstr(pclRecvBuffer,"ETX_") != 0)
       	   	{
-	            (void) FindMsgId(pclRecvBuffer, pclTmpBuf, 0);
-	            strcpy(pcgMsgNoForACK, pclTmpBuf);
-	            
+	            /*(void) FindMsgId(pclRecvBuffer, pclTmpBuf, 0);
+	            strcpy(pcgMsgNoForACK, pclTmpBuf);*/
+	            pclTmpHead = strstr(pclRecvBuffer,"HBT_");
+	            strncpy(pclTmp,pclTmpHead+4,4);
+	            dbg(DEBUG,"<%s> Received the hbt message<%s> The hbt message id is <%s>",pclFunc,pclRecvBuffer,pclTmp);
+	            if (atoi(pclTmp)==0)
+	            {
+	            	dbg(TRACE,"Received hbt message id <%s> is invalid number", pclTmp);
+	            }
               if (strcmp(pcgMsgNoForACK, "0") != 0 )
               {
               
@@ -2651,7 +2712,6 @@ static int Receive_data(int ipSock,int ipTimeOut)
 			break;
 	}
 	
-<<<<<<< HEAD
   if (igSckWaitACK == TRUE)
   {
      if (igSckTryACKCnt < igSckTryACKCMax)
@@ -2698,53 +2758,6 @@ static int Receive_data(int ipSock,int ipTimeOut)
       /*SendRST_Command();*/
   }
   return ilRC;
-=======
-    if (igSckWaitACK == TRUE)
-    {
-       if (igSckTryACKCnt < igSckTryACKCMax)
-       {
-            GetServerTimeStamp( "UTC", 1, 0, pclCurrentTime);
-            if (strcmp(pclCurrentTime, pcgSckWaitACKExpTime) >= 0)
-            {
-       		    dbg(DEBUG,"%s ++++++++++Resending count<%d>++++++++++++",pclFunc,igSckTryACKCnt);
-       		    dbg(DEBUG,"%s CurrentTime <%s>, ReSend ExpTime<%s>",pclFunc,pclCurrentTime,pcgSckWaitACKExpTime);
-       			
-                igSckTryACKCnt++; 
-                if (igSock <= 0)
-                   ilRC = Sockt_Reconnect();
-                   /*SendRST_Command();*/
-
-                if (igSock > 0)
-                {
-           	        dbg(DEBUG,"%s %d send data",pclFunc,__LINE__);
-	         	    	ilRC = Send_data(igSock,pcgCurSendData);
-       	        }
-                GetServerTimeStamp( "UTC", 1, 0, pcgSckWaitACKExpTime);
-                AddSecondsToCEDATime(pcgSckWaitACKExpTime, igSckACKCWait, 1);
-           }
-       }
-       else
-       {
-       		dbg(DEBUG,"%s ++++++++++Resending three times fail ++++++++++",pclFunc);
-       		
-           igSckWaitACK = FALSE;
-           igSckTryACKCnt = 0;
-           ilRC = SendCedaEvent(igModID_ConMgr,0,mod_name,"CEDA",pcgTwStart,pcgTwEnd,"NACK","","","","","","",NETOUT_NO_ACK);
-           ilRC = Sockt_Reconnect();
-           /*SendRST_Command();*/
-           GetServerTimeStamp( "UTC", 1, 0, pcgSckWaitACKExpTime);
-           AddSecondsToCEDATime(pcgSckWaitACKExpTime, igSckACKCWait, 1);
-       }
-    }
-    GetServerTimeStamp( "UTC", 1, 0, pclCurrentTime);
-    if (strcmp(pclCurrentTime, pcgRcvHeartBeatExpTime) >= 0)
-    {
-       dbg(DEBUG,"Current Time<%s>, Heartbeat Exp Rec Time<%s>", pclCurrentTime, pcgRcvHeartBeatExpTime);
-       (void) Sockt_Reconnect();
-        /*SendRST_Command();*/
-    }
-    return ilRC;
->>>>>>> 7700822d3bdb5c522c2d3b5afde4bbcc0953cd9a
 } /* end of Receive_data() */
 
 /* ***************************************************************** */
@@ -3137,16 +3150,52 @@ static int SendAckMsg()
 {
 	int ilRC = RC_SUCCESS;
 	char pclFunc[] = "SendAckMsg:";
+	int ilNumOfZero = 0;
+	int ilCount = 0;
 	char pclDataBuf[M_BUFF];
 	char pclFormatTime[128]="\0";
+	char pclCurrentTime[32]="\0";
 	char pclLastTimeSendingTime[64] = "\0";
 	
-	memset(pclDataBuf,0,sizeof(pclDataBuf));
+	char pclMsgNoForACK[8] = "\0";
 	
-	FormatTime(pclFormatTime,pclLastTimeSendingTime);
+	dbg(DEBUG,"<%s> pcgMsgNoForACK <%s>",pclFunc,pcgMsgNoForACK);
+	
+	/*For putting 0*/
+	if (strlen(pcgMsgNoForACK) < POS_LEN)
+  {    
+	  ilNumOfZero = POS_LEN - strlen(pcgMsgNoForACK);
+	  for(ilCount = 0; ilCount < ilNumOfZero; ilCount++)
+	  {    
+	  	strcat(pclMsgNoForACK,"0");
+	  }
+	  strcat(pclMsgNoForACK,pcgMsgNoForACK);    
+  }
+  else if (strlen(pcgMsgNoForACK) == POS_LEN)
+  {
+  	strcpy(pclMsgNoForACK,pcgMsgNoForACK); 
+  }
+  else
+  {
+  	strncpy(pclMsgNoForACK,pcgMsgNoForACK,4);
+  }
+	
+	
+	memset(pclDataBuf,0,sizeof(pclDataBuf));
+	memset(pclCurrentTime,0x00,32);
+	GetServerTimeStamp( "UTC", 1, 0, pclCurrentTime );
+	/*FormatTime(pclFormatTime,pclLastTimeSendingTime);*/
 
 	dbg(DEBUG,"<%s>========================= START-ACK ===============================",pclFunc);
-	dbg(DEBUG,"<%s> Send Ack Msg MsgNoForACK<%s>pclFormatTime<%s>",pclFunc,pcgMsgNoForACK,pclFormatTime);
+	/*dbg(DEBUG,"<%s> Send Ack Msg MsgNoForACK<%s>pclFormatTime<%s>",pclFunc,pcgMsgNoForACK,pclFormatTime);*/
+	
+	sprintf(pclDataBuf,pcgSendAckFormat,pclMsgNoForACK,"ufis",pclCurrentTime,pclCurrentTime);
+	
+	dbg(DEBUG,"<%s> Send Ack Msg MsgNoForACK - pcgMsgNoForACK<%s> pclMsgNoForACK<%s> pclCurrentTime<%s> strlen(pclDataBuf) - 1 <%d>",pclFunc,pcgMsgNoForACK,pclMsgNoForACK,pclCurrentTime,strlen(pclDataBuf)-1);
+	
+	igMsgNoForACK++;
+	
+	itoa(igMsgNoForACK,pcgMsgNoForACK,10);
 	
 	/*Frank 20130107 
 	if(igMsgNoForACK == 65535)
@@ -3157,7 +3206,6 @@ static int SendAckMsg()
 	igMsgNoForACK++;
 	sprintf(pclDataBuf,pcgSendAckFormat,igMsgNoForACK,pclFormatTime,pclFormatTime,igMsgNoForACK);
   */
-	sprintf(pclDataBuf,pcgSendAckFormat,pcgMsgNoForACK,pclFormatTime,pclFormatTime,pcgMsgNoForACK);
 
 	ilRC = Send_data(igSock,pclDataBuf);
 	dbg(DEBUG,"<%s>========================= END-ACK ================================",pclFunc);
@@ -3572,22 +3620,36 @@ static int SendBatchFlights(void)
 		get_real_item(pclParkstand,pclAllValidSlots,ilCount);
 		/*dbg(DEBUG,"<%s> ilCount<%d> pclParkstand<%s>",pclFunc,ilCount,pclParkstand);*/
 		
-		/* Get the latest actual use for parking stand before NOW_TIME*/
-<<<<<<< HEAD
-		function_PST_USAGE(&rlSentMsg,pclParkstand,igConfigTime, pclUrno);
-=======
-		function_PST_USAGE(&rlSentMsg,pclParkstand,igConfigTime);
->>>>>>> 7700822d3bdb5c522c2d3b5afde4bbcc0953cd9a
+		PutDefaultValue(&rlSentMsg);
 		
-		BuildSentData(pclDataSent,rlSentMsg);
+		/* Get the latest actual use for parking stand before NOW_TIME*/
+		ilRC = function_PST_USAGE(&rlSentMsg,pclParkstand,igConfigTime, pclUrno);
+		dbg(DEBUG,"<%s> Return From function_PST_USAGE",pclFunc);
+		
+		if(strlen(rlSentMsg.pclPosi) == 0)
+		{
+			dbg(DEBUG,"<%s> rlSentMsg.pclPosi<%s> is null", pclFunc, rlSentMsg.pclPosi);
+			continue;
+		}
+		
+		/* If the return value is NO_END, then this means the SendMsg is null */
+		switch(ilRC)
+		{
+			case NO_END:
+				dbg(DEBUG,"<%s> The return value is NO_END",pclFunc);
+				BuildEmptyData(pclDataSent,rlSentMsg.pclPosi);
+				break;
+			default:
+				BuildSentData(pclDataSent,rlSentMsg);
+				break;
+		}
 		
 		/*Send Batch Data*/
-<<<<<<< HEAD
 		dbg(TRACE,"<%s> pclDataSent<%s>",pclFunc,pclDataSent);
+		
 		StoreSentData(pclDataSent,pclUrno,"Normal");
+		
 		memset(pclUrno,0,sizeof(pclUrno));
-=======
->>>>>>> 7700822d3bdb5c522c2d3b5afde4bbcc0953cd9a
 	}
 }
 
@@ -3624,7 +3686,8 @@ static void BatBuildFullQuery(char *pcpSqlBuf,char *pcpWhere)
 	sprintf(pclSqlBuf, "SELECT %s FROM afttab arr, afttab dep WHERE %s",pcgFieldList, pcpWhere);
   
   strcpy(pcpSqlBuf,pclSqlBuf);
-  dbg(DEBUG,"Full Query<%s>",pcpSqlBuf);
+  dbg(DEBUG,"*******************<%s>*******************",pclFunc);
+	dbg(DEBUG,"<%s>Full Query<%s>",pclFunc,pcpSqlBuf);
 }
 
 static int TrimSpace( char *pcpInStr )
@@ -3958,54 +4021,286 @@ static int UpdBuildFullQuery(char *pcpSqlBuf, char *pcpWhere, char *pcpADFlag)
   }
   
   strcpy(pcpSqlBuf,pclSqlBuf);
-  dbg(DEBUG,"Full Query<%s>",pcpSqlBuf);
+  dbg(DEBUG,"*******************<%s>*******************",pclFunc);
+	dbg(DEBUG,"<%s>Full Query<%s>",pclFunc,pcpSqlBuf);
+}
+
+static void BuildEmptyData(char *pcpDataSent,char *pcpPosi)
+{
+	int ilCount = 0; 
+	int ilNumOfZero = 0;
+	char *pclFunc = "BuildEmptyData";
+	char pclDefauleValueTime[16] = "..............";
+	
+	memset(pcpDataSent,0,sizeof(pcpDataSent));
+	
+	strcat(pcpDataSent,pcgPrefix);
+	
+	if (strlen(pcpPosi) < POS_LEN)
+  {    
+	  ilNumOfZero = POS_LEN - strlen(pcpPosi);
+	  for(ilCount = 0; ilCount < ilNumOfZero; ilCount++)
+	  {    
+	          strcat(pcpDataSent,"0");
+	  }    
+  } 
+	strcat(pcpDataSent,pcpPosi);
+	
+	strcat(pcpDataSent,pclDefauleValueTime);
+	strcat(pcpDataSent,pclDefauleValueTime);
+	strcat(pcpDataSent,pclDefauleValueTime);
+	strcat(pcpDataSent,pclDefauleValueTime);
+	strcat(pcpDataSent,pclDefauleValueTime);
+	strcat(pcpDataSent,pclDefauleValueTime);
+	strcat(pcpDataSent,pclDefauleValueTime);
+	
+	strcat(pcpDataSent,pcgSuffix);
+	
+	dbg(TRACE,"<%s> Data Sent<%s> strlen(pcpDataSent)<%d>",pclFunc,pcpDataSent,strlen(pcpDataSent));
+}
+
+static void BuildSentDataDep(char *pcpDataSent,SENT_MSG rpSentMsg)
+{
+	int ilCount = 0; 
+	int ilNumOfZero = 0;
+	int ilRc = DB_SUCCESS;
+	char *pclFunc = "BuildSentDataArr";
+	char pclDefauleValueTime[16] = "..............";
+	
+	char pclDataSentWithSeparator[32] = "\0";
+	
+	strcat(pcpDataSent,pcgPrefix);
+	
+	if (strlen(rpSentMsg.pclPosi) < POS_LEN)
+  {    
+	  ilNumOfZero = POS_LEN - strlen(rpSentMsg.pclPosi);
+	  for(ilCount = 0; ilCount < ilNumOfZero; ilCount++)
+	  {    
+	  	strcat(pcpDataSent,"0");
+	  }    
+  }
+  
+  strcat(pcpDataSent,pclDefauleValueTime);
+  strcat(pcpDataSent,pclDefauleValueTime);
+  strcat(pcpDataSent,pclDefauleValueTime);
+  strcat(pcpDataSent,pclDefauleValueTime);
+  
+  if (strlen(rpSentMsg.pclStod) > 0)
+	{
+		strcat(pcpDataSent,rpSentMsg.pclStod);
+		strcat(pclDataSentWithSeparator,rpSentMsg.pclStod);
+		strcat(pclDataSentWithSeparator,pcgSeparator);
+	}
+	else
+	{
+		strcat(pcpDataSent,pclDefauleValueTime);
+	}
+	
+	if (strlen(rpSentMsg.pclEtod) > 0)
+	{
+		strcat(pcpDataSent,rpSentMsg.pclEtod);
+		strcat(pclDataSentWithSeparator,rpSentMsg.pclEtod);
+		strcat(pclDataSentWithSeparator,pcgSeparator);
+	}
+	else
+	{
+		strcat(pcpDataSent,pclDefauleValueTime);
+	}
+	
+	if (strlen(rpSentMsg.pclOfbl) > 0)
+	{
+		strcat(pcpDataSent,rpSentMsg.pclOfbl);
+		strcat(pclDataSentWithSeparator,rpSentMsg.pclOfbl);
+	}
+	else
+	{
+		strcat(pcpDataSent,pclDefauleValueTime);
+	}
+	/* Build suffix*/
+	strcat(pcpDataSent,pcgSuffix);
+	
+	dbg(TRACE,"<%s> Data Sent<%s> strlen(pcpDataSent)<%d>",pclFunc,pcpDataSent,strlen(pcpDataSent));
+	dbg(TRACE,"<%s> DataForCheck<%s> strlen(pclDataSentWithSeparator)<%d>",pclFunc,pclDataSentWithSeparator,strlen(pcpDataSent));
+}
+
+static void BuildSentDataArr(char *pcpDataSent,SENT_MSG rpSentMsg)
+{
+	int ilCount = 0; 
+	int ilNumOfZero = 0;
+	int ilRc = DB_SUCCESS;
+	char *pclFunc = "BuildSentDataArr";
+	char pclDefauleValueTime[16] = "..............";
+	
+	char pclDataSentWithSeparator[32] = "\0";
+	
+	strcat(pcpDataSent,pcgPrefix);
+	
+	if (strlen(rpSentMsg.pclPosi) < POS_LEN)
+  {    
+	  ilNumOfZero = POS_LEN - strlen(rpSentMsg.pclPosi);
+	  for(ilCount = 0; ilCount < ilNumOfZero; ilCount++)
+	  {    
+	          strcat(pcpDataSent,"0");
+	  }    
+  } 
+	strcat(pcpDataSent,rpSentMsg.pclPosi);
+	
+	
+	if (strlen(rpSentMsg.pclStoa) > 0)
+	{
+		strcat(pcpDataSent,rpSentMsg.pclStoa);
+	}
+	else
+	{
+		strcat(pcpDataSent,pclDefauleValueTime);
+	}
+	
+	if (strlen(rpSentMsg.pclEtoa) > 0)
+	{
+		strcat(pcpDataSent,rpSentMsg.pclEtoa);
+	}
+	else
+	{
+		strcat(pcpDataSent,pclDefauleValueTime);
+	}
+	
+	if (strlen(rpSentMsg.pclTmoa) > 0)
+	{
+		strcat(pcpDataSent,rpSentMsg.pclTmoa);
+	}
+	else
+	{
+		strcat(pcpDataSent,pclDefauleValueTime);
+	}
+	
+	if (strlen(rpSentMsg.pclOnbl) > 0)
+	{
+		strcat(pcpDataSent,rpSentMsg.pclOnbl);
+	}
+	else
+	{
+		strcat(pcpDataSent,pclDefauleValueTime);
+	}
+	
+	strcat(pcpDataSent,pclDefauleValueTime);
+	strcat(pcpDataSent,pclDefauleValueTime);
+	strcat(pcpDataSent,pclDefauleValueTime);
+	
+	strcat(pcpDataSent,pcgSuffix);
+	
+	dbg(TRACE,"<%s> Data Sent<%s> strlen(pcpDataSent)<%d>",pclFunc,pcpDataSent,strlen(pcpDataSent));
 }
 
 static void BuildSentData(char *pcpDataSent,SENT_MSG rpSentMsg)
 {
+	int ilCount = 0; 
+	int ilNumOfZero = 0;
 	int ilRc = DB_SUCCESS;
 	char *pclFunc = "BuildSentData";
+	char pclDefauleValueTime[16] = "..............";
+	
+	char pclDataSentWithSeparator[32] = "\0";
 	
 	memset(pcpDataSent,0,sizeof(pcpDataSent));
+	memset(pclDataSentWithSeparator,0,sizeof(pclDataSentWithSeparator));
 	
 	/* Build Prefix */
 	strcat(pcpDataSent,pcgPrefix);
+	strcat(pclDataSentWithSeparator,pcgPrefix);
 	
+	if (strlen(rpSentMsg.pclPosi) < POS_LEN)
+  {    
+          ilNumOfZero = POS_LEN - strlen(rpSentMsg.pclPosi);
+          for(ilCount = 0; ilCount < ilNumOfZero; ilCount++)
+          {    
+                  strcat(pcpDataSent,"0");
+          }    
+  } 
 	strcat(pcpDataSent,rpSentMsg.pclPosi);
-	strcat(pcpDataSent,pcgSeparator);
+	strcat(pclDataSentWithSeparator,rpSentMsg.pclPosi);
+	strcat(pclDataSentWithSeparator,pcgSeparator);
 	
-	strcat(pcpDataSent,rpSentMsg.pclStoa);
-	strcat(pcpDataSent,pcgSeparator);
+	if (strlen(rpSentMsg.pclStoa) > 0)
+	{
+		strcat(pcpDataSent,rpSentMsg.pclStoa);
+		strcat(pclDataSentWithSeparator,rpSentMsg.pclStoa);
+		strcat(pcpDataSent,pcgSeparator);
+	}
+	else
+	{
+		strcat(pcpDataSent,pclDefauleValueTime);
+	}
 	
-	strcat(pcpDataSent,rpSentMsg.pclEtoa);
-	strcat(pcpDataSent,pcgSeparator);
+	if (strlen(rpSentMsg.pclEtoa) > 0)
+	{
+		strcat(pcpDataSent,rpSentMsg.pclEtoa);
+		strcat(pclDataSentWithSeparator,rpSentMsg.pclEtoa);
+		strcat(pclDataSentWithSeparator,pcgSeparator);
+	}
+	else
+	{
+		strcat(pcpDataSent,pclDefauleValueTime);
+	}
 	
-	strcat(pcpDataSent,rpSentMsg.pclTmoa);
-	strcat(pcpDataSent,pcgSeparator);
-	 
-	strcat(pcpDataSent,rpSentMsg.pclOnbl);
-	strcat(pcpDataSent,pcgSeparator);
+	if (strlen(rpSentMsg.pclTmoa) > 0)
+	{
+		strcat(pcpDataSent,rpSentMsg.pclTmoa);
+		strcat(pclDataSentWithSeparator,rpSentMsg.pclTmoa);
+		strcat(pclDataSentWithSeparator,pcgSeparator);
+	}
+	else
+	{
+		strcat(pcpDataSent,pclDefauleValueTime);
+	}
 	
-	strcat(pcpDataSent,rpSentMsg.pclStod);
-	strcat(pcpDataSent,pcgSeparator);
+	if (strlen(rpSentMsg.pclOnbl) > 0)
+	{
+		strcat(pcpDataSent,rpSentMsg.pclOnbl);
+		strcat(pclDataSentWithSeparator,rpSentMsg.pclOnbl);
+		strcat(pclDataSentWithSeparator,pcgSeparator);
+	}
+	else
+	{
+		strcat(pcpDataSent,pclDefauleValueTime);
+	}
 	
-	strcat(pcpDataSent,rpSentMsg.pclEtod);
-	strcat(pcpDataSent,pcgSeparator);
+	if (strlen(rpSentMsg.pclStod) > 0)
+	{
+		strcat(pcpDataSent,rpSentMsg.pclStod);
+		strcat(pclDataSentWithSeparator,rpSentMsg.pclStod);
+		strcat(pclDataSentWithSeparator,pcgSeparator);
+	}
+	else
+	{
+		strcat(pcpDataSent,pclDefauleValueTime);
+	}
 	
-	strcat(pcpDataSent,rpSentMsg.pclOfbl);
+	if (strlen(rpSentMsg.pclEtod) > 0)
+	{
+		strcat(pcpDataSent,rpSentMsg.pclEtod);
+		strcat(pclDataSentWithSeparator,rpSentMsg.pclEtod);
+		strcat(pclDataSentWithSeparator,pcgSeparator);
+	}
+	else
+	{
+		strcat(pcpDataSent,pclDefauleValueTime);
+	}
 	
+	if (strlen(rpSentMsg.pclOfbl) > 0)
+	{
+		strcat(pcpDataSent,rpSentMsg.pclOfbl);
+		strcat(pclDataSentWithSeparator,rpSentMsg.pclOfbl);
+	}
+	else
+	{
+		strcat(pcpDataSent,pclDefauleValueTime);
+	}
 	/* Build suffix*/
 	strcat(pcpDataSent,pcgSuffix);
-	/*
-	dbg(DEBUG,"<%s> POS<%s>",pclFunc,rpSentMsg.pclPosi);
-  dbg(DEBUG,"<%s> STA<%s>",pclFunc,rpSentMsg.pclStoa);
-	dbg(DEBUG,"<%s> ETA<%s>",pclFunc,rpSentMsg.pclEtoa);
-  dbg(DEBUG,"<%s> TMO<%s>",pclFunc,rpSentMsg.pclTmoa);
-  dbg(DEBUG,"<%s> ONB<%s>",pclFunc,rpSentMsg.pclOnbl);
-  dbg(DEBUG,"<%s> STD<%s>",pclFunc,rpSentMsg.pclStod);
-  dbg(DEBUG,"<%s> ETD<%s>",pclFunc,rpSentMsg.pclEtod);
-  dbg(DEBUG,"<%s> OFB<%s>",pclFunc,rpSentMsg.pclOfbl);
-  */
+	strcat(pclDataSentWithSeparator,pcgSuffix);
+	
+	dbg(TRACE,"<%s> Data Sent<%s> strlen(pcpDataSent)<%d>",pclFunc,pcpDataSent,strlen(pcpDataSent));
+	dbg(TRACE,"<%s> DataForCheck<%s> strlen(pclDataSentWithSeparator)<%d>",pclFunc,pclDataSentWithSeparator,strlen(pcpDataSent));
 }
 
 static int StoreSentData(char *pcpDataSent,char *pcpUaft,char *pcpFlagTowing)
@@ -4059,11 +4354,7 @@ static int StoreSentData(char *pcpDataSent,char *pcpUaft,char *pcpFlagTowing)
   if( strcmp(pcpFlagTowing,"Towing") !=0 )
   {
   	strcpy(pclFieldList,"URNO,UAFT,TYPE,DATA,STAT,TRIT,CDAT");
-<<<<<<< HEAD
 		sprintf(pclDataList,"%s,'%s','%s','%s','%s','%s','%s'",pclUrno,pcpUaft,"NormalFlight",pcpDataSent,"R","",pclCurrentTime);
-=======
-		sprintf(pclDataList,"%s,'%s','%s','%s','%s','%s','%s'",pclUrno,pcpUaft,"NormalFlight",pcpDataSent,"","",pclCurrentTime);
->>>>>>> 7700822d3bdb5c522c2d3b5afde4bbcc0953cd9a
 	}
 	else
 	{
@@ -4117,7 +4408,8 @@ static void SearchTowingFlightBuildFullQuery(char *pcpSqlBuf, char *pcpWhere)
 	sprintf(pclSqlBuf, "SELECT URNO,ADID,RKEY,REGN,STOA,STOD,ETOA,ETOD,TIFA,TIFD,ONBL,OFBL,PSTA,PSTD,TMOA FROM AFTTAB WHERE %s", pcpWhere);
 	
 	strcpy(pcpSqlBuf,pclSqlBuf);
-	dbg(DEBUG,"Full Query<%s>",pcpSqlBuf);
+	dbg(DEBUG,"*******************<%s>*******************",pclFunc);
+	dbg(DEBUG,"<%s>Full Query<%s>",pclFunc,pcpSqlBuf);
 }
 
 static void NTI_FlightBuildWhereClause(char *pcpWhere)
@@ -4147,7 +4439,8 @@ static void NTI_FlightBuildFullQuery(char *pcpSqlBuf,char *pcpWhere)
 	sprintf(pclSqlBuf, "SELECT URNO,UAFT,TYPE,DATA,STAT,TRIT,CDAT FROM FYATAB WHERE %s", pcpWhere);
 	
 	strcpy(pcpSqlBuf,pclSqlBuf);
-	dbg(DEBUG,"Full Query<%s>",pcpSqlBuf);
+	dbg(DEBUG,"*******************<%s>*******************",pclFunc);
+	dbg(DEBUG,"<%s>Full Query<%s>",pclFunc,pcpSqlBuf);
 }
 
 static void Upd_NTI_FlightBuildWhereClause(char *pcpWhere,char *pcpUrno)
@@ -4176,14 +4469,11 @@ static void Upd_NTI_FlightBuildFullQuery(char *pcpSqlBuf,char *pcpWhere)
 	sprintf(pclSqlBuf, "UPDATE FYATAB SET STAT = 'S' WHERE %s", pcpWhere);
 	
 	strcpy(pcpSqlBuf,pclSqlBuf);
-	dbg(DEBUG,"Full Query<%s>",pcpSqlBuf);
+	dbg(DEBUG,"*******************<%s>*******************",pclFunc);
+	dbg(DEBUG,"<%s>Full Query<%s>",pclFunc,pcpSqlBuf);
 }
 
-<<<<<<< HEAD
 static int function_PST_USAGE(SENT_MSG *rpSentMsg, char *pcpParkstand, int ipConfigTime, char *pcpUrno)
-=======
-static int function_PST_USAGE(SENT_MSG *rpSentMsg, char *pcpParkstand, int ipConfigTime)
->>>>>>> 7700822d3bdb5c522c2d3b5afde4bbcc0953cd9a
 {
 	char * pclFunc = "function_PST_USAGE";
 	int  ilRC = RC_SUCCESS;
@@ -4195,11 +4485,7 @@ static int function_PST_USAGE(SENT_MSG *rpSentMsg, char *pcpParkstand, int ipCon
 	static int ilFlagEnd_Use_found = TRUE;
 
 	
-<<<<<<< HEAD
 	char pclSCH_UseStartTime[TIMEFORMAT] = "\0";
-=======
-	char pclSCHUseStartTime[TIMEFORMAT] = "\0";
->>>>>>> 7700822d3bdb5c522c2d3b5afde4bbcc0953cd9a
 	
 	char pclUrno[16] = "\0";
 	char pclAdid[16] = "\0";
@@ -4233,7 +4519,6 @@ static int function_PST_USAGE(SENT_MSG *rpSentMsg, char *pcpParkstand, int ipCon
 	ilRC = RunSQL(pclSqlBuf,pclSqlData);
 	if (ilRC != DB_SUCCESS) 
 	{
-<<<<<<< HEAD
   	dbg(DEBUG, "<%s> Not found in AFTTAB, line<%d>", pclFunc,__LINE__);
   	/*return RC_FAIL;*/
 	}
@@ -4252,23 +4537,6 @@ static int function_PST_USAGE(SENT_MSG *rpSentMsg, char *pcpParkstand, int ipCon
 			/* The parking stand currently is occupied by one flight, so let us find out its actual end use time
 			   To find the actual end use for the parking stand */
 			
-=======
-  	dbg(DEBUG, "<%s> Not found in AFTTAB", pclFunc);
-  	return RC_FAIL;
-	}
-
-	switch(ilRC)
-	{
-		case NOTFOUND:
-			ilFlagUseEST_SCHStartUse = TRUE;
-
-			strcpy(pclSCHUseStartTime,pcgCurrentTime);
-			AddSecondsToCEDATime(pclSCHUseStartTime, -igConfigShift*60*60*24, 1);
-			break;
-		default:
-			/*To find the actual end use for the parking stand*/
-
->>>>>>> 7700822d3bdb5c522c2d3b5afde4bbcc0953cd9a
 			/*
 			URNO,ADID,RKEY,REGN,
 			STOA,STOD,TIFA,TIFD,
@@ -4306,7 +4574,6 @@ static int function_PST_USAGE(SENT_MSG *rpSentMsg, char *pcpParkstand, int ipCon
 			strcpy(rlIntermediateLatestUse.pclOnbl,pclOnbl);
 			strcpy(rlIntermediateLatestUse.pclOfbl,pclOfbl);
 			strcpy(rlIntermediateLatestUse.pclTmoa,pclTmoa);
-<<<<<<< HEAD
 			
 			dbg(DEBUG,"<%s>line <%d>",pclFunc,__LINE__);
 			dbg(DEBUG,"<%s>pclUrno<%s>",pclFunc,pclUrno);
@@ -4325,42 +4592,19 @@ static int function_PST_USAGE(SENT_MSG *rpSentMsg, char *pcpParkstand, int ipCon
 			dbg(DEBUG,"<%s>pclOfbl<%s>",pclFunc,pclOfbl);
 			dbg(DEBUG,"<%s>pclTmoa<%s>",pclFunc,pclTmoa);
 			
-=======
-
->>>>>>> 7700822d3bdb5c522c2d3b5afde4bbcc0953cd9a
 			strcpy(rpSentMsg->pclPosi,pcpParkstand);
 			strcpy(rpSentMsg->pclStoa,pclStoa);
 			strcpy(rpSentMsg->pclEtoa,pclEtoa);
 			strcpy(rpSentMsg->pclTmoa,pclTmoa);
 			strcpy(rpSentMsg->pclOnbl,pclOnbl);
-<<<<<<< HEAD
 			
 			strcpy(pcpUrno,pclUrno);
 
 			/* To find the actual end use for the parking stand */
-=======
-
-			/*To find the actual end use for the parking stand*/
->>>>>>> 7700822d3bdb5c522c2d3b5afde4bbcc0953cd9a
 			FindEndUseBuildWhereClause(rlIntermediateLatestUse,pclWhere,pcpParkstand,igActualUseTime);
 			FindEndUseBuildFullQuery(pclSqlBuf,pclWhere);
 
 			memset(pclSqlData,0,sizeof(pclSqlData));
-
-			ilRC = RunSQL(pclSqlBuf,pclSqlData);
-			if (ilRC != DB_SUCCESS) 
-			{
-<<<<<<< HEAD
-		  	dbg(DEBUG, "<%s> Not found in AFTTAB, line<%d>", pclFunc,__LINE__);
-		  	/*return RC_FAIL;*/
-			}
-			
-=======
-		  	dbg(DEBUG, "<%s> Not found in AFTTAB", pclFunc);
-		  	return RC_FAIL;
-			}
-
->>>>>>> 7700822d3bdb5c522c2d3b5afde4bbcc0953cd9a
 			memset(pclUrno,0,sizeof(pclUrno));
 			memset(pclAdid,0,sizeof(pclAdid));
 			memset(pclRkey,0,sizeof(pclRkey));
@@ -4376,30 +4620,27 @@ static int function_PST_USAGE(SENT_MSG *rpSentMsg, char *pcpParkstand, int ipCon
 			memset(pclOnbl,0,sizeof(pclOnbl));
 			memset(pclOfbl,0,sizeof(pclOfbl));
 			memset(pclTmoa,0,sizeof(pclTmoa));
+
+			ilRC = RunSQL(pclSqlBuf,pclSqlData);
+			if (ilRC != DB_SUCCESS) 
+			{
+		  	dbg(DEBUG, "<%s> Not found in AFTTAB, line<%d>", pclFunc,__LINE__);
+		  	/*return RC_FAIL;*/
+			}
 			
 			switch(ilRC)
 			{
 				case NOT_FOUND:
-<<<<<<< HEAD
 					/* 1 Latest actual start use found
 						 2 Actual end use not found
 						 3 Which means the actual use flight has no actual end use time in this parking stand, so finding out this flight's next nearest end use time be below query  				
 					*/
-=======
-
->>>>>>> 7700822d3bdb5c522c2d3b5afde4bbcc0953cd9a
 					/* To find finish useage for This aircraft in this Park stand */
 					FindFinishUsageBuildWhereClause(rlIntermediateLatestUse,pclWhere,pcpParkstand,igActualUseTime,igConfigEndShiftTime);
 					FindFinishUsageBuildFullQuery(pclSqlBuf,pclWhere);
-
-					ilRC = RunSQL(pclSqlBuf,pclSqlData);
-					if (ilRC != DB_SUCCESS) 
-					{
-<<<<<<< HEAD
-				  	dbg(DEBUG, "<%s> Not found in AFTTAB, line<%d>", pclFunc,__LINE__);
-				  	return RC_FAIL;
-					}
-					/*
+					
+					memset(pclSqlData,0,sizeof(pclSqlData));
+			
 					memset(pclUrno,0,sizeof(pclUrno));
 					memset(pclAdid,0,sizeof(pclAdid));
 					memset(pclRkey,0,sizeof(pclRkey));
@@ -4415,13 +4656,13 @@ static int function_PST_USAGE(SENT_MSG *rpSentMsg, char *pcpParkstand, int ipCon
 					memset(pclOnbl,0,sizeof(pclOnbl));
 					memset(pclOfbl,0,sizeof(pclOfbl));
 					memset(pclTmoa,0,sizeof(pclTmoa));
-					*/
-=======
-				  	dbg(DEBUG, "<%s> Not found in AFTTAB", pclFunc);
+
+					ilRC = RunSQL(pclSqlBuf,pclSqlData);
+					if (ilRC != DB_SUCCESS) 
+					{
+				  	dbg(DEBUG, "<%s> Not found in AFTTAB, line<%d>", pclFunc,__LINE__);
 				  	return RC_FAIL;
 					}
-
->>>>>>> 7700822d3bdb5c522c2d3b5afde4bbcc0953cd9a
 					/*
 					URNO,ADID,RKEY,REGN,
 					STOA,STOD,TIFA,TIFD,
@@ -4444,7 +4685,6 @@ static int function_PST_USAGE(SENT_MSG *rpSentMsg, char *pcpParkstand, int ipCon
 					get_fld(pclSqlData,FIELD_14,STR,20,pclOfbl); TrimSpace(pclOfbl);
 					get_fld(pclSqlData,FIELD_15,STR,20,pclTmoa); TrimSpace(pclTmoa);
 					
-<<<<<<< HEAD
 					dbg(DEBUG,"<%s>line <%d>",pclFunc,__LINE__);
 					dbg(DEBUG,"<%s>pclUrno<%s>",pclFunc,pclUrno);
 					dbg(DEBUG,"<%s>pclAdid<%s>",pclFunc,pclAdid);
@@ -4478,20 +4718,6 @@ static int function_PST_USAGE(SENT_MSG *rpSentMsg, char *pcpParkstand, int ipCon
 
 					strcpy(pclSCH_UseStartTime,pcgCurrentTime);
 					AddSecondsToCEDATime(pclSCH_UseStartTime, -igConfigShift*60*60*24, 1);
-=======
-					strcpy(rpSentMsg->pclStod,pclStod);
-					strcpy(rpSentMsg->pclEtod,pclEtod);
-					strcpy(rpSentMsg->pclOfbl,pclOfbl);
-
-					return 3;
-					break;
-				default:
-					ilFlagUseEST_SCHStartUse = TRUE;
-
-					strcpy(pclSCHUseStartTime,pcgCurrentTime);
-					AddSecondsToCEDATime(pclSCHUseStartTime, -igConfigShift*60*60*24, 1);
-					break;
->>>>>>> 7700822d3bdb5c522c2d3b5afde4bbcc0953cd9a
 					break;
 			}
 			break;
@@ -4499,22 +4725,17 @@ static int function_PST_USAGE(SENT_MSG *rpSentMsg, char *pcpParkstand, int ipCon
 	
 	if (ilFlagUseEST_SCHStartUse == TRUE)
 	{
-<<<<<<< HEAD
 		/* Since in the current parking stand, the actual start and end use time is found, then the SentMsg should be filled by following schedule start and end use time*/
 		
 		memset(pcpUrno,0,sizeof(pcpUrno));
 		memset(rpSentMsg,0,sizeof(rpSentMsg));
 		
+		strcpy(rpSentMsg->pclPosi,pcpParkstand);
+		
 		FindEST_SCHBuildWhereClause(pclWhere,pcpParkstand,pclSCH_UseStartTime);
 		FindEST_SCHBuildFullQuery(pclSqlBuf,pclWhere);
 
 		memset(pclSqlData,0,sizeof(pclSqlData));
-		ilRC = RunSQL(pclSqlBuf,pclSqlData);
-		if (ilRC != DB_SUCCESS) 
-		{
-	  	dbg(DEBUG, "<%s> Not found in AFTTAB, line<%d>", pclFunc,__LINE__);
-	  	/*return RC_FAIL;*/
-		}
 		
 		memset(pclUrno,0,sizeof(pclUrno));
 		memset(pclAdid,0,sizeof(pclAdid));
@@ -4531,35 +4752,41 @@ static int function_PST_USAGE(SENT_MSG *rpSentMsg, char *pcpParkstand, int ipCon
 		memset(pclOnbl,0,sizeof(pclOnbl));
 		memset(pclOfbl,0,sizeof(pclOfbl));
 		memset(pclTmoa,0,sizeof(pclTmoa));
-=======
-		FindEST_SCHBuildWhereClause(pclWhere,pcpParkstand,pclSCHUseStartTime);
-		FindEST_SCHBuildFullQuery(pclSqlBuf,pclWhere);
-
-		memset(pclSqlData,0,sizeof(pclSqlData));
-
+		
 		ilRC = RunSQL(pclSqlBuf,pclSqlData);
 		if (ilRC != DB_SUCCESS) 
 		{
-	  	dbg(DEBUG, "<%s> Not found in AFTTAB", pclFunc);
-	  	return RC_FAIL;
+	  	dbg(DEBUG, "<%s> Not found in AFTTAB, line<%d>", pclFunc,__LINE__);
+	  	/*return RC_FAIL;*/
 		}
->>>>>>> 7700822d3bdb5c522c2d3b5afde4bbcc0953cd9a
 
 		switch(ilRC)
 		{
-			case NOT_FOUND:
+			case NOTFOUND:
 				FindEarliest_Start_LeaveBuildWhereClause(pcpParkstand,pclWhere,igConfigEndShiftTime);
 				FindEarliest_Start_LeaveBuildFullQuery(pclSqlBuf,pclWhere);
+				
+				memset(pclUrno,0,sizeof(pclUrno));
+				memset(pclAdid,0,sizeof(pclAdid));
+				memset(pclRkey,0,sizeof(pclRkey));
+				memset(pclRkey,0,sizeof(pclRegn));
+				memset(pclStoa,0,sizeof(pclStoa));
+				memset(pclStod,0,sizeof(pclStod));
+				memset(pclTifa,0,sizeof(pclTifa));
+				memset(pclTifd,0,sizeof(pclTifd));
+				memset(pclPsta,0,sizeof(pclPsta));
+				memset(pclPstd,0,sizeof(pclPstd));
+				memset(pclEtoa,0,sizeof(pclEtoa));
+				memset(pclEtod,0,sizeof(pclEtod));
+				memset(pclOnbl,0,sizeof(pclOnbl));
+				memset(pclOfbl,0,sizeof(pclOfbl));
+				memset(pclTmoa,0,sizeof(pclTmoa));
 
 				ilRC = RunSQL(pclSqlBuf,pclSqlData);
 				if (ilRC != DB_SUCCESS) 
 				{
-<<<<<<< HEAD
 			  	dbg(DEBUG, "<%s> Not found in AFTTAB, line<%d>", pclFunc,__LINE__);
-=======
-			  	dbg(DEBUG, "<%s> Not found in AFTTAB", pclFunc);
->>>>>>> 7700822d3bdb5c522c2d3b5afde4bbcc0953cd9a
-			  	return RC_FAIL;
+			  	/*return RC_FAIL;*/
 				}
 
 				/*get_real_fld(pclAdid);
@@ -4568,31 +4795,22 @@ static int function_PST_USAGE(SENT_MSG *rpSentMsg, char *pcpParkstand, int ipCon
 				get_real_fld(pclPosd);*/
 				switch(ilRC)
 				{
-					case NOT_FOUND:
-<<<<<<< HEAD
+					case NOTFOUND:
+						
+						dbg(DEBUG,"NOTFOUND++++++++++");
+						
 						/* There is no schedule start use flight, so return with NO_END which means the SendMsg is null */
+						
+						strcpy(rpSentMsg->pclPosi,pcpParkstand);
+						
 						ilFlagEnd_Use_found = NO_END;
 						return ilFlagEnd_Use_found;
 						
 						break;
 					default:
-						/* FOUND */
+						/* FOUND 
 						
-						memset(pclUrno,0,sizeof(pclUrno));
-						memset(pclAdid,0,sizeof(pclAdid));
-						memset(pclRkey,0,sizeof(pclRkey));
-						memset(pclRkey,0,sizeof(pclRegn));
-						memset(pclStoa,0,sizeof(pclStoa));
-						memset(pclStod,0,sizeof(pclStod));
-						memset(pclTifa,0,sizeof(pclTifa));
-						memset(pclTifd,0,sizeof(pclTifd));
-						memset(pclPsta,0,sizeof(pclPsta));
-						memset(pclPstd,0,sizeof(pclPstd));
-						memset(pclEtoa,0,sizeof(pclEtoa));
-						memset(pclEtod,0,sizeof(pclEtod));
-						memset(pclOnbl,0,sizeof(pclOnbl));
-						memset(pclOfbl,0,sizeof(pclOfbl));
-						memset(pclTmoa,0,sizeof(pclTmoa));
+						dbg(DEBUG,"FOUND++++++++++");*/
 						
 						get_fld(pclSqlData,FIELD_1,STR,20,pclUrno); TrimSpace(pclUrno); 
 						get_fld(pclSqlData,FIELD_2,STR,20,pclAdid); TrimSpace(pclAdid);
@@ -4653,43 +4871,13 @@ static int function_PST_USAGE(SENT_MSG *rpSentMsg, char *pcpParkstand, int ipCon
 		   				ilFlagStart_use_found = NO_START;
 		   				ilFlagEnd_Use_found = TRUE;
 		   				return ilFlagStart_use_found;
-=======
-						ilFlagEnd_Use_found = NO_END;
-						break;
-					default:
-						if ((strcmp(pclAdid,"A") == 0 || strcmp(pclAdid,"B")) || strcmp(pclPosa,pcpParkstand)==0)
-						{
-              ilFlagStart_use_found = TRUE;
-            	ilFlagFind_Next_Seq_flight = TRUE;
-	          }
-	          else if (strcmp(pclPstd,pcpParkstand)==0)
-				   	{
-		   				ilFlagStart_use_found = No_Start;
-		   				ilFlagEnd_Use_found = TRUE;
->>>>>>> 7700822d3bdb5c522c2d3b5afde4bbcc0953cd9a
 						}
 						break;
 				}
 				break;
 			default:
-<<<<<<< HEAD
 				/*FOUND*/
 				/* The latest shedule start use time is found, then fill the SentMsg with arrival parts */	
-				memset(pclUrno,0,sizeof(pclUrno));
-				memset(pclAdid,0,sizeof(pclAdid));
-				memset(pclRkey,0,sizeof(pclRkey));
-				memset(pclRkey,0,sizeof(pclRegn));
-				memset(pclStoa,0,sizeof(pclStoa));
-				memset(pclStod,0,sizeof(pclStod));
-				memset(pclTifa,0,sizeof(pclTifa));
-				memset(pclTifd,0,sizeof(pclTifd));
-				memset(pclPsta,0,sizeof(pclPsta));
-				memset(pclPstd,0,sizeof(pclPstd));
-				memset(pclEtoa,0,sizeof(pclEtoa));
-				memset(pclEtod,0,sizeof(pclEtod));
-				memset(pclOnbl,0,sizeof(pclOnbl));
-				memset(pclOfbl,0,sizeof(pclOfbl));
-				memset(pclTmoa,0,sizeof(pclTmoa));
 					
 				get_fld(pclSqlData,FIELD_1,STR,20,pclUrno); TrimSpace(pclUrno); 
 				get_fld(pclSqlData,FIELD_2,STR,20,pclAdid); TrimSpace(pclAdid);
@@ -4732,25 +4920,16 @@ static int function_PST_USAGE(SENT_MSG *rpSentMsg, char *pcpParkstand, int ipCon
 				strcpy(rpSentMsg->pclTmoa,pclTmoa);
 				strcpy(rpSentMsg->pclOnbl,pclOnbl);
 				
-=======
->>>>>>> 7700822d3bdb5c522c2d3b5afde4bbcc0953cd9a
 				ilFlagFindNetSeqFlight = TRUE;
 				break;
 		}
 
 		if (ilFlagFind_Next_Seq_flight == TRUE)
 		{
-<<<<<<< HEAD
 			/* At this stage, the SentMsg is filled completely*/
 			GetSeqFlight(rpSentMsg,"D");
 		}
 	}
-=======
-			GetSeqFlight(rpSentMsg,"D");
-		}
-	}
-	
->>>>>>> 7700822d3bdb5c522c2d3b5afde4bbcc0953cd9a
 }
 
 static void FindActualUseBuildWhereClause(char *pcpParkstand, char *pcpWhere, int ipConfigTime)
@@ -4763,11 +4942,7 @@ static void FindActualUseBuildWhereClause(char *pcpParkstand, char *pcpWhere, in
 	strcpy(pclTmpTime,pcgCurrentTime);
 	AddSecondsToCEDATime(pclTmpTime, -ipConfigTime*60*60*24, 1);
 
-<<<<<<< HEAD
 	sprintf(pclWhere,"PSTA = '%s' and FTYP NOT IN ('X','N') and ADID in ('A','B') and (ONBL between '%s' and '%s') order by ONBL desc",pcpParkstand,pclTmpTime,pcgCurrentTime);
-=======
-	sprintf(pclWhere,"PSTA = '%s' and FTYP NOT IN ('X','N') and ADID in ('A','B') and (ONBL between '%s' and '%s') order by ONBL decs",pcpParkstand,pclTmpTime,pcgCurrentTime);
->>>>>>> 7700822d3bdb5c522c2d3b5afde4bbcc0953cd9a
 
 	strcpy(pcpWhere,pclWhere);
   dbg(DEBUG,"<%s>Where Clause<%s>",pclFunc,pcpWhere);
@@ -4786,11 +4961,8 @@ static void FindActualUseBuildFullQuery(char *pcpSqlBuf, char *pcpWhere)
 	/*pclTmoa*/
   
   strcpy(pcpSqlBuf,pclSqlBuf);
-<<<<<<< HEAD
-  dbg(DEBUG,"<%s>Full Query<%s>",pclFunc,pcpSqlBuf);
-=======
-  dbg(DEBUG,"Full Query<%s>",pcpSqlBuf);
->>>>>>> 7700822d3bdb5c522c2d3b5afde4bbcc0953cd9a
+  dbg(DEBUG,"*******************<%s>*******************",pclFunc);
+	dbg(DEBUG,"<%s>Full Query<%s>",pclFunc,pcpSqlBuf);
 }
 
 static void FindEndUseBuildWhereClause(TOWING rpIntermediateLatestUse,char *pcpWhere,char *pcpParkstand,int ipActualUseTime)
@@ -4806,11 +4978,7 @@ static void FindEndUseBuildWhereClause(TOWING rpIntermediateLatestUse,char *pcpW
 	strcpy(pclTmpTime,pclCurrentTime);
 	AddSecondsToCEDATime(pclTmpTime, -ipActualUseTime*60*60*24, 1);
 	
-<<<<<<< HEAD
 	sprintf(pclWhere,"PSTD = '%s' and REGN = '%s' and ((ADID = 'D' and AIRB <> ' ') or (ADID = 'B' and ONBL <> ' ') ) and TIFD between '%s' and  '%s'",pcpParkstand,rpIntermediateLatestUse.pclRegn,pclTmpTime,pclCurrentTime);
-=======
-	sprintf(pclWhere,"PSTD = '%s' and REGN = '%s' and (((ADID = 'D' and AIRB <> ' ') or (ADID = 'B' and ONBL <> ' ') ) and TIFD between '%s' and  '%s'",pcpParkstand,rpIntermediateLatestUse.pclRegn,pclTmpTime,pclCurrentTime);
->>>>>>> 7700822d3bdb5c522c2d3b5afde4bbcc0953cd9a
 
 	strcpy(pcpWhere,pclWhere);
   dbg(DEBUG,"<%s>Where Clause<%s>",pclFunc,pcpWhere);
@@ -4826,7 +4994,8 @@ static void FindEndUseBuildFullQuery(char *pcpSqlBuf, char *pcpWhere)
 	sprintf(pclSqlBuf, "SELECT URNO,ADID,RKEY,REGN,STOA,STOD,TIFA,TIFD,PSTA,PSTD,ETOA,ETOD,ONBL,OFBL,TMOA FROM AFTTAB WHERE %s", pcpWhere);
   
   strcpy(pcpSqlBuf,pclSqlBuf);
-  dbg(DEBUG,"Full Query<%s>",pcpSqlBuf);
+  dbg(DEBUG,"*******************<%s>*******************",pclFunc);
+	dbg(DEBUG,"<%s>Full Query<%s>",pclFunc,pcpSqlBuf);
 }
 
 static void FindFinishUsageBuildWhereClause(TOWING rpIntermediateLatestUse,char *pcpWhere,char *pcpParkstand,int ipActualUseTime,int ipConfigEndShiftTime)
@@ -4855,7 +5024,6 @@ static void FindFinishUsageBuildWhereClause(TOWING rpIntermediateLatestUse,char 
 static void FindFinishUsageBuildFullQuery(char *pcpSqlBuf,char *pcpWhere)
 {
 	char *pclFunc = "FindFinishUsageBuildFullQuery";
-<<<<<<< HEAD
 	char pclSqlBuf[2048] = "\0";
 
 	memset(pcpSqlBuf,0,sizeof(pcpSqlBuf));
@@ -4863,7 +5031,8 @@ static void FindFinishUsageBuildFullQuery(char *pcpSqlBuf,char *pcpWhere)
 	sprintf(pclSqlBuf, "SELECT URNO,ADID,RKEY,REGN,STOA,STOD,TIFA,TIFD,PSTA,PSTD,ETOA,ETOD,ONBL,OFBL,TMOA FROM AFTTAB WHERE %s", pcpWhere);
   
   strcpy(pcpSqlBuf,pclSqlBuf);
-  dbg(DEBUG,"Full Query<%s>",pcpSqlBuf);
+  dbg(DEBUG,"*******************<%s>*******************",pclFunc);
+	dbg(DEBUG,"<%s>Full Query<%s>",pclFunc,pcpSqlBuf);
 }
 
 static void FindEST_SCHBuildWhereClause(char *pcpWhere,char *pcpParkstand,char *pcpSCHUseStartTime)
@@ -4895,7 +5064,8 @@ static void FindEST_SCHBuildFullQuery(char *pcpSqlBuf,char *pcpWhere)
 	sprintf(pclSqlBuf, "SELECT URNO,ADID,RKEY,REGN,STOA,STOD,TIFA,TIFD,PSTA,PSTD,ETOA,ETOD,ONBL,OFBL,TMOA FROM AFTTAB WHERE %s", pcpWhere);
   
   strcpy(pcpSqlBuf,pclSqlBuf);
-  dbg(DEBUG,"Full Query<%s>",pcpSqlBuf);
+  dbg(DEBUG,"*******************<%s>*******************",pclFunc);
+	dbg(DEBUG,"<%s>Full Query<%s>",pclFunc,pcpSqlBuf);
 }
 
 static void FindEarliest_Start_LeaveBuildWhereClause(char *pcpParkstand,char *pcpWhere,int ipConfigEndShiftTime)
@@ -4908,60 +5078,6 @@ static void FindEarliest_Start_LeaveBuildWhereClause(char *pcpParkstand,char *pc
 	memset(pcpWhere,0,sizeof(pcpWhere));
 	GetServerTimeStamp( "UTC", 1, 0, pclCurrentTime );
 	
-=======
-	char pclSqlBuf[2048] = "\0";
-
-	memset(pcpSqlBuf,0,sizeof(pcpSqlBuf));
-	
-	sprintf(pclSqlBuf, "SELECT URNO,ADID,RKEY,REGN,STOA,STOD,TIFA,TIFD,PSTA,PSTD,ETOA,ETOD,ONBL,OFBL,TMOA FROM AFTTAB WHERE %s", pcpWhere);
-  
-  strcpy(pcpSqlBuf,pclSqlBuf);
-  dbg(DEBUG,"Full Query<%s>",pcpSqlBuf);
-}
-
-static void FindEST_SCHBuildWhereClause(char *pcpWhere,char *pcpParkstand,char *pcpSCHUseStartTime)
-{
-	char *pclFunc = "FindEST_SCHBuildWhereClause";
-	char pclCurrentTime[64] = "\0";
-	char pclWhere[2048] = "\0";
-	/*char pclTmpConfigEndShiftTime[TIMEFORMAT] = "\0";*/
-	
-	memset(pcpWhere,0,sizeof(pcpWhere));
-	GetServerTimeStamp( "UTC", 1, 0, pclCurrentTime );
-	
-	/*strcpy(pclTmpConfigEndShiftTime,pclCurrentTime);
-	
-	AddSecondsToCEDATime(pclTmpConfigEndShiftTime, ipConfigEndShiftTime*60*60*24, 1);*/
-	
-	sprintf(pclWhere,"PSTA = '%s' and FTYP NOT IN ('X','N') and (ADID in ('A','B') and (TIFA between '%s' and '%s') order by TIFA decs",pcpParkstand,pcpSCHUseStartTime,pclCurrentTime);
-
-	strcpy(pcpWhere,pclWhere);
-  dbg(DEBUG,"<%s>Where Clause<%s>",pclFunc,pcpWhere);
-}
-static void FindEST_SCHBuildFullQuery(char *pcpSqlBuf,char *pcpWhere)
-{
-	char *pclFunc = "FindEST_SCHBuildFullQuery";
-	char pclSqlBuf[2048] = "\0";
-
-	memset(pcpSqlBuf,0,sizeof(pcpSqlBuf));
-	
-	sprintf(pclSqlBuf, "SELECT URNO,ADID,RKEY,REGN,STOA,STOD,TIFA,TIFD,PSTA,PSTD,ETOA,ETOD,ONBL,OFBL,TMOA FROM AFTTAB WHERE %s", pcpWhere);
-  
-  strcpy(pcpSqlBuf,pclSqlBuf);
-  dbg(DEBUG,"Full Query<%s>",pcpSqlBuf);
-}
-
-static void FindEarliest_Start_LeaveBuildWhereClause(char *pcpParkstand,char *pcpWhere,int ipConfigEndShiftTime)
-{
-	char *pclFunc = "FindEarliest_Start_LeaveBuildWhereClause";
-	char pclCurrentTime[64] = "\0";
-	char pclWhere[2048] = "\0";
-	char pclTmpConfigEndShiftTime[TIMEFORMAT] = "\0";
-	
-	memset(pcpWhere,0,sizeof(pcpWhere));
-	GetServerTimeStamp( "UTC", 1, 0, pclCurrentTime );
-	
->>>>>>> 7700822d3bdb5c522c2d3b5afde4bbcc0953cd9a
 	strcpy(pclTmpConfigEndShiftTime,pclCurrentTime);
 	
 	AddSecondsToCEDATime(pclTmpConfigEndShiftTime, ipConfigEndShiftTime*60*60*24, 1);
@@ -4982,7 +5098,8 @@ static void FindEarliest_Start_LeaveBuildFullQuery(char *pcpSqlBuf,char *pcpWher
 	sprintf(pclSqlBuf, "SELECT URNO,ADID,RKEY,REGN,STOA,STOD,TIFA,TIFD,PSTA,PSTD,ETOA,ETOD,ONBL,OFBL,TMOA FROM AFTTAB WHERE %s", pcpWhere);
   
   strcpy(pcpSqlBuf,pclSqlBuf);
-  dbg(DEBUG,"Full Query<%s>",pcpSqlBuf);
+  dbg(DEBUG,"*******************<%s>*******************",pclFunc);
+	dbg(DEBUG,"<%s>Full Query<%s>",pclFunc,pcpSqlBuf);
 }
 
 static void Upd_ACK_FlightBuildWhereClause(char *pcpWhere,char *pclRecvBuffer)
@@ -5007,5 +5124,6 @@ static void Upd_ACK_FlightBuildFullQuery(char *pcpSqlBuf,char *pcpWhere)
 	sprintf(pclSqlBuf, "UPDATE FYATAB SET STAT = 'A' WHERE %s", pcpWhere);
 	
 	strcpy(pcpSqlBuf,pclSqlBuf);
-	dbg(DEBUG,"Full Query<%s>",pcpSqlBuf);
+	dbg(DEBUG,"*******************<%s>*******************",pclFunc);
+	dbg(DEBUG,"<%s>Full Query<%s>",pclFunc,pcpSqlBuf);
 }
