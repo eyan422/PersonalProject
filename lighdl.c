@@ -1,7 +1,7 @@
 #ifndef _DEF_mks_version
   #define _DEF_mks_version
   #include "ufisvers.h" /* sets UFIS_VERSION, must be done before mks_version */
-  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/lighdl.c 1.75a 3/17/2014 05:32:54 PM Exp  $";
+  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/lighdl.c 1.75d 3/17/2014 05:32:54 PM Exp  $";
 #endif /* _DEF_mks_version */
 
 /******************************************************************************/
@@ -1598,17 +1598,18 @@ static int HandleInternalData()
                         */
 
                         /* Seeking the next allocation for both parking stands*/
-                        for(ilCountP = 0; ilCountP < 2; ilCountP++)
+                        /*for(ilCountP = 0; ilCountP < 2; ilCountP++)*/
                         {
                             memset(pclWhere,0,sizeof(pclWhere));
                             memset(pclSqlBuf,0,sizeof(pclSqlBuf));
                             memset(pclSqlData,0,sizeof(pclSqlData));
-
+                            /*
                             if ( ilCountP == 0 )
                             {
                                 FindNextAllocDepBuildWhereClause(pclWhere,pclPstaNewData,pclTifaNewData);
                             }
                             else if ( ilCountP == 1 )
+                            */
                             {
                                 FindNextAllocDepBuildWhereClause(pclWhere,pclPstdNewData,pclTifaNewData);
                             }
@@ -1790,110 +1791,9 @@ static int HandleInternalData()
 
                                         memset(pclDataSent,0,sizeof(pclDataSent));
                                         BuildSentData(pclDataSent,rlSentMsg);
+                                        strcat(pclDataSent,"\n");
                                         dbg(TRACE,"<%s> pclDataSent<%s>",pclFunc,pclDataSent);
                                         StoreSentData(pclDataSent,pclUrnoNewData,"Towing",pclRecordURNO);
-
-                                        /*@fya 20140317*/
-                                        strcat(pclDataSent,"\n");
-                                        /*At this stage, the message struct is completed*/
-                                        strcpy(pcgCurSendData,pclDataSent);
-                                        /*strcpy(pcgSendMsgId,pclSelection);*/
-                                        /*strcpy(pcgSendMsgId,pclUrnoSelection);*/
-                                        strcpy(pcgSendMsgId,pclRecordURNO);
-
-                                        if ( ilCountP == 0 )
-                                        {
-                                            /*Send out the message*/
-                                            for (ilCount = 0; ilCount < igReSendMax; ilCount++)
-                                            {
-                                                if (igSock > 0)
-                                                {
-                                                    /*
-                                                    @fya 20140304
-                                                    strcat(pclDataSent,"\n");
-                                                    */
-                                                    ilRC = Send_data(igSock,pclDataSent);
-                                                    dbg(DEBUG, "<%s>1-ilRC<%d>",pclFunc,ilRC);
-
-                                                    if (ilRC == RC_SUCCESS)
-                                                    {
-                                                        igSckWaitACK = TRUE;
-                                                        igSckTryACKCnt = 0;
-
-                                                        GetServerTimeStamp( "UTC", 1, 0, pcgSckWaitACKExpTime);
-                                                        AddSecondsToCEDATime(pcgSckWaitACKExpTime, igSckACKCWait, 1);
-                                                        break;
-                                                    }
-                                                    else if(ilRC == RC_FAIL)
-                                                    {
-                                                        dbg(DEBUG, "<%s>Send_data error",pclFunc);
-                                                        ilRC = Sockt_Reconnect();
-                                                        /*SendRST_Command();*/
-                                                    }
-                                                    else if(ilRC == RC_SENDTIMEOUT)
-                                                    {
-                                                        dbg(DEBUG,"<%s>Send_data timeout, Re send again",pclFunc);
-                                                    }
-                                                }
-                                                else
-                                                {
-                                                    if ( (igConnected == TRUE) || (igOldCnnt == TRUE) )
-                                                    {
-                                                        ilRC = Sockt_Reconnect();
-                                                        /*SendRST_Command();*/
-                                                    }
-                                                    else
-                                                        ilRC = RC_FAIL;
-                                                }
-                                            }
-
-                                            /* fya 20140227 sending ack right after normal message*/
-                                            for (ilCount = 0; ilCount < igReSendMax; ilCount++)
-                                            {
-                                                if (igSock > 0)
-                                                {
-                                                    ilRC = SendAckMsg();
-                                                    dbg(DEBUG, "<%s>1-ilRC<%d>",pclFunc,ilRC);
-
-                                                    if (ilRC == RC_SUCCESS)
-                                                    {
-                                                        igSckWaitACK = TRUE;
-                                                        igSckTryACKCnt = 0;
-
-                                                        GetServerTimeStamp( "UTC", 1, 0, pcgSckWaitACKExpTime);
-                                                        AddSecondsToCEDATime(pcgSckWaitACKExpTime, igSckACKCWait, 1);
-                                                        break;
-                                                    }
-                                                    else if(ilRC == RC_FAIL)
-                                                    {
-                                                        dbg(DEBUG, "<%s>Send_data error",pclFunc);
-                                                        ilRC = Sockt_Reconnect();
-                                                        /*SendRST_Command();*/
-                                                    }
-                                                    else if(ilRC == RC_SENDTIMEOUT)
-                                                    {
-                                                        dbg(DEBUG,"<%s>Send_data timeout, Re send again",pclFunc);
-                                                    }
-                                                }
-                                                else
-                                                {
-                                                    if ( (igConnected == TRUE) || (igOldCnnt == TRUE) )
-                                                    {
-                                                        ilRC = Sockt_Reconnect();
-                                                        /*SendRST_Command();*/
-                                                    }
-                                                    else
-                                                      ilRC = RC_FAIL;
-                                                }
-                                            }
-
-                                            if( ilCount >= igReSendMax )
-                                            {
-                                                dbg(TRACE,"<%s>Send_data <%d>Times failed, drop msg",pclFunc, ilCount);
-                                                return RC_FAIL;
-                                            }
-                                        }
-                                        /*return RC_SUCCESS;*/
                                     }
                                     break;
                             }
@@ -2129,7 +2029,7 @@ static int HandleInternalData()
 								memset(pclFval_OFB,0,sizeof(pclFval_OFB));
 								memset(pclFval_ONB,0,sizeof(pclFval_ONB));
 
-								/* For retrive of OFBL from PDETAB*/
+								/* For retrive of OFBL from PDETAB */
 								memset(pclSqlBuf,0,sizeof(pclSqlBuf));
 								memset(pclSqlData,0,sizeof(pclSqlData));
 								memset(pclSelectionT,0,sizeof(pclSelectionT));
@@ -2306,10 +2206,18 @@ static int HandleInternalData()
 
 						memset(pclDataSentTowing,0,sizeof(pclDataSentTowing));
 						BuildSentData(pclDataSentTowing,rlSentMsgTowing[ilCountT]);
+
+                        strcat(pclDataSentTowing,"\n");
+						/*At this stage, the message struct is completed*/
+						strcpy(pcgCurSendData,pclDataSentTowing);
+                        /*strcpy(pcgSendMsgId,pclSelection);*/
+                        /*strcpy(pcgSendMsgId,pclUrnoSelection);*/
+
 						dbg(TRACE,"<%s>Number<%d> pclDataSentTowing<%s>",pclFunc,ilCountT,pclDataSentTowing);
 
 						StoreSentData(pclDataSentTowing,pclUrnoNewData,"Normal",pclRecordURNO);
 
+                        strcpy(pcgSendMsgId,pclRecordURNO);
 						/*
 						@fya 20140304
 						X-Towing flights msgs have been inserted into LIGTAB, waitting for NTI command
@@ -2317,12 +2225,8 @@ static int HandleInternalData()
 						*/
 
 						/*@fya 20140304*/
-                        strcat(pclDataSentTowing,"\n");
-						/*At this stage, the message struct is completed*/
-						strcpy(pcgCurSendData,pclDataSentTowing);
-				    /*strcpy(pcgSendMsgId,pclSelection);*/
-				    /*strcpy(pcgSendMsgId,pclUrnoSelection);*/
-				    strcpy(pcgSendMsgId,pclRecordURNO);
+
+
 
 				    for (ilCount = 0; ilCount < igReSendMax; ilCount++)
 				    {
@@ -6765,7 +6669,7 @@ static void FindNextAllocArrBuildWhereClause(char *pcpWhere,char *pcpParkstand,c
 
 	AddSecondsToCEDATime(pclTmpTime, igNextAllocArrUpperRange * 60 * 60 * 24, 1);
 
-	sprintf(pclWhere,"PSTA = '%s' and FTYP NOT IN ('X','N') and ADID = 'A' and TIFA between '%s' and '%s' order by TIFA desc",pcpParkstand,pcpFormalTifd,pclTmpTime);
+	sprintf(pclWhere,"PSTA = '%s' and FTYP NOT IN ('X','N') and ADID = 'A' and TIFA between '%s' and '%s' order by TIFA asc",pcpParkstand,pcpFormalTifd,pclTmpTime);
 
 	strcpy(pcpWhere,pclWhere);
   dbg(DEBUG,"<%s>Where Clause<%s>",pclFunc,pcpWhere);
@@ -6780,7 +6684,7 @@ static void FindNextAllocArrBuildFullQuery(char *pcpSqlBuf,char *pcpWhere)
 
 	sprintf(pclSqlBuf, "SELECT URNO,ADID,RKEY,REGN,STOA,STOD,ETAI,ETDI,TIFA,TIFD,ONBL,OFBL,PSTA,PSTD,TMOA FROM AFTTAB WHERE %s", pcpWhere);
 
-  strcpy(pcpSqlBuf,pclSqlBuf);
-  dbg(DEBUG,"\n*******************<%s>*******************",pclFunc);
+    strcpy(pcpSqlBuf,pclSqlBuf);
+    dbg(DEBUG,"\n*******************<%s>*******************",pclFunc);
 	dbg(DEBUG,"<%s>Full Query<%s>",pclFunc,pcpSqlBuf);
 }
