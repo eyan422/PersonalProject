@@ -2163,7 +2163,7 @@ static int HandleInternalData()
                                     {
                                         get_fld(pclSqlData,FIELD_1,STR,20,pclUrnoP);
                                         get_fld(pclSqlData,FIELD_2,STR,512,pclFval_OFB);
-                                        dbg(TRACE,"<%s> URNO<%s> OFBL<%s>",pclFunc,pclFval_OFB);
+                                        dbg(TRACE,"<%s> URNO<%s> OFBL<%s>",pclFunc,pclUrno,pclFval_OFB);
                                     }
                                 }
                                 else
@@ -2215,7 +2215,7 @@ static int HandleInternalData()
                                     sprintf(pclSelectionT, "WHERE URNO = '%s'", pclUrno);
                                     sprintf(pclSqlBuf, "SELECT URNO,ONBL FROM AFTTAB %s", pclSelectionT);
 
-                                    dbg(TRACE,"<%s> 1-AFTTAB-ONBL pclSqlBuf<%s>",pclFunc,pclSqlBuf);
+                                    dbg(TRACE,"<%s> 2-AFTTAB-ONBL pclSqlBuf<%s>",pclFunc,pclSqlBuf);
 
                                     ilRC = RunSQL(pclSqlBuf, pclSqlData);
                                     if (ilRC != DB_SUCCESS)
@@ -2226,7 +2226,7 @@ static int HandleInternalData()
                                     {
                                         get_fld(pclSqlData,FIELD_1,STR,20,pclUrnoP);
                                         get_fld(pclSqlData,FIELD_2,STR,512,pclFval_ONB);
-                                        dbg(TRACE,"<%s> URNO<%s> ONBL<%s>",pclFunc,pclFval_ONB);
+                                        dbg(TRACE,"<%s> URNO<%s> ONBL<%s>",pclFunc,pclUrno,pclFval_ONB);
                                     }
                                 }
                                 else
@@ -5230,7 +5230,7 @@ static int GetSeqFlight(SENT_MSG *rpSentMsg,char *pcpADFlag)
                 {
                     get_fld(pclSqlData,FIELD_1,STR,20,pclUrnoP);
                     get_fld(pclSqlData,FIELD_2,STR,512,pclFval_OFB);
-                    dbg(TRACE,"<%s> URNO<%s> OFBL<%s>",pclFunc,pclFval_OFB);
+                    dbg(TRACE,"<%s> URNO<%s> OFBL<%s>",pclFunc,pclUrno,pclFval_OFB);
                 }
             }
             else
@@ -5335,7 +5335,7 @@ static int GetSeqFlight(SENT_MSG *rpSentMsg,char *pcpADFlag)
                 {
                     get_fld(pclSqlData,FIELD_1,STR,20,pclUrnoP);
                     get_fld(pclSqlData,FIELD_2,STR,512,pclFval_ONB);
-                    dbg(TRACE,"<%s> URNO<%s> ONBL<%s>",pclFunc,pclFval_ONB);
+                    dbg(TRACE,"<%s> URNO<%s> ONBL<%s>",pclFunc,pclUrno,pclFval_ONB);
                 }
             }
             else
