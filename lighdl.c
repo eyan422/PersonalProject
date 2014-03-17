@@ -1,7 +1,7 @@
 #ifndef _DEF_mks_version
   #define _DEF_mks_version
   #include "ufisvers.h" /* sets UFIS_VERSION, must be done before mks_version */
-  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/lighdl.c 1.74 3/10/2014 9:17:54 PM Exp  $";
+  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/lighdl.c 1.75a 3/17/2014 05:32:54 PM Exp  $";
 #endif /* _DEF_mks_version */
 
 /******************************************************************************/
@@ -1793,6 +1793,14 @@ static int HandleInternalData()
                                         dbg(TRACE,"<%s> pclDataSent<%s>",pclFunc,pclDataSent);
                                         StoreSentData(pclDataSent,pclUrnoNewData,"Towing",pclRecordURNO);
 
+                                        /*@fya 20140317*/
+                                        strcat(pclDataSent,"\n");
+                                        /*At this stage, the message struct is completed*/
+                                        strcpy(pcgCurSendData,pclDataSent);
+                                        /*strcpy(pcgSendMsgId,pclSelection);*/
+                                        /*strcpy(pcgSendMsgId,pclUrnoSelection);*/
+                                        strcpy(pcgSendMsgId,pclRecordURNO);
+
                                         if ( ilCountP == 0 )
                                         {
                                             /*Send out the message*/
@@ -2309,7 +2317,7 @@ static int HandleInternalData()
 						*/
 
 						/*@fya 20140304*/
-				    strcat(pclDataSentTowing,"\n");
+                        strcat(pclDataSentTowing,"\n");
 						/*At this stage, the message struct is completed*/
 						strcpy(pcgCurSendData,pclDataSentTowing);
 				    /*strcpy(pcgSendMsgId,pclSelection);*/
@@ -2325,7 +2333,7 @@ static int HandleInternalData()
 				      	strcat(pclDataSent,"\n");
 				      	*/
 				    		ilRC = Send_data(igSock,pclDataSentTowing);
-				      	dbg(DEBUG, "<%s>1-ilRC<%d>",pclFunc,ilRC);
+                            dbg(DEBUG, "<%s>1-ilRC<%d>",pclFunc,ilRC);
 
 					      if (ilRC == RC_SUCCESS)
 					      {
@@ -6757,7 +6765,7 @@ static void FindNextAllocArrBuildWhereClause(char *pcpWhere,char *pcpParkstand,c
 
 	AddSecondsToCEDATime(pclTmpTime, igNextAllocArrUpperRange * 60 * 60 * 24, 1);
 
-	sprintf(pclWhere,"PSTA = '%s' and FTYP NOT IN ('X','N') and ADID = 'A' and TIFA between '%s' and '%s' order by TIFA asc",pcpParkstand,pcpFormalTifd,pclTmpTime);
+	sprintf(pclWhere,"PSTA = '%s' and FTYP NOT IN ('X','N') and ADID = 'A' and TIFA between '%s' and '%s' order by TIFA desc",pcpParkstand,pcpFormalTifd,pclTmpTime);
 
 	strcpy(pcpWhere,pclWhere);
   dbg(DEBUG,"<%s>Where Clause<%s>",pclFunc,pcpWhere);
