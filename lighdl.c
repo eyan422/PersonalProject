@@ -2124,6 +2124,7 @@ static int HandleInternalData()
 								/* For retrive of OFBL from PDETAB*/
 								memset(pclSqlBuf,0,sizeof(pclSqlBuf));
 								memset(pclSqlData,0,sizeof(pclSqlData));
+								memset(pclSelectionT,0,sizeof(pclSelectionT));
 
 								sprintf(pclSelectionT, "WHERE RURN = '%s' AND TYPE = 'OFB' order by TIME desc", pclUrno);
                                 sprintf(pclSqlBuf, "SELECT URNO,RURN,TYPE,TIME,STAT,RTAB,RFLD,FVAL FROM PDETAB %s", pclSelectionT);
@@ -5103,7 +5104,7 @@ static int GetSeqFlight(SENT_MSG *rpSentMsg,char *pcpADFlag)
 	int  ilRC = RC_SUCCESS;
 	short slLocalCursor = 0, slFuncCode = 0;
 
-	char pclSqlBuf[2048] = "\0",pclSqlData[2048] = "\0",pclWhere[2048] = "\0";
+	char pclSqlBuf[2048] = "\0",pclSqlData[2048] = "\0",pclWhere[2048] = "\0",pclSelectionT[2048] = "\0";
 
 	char pclStoa[16] = "\0";
 	char pclStod[16] = "\0";
@@ -5112,11 +5113,23 @@ static int GetSeqFlight(SENT_MSG *rpSentMsg,char *pcpADFlag)
 	char pclEtai[16] = "\0";
 	char pclEtdi[16] = "\0";
 	char pclTmoa[16] = "\0";
+	char pclAdid[16] = "\0";
+	char pclUrno[16] = "\0";
+
+	char pclUrnoP[16] = "\0";
+	char pclRurnP[16] = "\0";
+	char pclTypeP[16] = "\0";
+	char pclTimeP[16] = "\0";
+	char pclStatP[16] = "\0";
+	char pclRtabP[16] = "\0";
+	char pclRfldP[16] = "\0";
+	char pclFval_OFB[512] = "\0";
+	char pclFval_ONB[512] = "\0";
 
     if (strlen(pcpADFlag) == 0)
     {
-    dbg(TRACE,"<%s> pcpADFlag is null<%s>",pclFunc,pcpADFlag);
-    return RC_FAIL;
+        dbg(TRACE,"<%s> pcpADFlag is null<%s>",pclFunc,pcpADFlag);
+        return RC_FAIL;
     }
     dbg(TRACE,"<%s> pcpADFlag is <%s>",pclFunc,pcpADFlag);
 
@@ -5142,6 +5155,8 @@ static int GetSeqFlight(SENT_MSG *rpSentMsg,char *pcpADFlag)
 		get_fld(pclSqlData,FIELD_1,STR,20,pclStod);
 		get_fld(pclSqlData,FIELD_2,STR,20,pclEtdi);
 		get_fld(pclSqlData,FIELD_3,STR,20,pclOfbl);
+		get_fld(pclSqlData,FIELD_4,STR,20,pclAdid);
+		get_fld(pclSqlData,FIELD_5,STR,20,pclUrno);
 
 		TrimSpace(pclStod);
 		if(strlen(pclStod) != 0)
@@ -5160,12 +5175,80 @@ static int GetSeqFlight(SENT_MSG *rpSentMsg,char *pcpADFlag)
 		{
 			strncpy(rpSentMsg->pclOfbl,pclOfbl,strlen(pclOfbl));
 		}
+		else
+		{
+            /* If OFBL is null, then try to get it from PDETAB and AFTTAB again*/
+            memset(pclUrnoP,0,sizeof(pclUrnoP));
+            memset(pclRurnP,0,sizeof(pclRurnP));
+            memset(pclTypeP,0,sizeof(pclTypeP));
+            memset(pclTimeP,0,sizeof(pclTimeP));
+            memset(pclStatP,0,sizeof(pclStatP));
+            memset(pclRtabP,0,sizeof(pclRtabP));
+            memset(pclRfldP,0,sizeof(pclRfldP));
 
-        /**/
+            memset(pclFval_OFB,0,sizeof(pclFval_OFB));
+
+            /* For retrive of OFBL from PDETAB*/
+            memset(pclSqlBuf,0,sizeof(pclSqlBuf));
+            memset(pclSqlData,0,sizeof(pclSqlData));
+            memset(pclSelectionT,0,sizeof(pclSelectionT));
+
+            sprintf(pclSelectionT, "WHERE RURN = '%s' AND TYPE = 'OFB' order by TIME desc", pclUrno);
+            sprintf(pclSqlBuf, "SELECT URNO,RURN,TYPE,TIME,STAT,RTAB,RFLD,FVAL FROM PDETAB %s", pclSelectionT);
+
+            dbg(TRACE,"<%s> 1-PDETAB pclSqlBuf<%s>",pclFunc,pclSqlBuf);
+
+            ilRC = RunSQL(pclSqlBuf, pclSqlData);
+            if (ilRC != DB_SUCCESS)
+            {
+                dbg(DEBUG, "%s: RURN <%s> not found in PDETAB for OFB", pclFunc, pclUrno);
+                /*return RC_FAIL;*/
+
+                memset(pclSqlBuf,0,sizeof(pclSqlBuf));
+                memset(pclSqlData,0,sizeof(pclSqlData));
+                memset(pclSelectionT,0,sizeof(pclSelectionT));
+
+                sprintf(pclSelectionT, "WHERE URNO = '%s'", pclUrno);
+                sprintf(pclSqlBuf, "SELECT URNO,OFBL FROM AFTTAB %s", pclSelectionT);
+
+                dbg(TRACE,"<%s> 1-AFTTAB-OFBL pclSqlBuf<%s>",pclFunc,pclSqlBuf);
+
+                ilRC = RunSQL(pclSqlBuf, pclSqlData);
+                if (ilRC != DB_SUCCESS)
+                {
+                    dbg(DEBUG, "%s: URNO <%s> not found in AFTTAB for OFB", pclFunc, pclUrno);
+                }
+                else
+                {
+                    get_fld(pclSqlData,FIELD_1,STR,20,pclUrnoP);
+                    get_fld(pclSqlData,FIELD_2,STR,512,pclFval_OFB);
+                    dbg(TRACE,"<%s> URNO<%s> OFBL<%s>",pclFunc,pclFval_OFB);
+                }
+            }
+            else
+            {
+                dbg(TRACE, "<%s> 1-PDETAB Record <%s>", pclFunc, pclSqlData);
+
+                get_fld(pclSqlData,FIELD_1,STR,20,pclUrnoP);
+                get_fld(pclSqlData,FIELD_2,STR,20,pclRurnP);
+                get_fld(pclSqlData,FIELD_3,STR,20,pclTypeP);
+                get_fld(pclSqlData,FIELD_4,STR,20,pclTimeP);
+                get_fld(pclSqlData,FIELD_5,STR,20,pclStatP);
+                get_fld(pclSqlData,FIELD_6,STR,20,pclRtabP);
+                get_fld(pclSqlData,FIELD_7,STR,20,pclRfldP);
+                get_fld(pclSqlData,FIELD_8,STR,512,pclFval_OFB);
+
+                dbg(TRACE, "<%s> URNO <%s> RURN <%s> TYPE <%s> TIME <%s> STAT <%s> RTAB <%s> RFLD <%s> FVAL_OFBL <%s> ", pclFunc, pclUrnoP, pclRurnP, pclTypeP, pclTimeP, pclStatP, pclRtabP, pclRfldP, pclFval_OFB);
+            }
+
+            strncpy(pclOfbl,pclFval_OFB,strlen(pclFval_OFB));
+            strncpy(rpSentMsg->pclOfbl,pclOfbl,strlen(pclOfbl));
+		}
 
 		dbg(DEBUG,"<%s> pclStod<%s>",pclFunc,pclStod);
 		dbg(DEBUG,"<%s> pclEtdi<%s>",pclFunc,pclEtdi);
 		dbg(DEBUG,"<%s> pclOfbl<%s>",pclFunc,pclOfbl);
+		dbg(DEBUG,"<%s> pclAdid<%s>",pclFunc,pclAdid);
 	}
 	else if (strncmp(pcpADFlag,"A",1) == 0)
 	{
@@ -5173,6 +5256,8 @@ static int GetSeqFlight(SENT_MSG *rpSentMsg,char *pcpADFlag)
 		get_fld(pclSqlData,FIELD_2,STR,20,pclEtai);
 		get_fld(pclSqlData,FIELD_3,STR,20,pclTmoa);
 		get_fld(pclSqlData,FIELD_4,STR,20,pclOnbl);
+		get_fld(pclSqlData,FIELD_5,STR,20,pclAdid);
+		get_fld(pclSqlData,FIELD_6,STR,20,pclUrno);
 
 		TrimSpace(pclStoa);
 		if(strlen(pclStoa) != 0)
@@ -5197,13 +5282,79 @@ static int GetSeqFlight(SENT_MSG *rpSentMsg,char *pcpADFlag)
 		{
 			strncpy(rpSentMsg->pclOnbl,pclOnbl,strlen(pclOnbl));
 		}
+        else
+        {
+            /* If ONBL is null, then try to get it from PDETAB and AFTTAB again */
+            memset(pclUrnoP,0,sizeof(pclUrnoP));
+            memset(pclRurnP,0,sizeof(pclRurnP));
+            memset(pclTypeP,0,sizeof(pclTypeP));
+            memset(pclTimeP,0,sizeof(pclTimeP));
+            memset(pclStatP,0,sizeof(pclStatP));
+            memset(pclRtabP,0,sizeof(pclRtabP));
+            memset(pclRfldP,0,sizeof(pclRfldP));
 
-		/**/
+            /* For retrive of ONBL from PDETAB */
+            memset(pclSqlBuf,0,sizeof(pclSqlBuf));
+            memset(pclSqlData,0,sizeof(pclSqlData));
+            memset(pclSelectionT,0,sizeof(pclSelectionT));
+
+            sprintf(pclSelectionT, "WHERE RURN = '%s' AND TYPE = 'ONB' order by TIME desc", pclUrno);
+            sprintf(pclSqlBuf, "SELECT URNO,RURN,TYPE,TIME,STAT,RTAB,RFLD,FVAL FROM PDETAB %s", pclSelectionT);
+
+            dbg(TRACE,"<%s> 2-PDETAB pclSqlBuf<%s>",pclFunc,pclSqlBuf);
+
+            ilRC = RunSQL(pclSqlBuf, pclSqlData);
+            if (ilRC != DB_SUCCESS)
+            {
+                dbg(DEBUG, "%s: RURN <%s> not found in PDETAB", pclFunc, pclUrno);
+                /*return RC_FAIL;*/
+
+                memset(pclSqlBuf,0,sizeof(pclSqlBuf));
+                memset(pclSqlData,0,sizeof(pclSqlData));
+                memset(pclSelectionT,0,sizeof(pclSelectionT));
+
+                sprintf(pclSelectionT, "WHERE URNO = '%s'", pclUrno);
+                sprintf(pclSqlBuf, "SELECT URNO,ONBL FROM AFTTAB %s", pclSelectionT);
+
+                dbg(TRACE,"<%s> 1-AFTTAB-ONBL pclSqlBuf<%s>",pclFunc,pclSqlBuf);
+
+                ilRC = RunSQL(pclSqlBuf, pclSqlData);
+                if (ilRC != DB_SUCCESS)
+                {
+                    dbg(DEBUG, "%s: URNO <%s> not found in AFTTAB for ONB", pclFunc, pclUrno);
+                }
+                else
+                {
+                    get_fld(pclSqlData,FIELD_1,STR,20,pclUrnoP);
+                    get_fld(pclSqlData,FIELD_2,STR,512,pclFval_ONB);
+                    dbg(TRACE,"<%s> URNO<%s> ONBL<%s>",pclFunc,pclFval_ONB);
+                }
+            }
+            else
+            {
+                dbg(TRACE, "<%s> 2-PDETAB Record <%s>", pclFunc, pclSqlData);
+
+                get_fld(pclSqlData,FIELD_1,STR,20,pclUrnoP);
+                get_fld(pclSqlData,FIELD_2,STR,20,pclRurnP);
+                get_fld(pclSqlData,FIELD_3,STR,20,pclTypeP);
+                get_fld(pclSqlData,FIELD_4,STR,20,pclTimeP);
+                get_fld(pclSqlData,FIELD_5,STR,20,pclStatP);
+                get_fld(pclSqlData,FIELD_6,STR,20,pclRtabP);
+                get_fld(pclSqlData,FIELD_7,STR,20,pclRfldP);
+                get_fld(pclSqlData,FIELD_8,STR,512,pclFval_ONB);
+
+                dbg(TRACE, "<%s> URNO <%s> RURN <%s> TYPE <%s> TIME <%s> STAT <%s> RTAB <%s> RFLD <%s> FVAL_ONBL <%s> ", pclFunc, pclUrnoP, pclRurnP, pclTypeP, pclTimeP, pclStatP, pclRtabP, pclRfldP, pclFval_ONB);
+            }
+
+            strncpy(pclOnbl,pclFval_ONB,strlen(pclFval_ONB));
+            strncpy(rpSentMsg->pclOnbl,pclOnbl,strlen(pclOnbl));
+        }
 
 		dbg(DEBUG,"<%s> pclStoa<%s>",pclFunc,pclStoa);
 		dbg(DEBUG,"<%s> pclEtai<%s>",pclFunc,pclEtai);
 		dbg(DEBUG,"<%s> pclTmoa<%s>",pclFunc,pclTmoa);
 		dbg(DEBUG,"<%s> pclOnbl<%s>",pclFunc,pclOnbl);
+		dbg(DEBUG,"<%s> pclAdid<%s>",pclFunc,pclAdid);
 	}
 
 	return ilRC;
@@ -5273,11 +5424,11 @@ static int UpdBuildFullQuery(char *pcpSqlBuf, char *pcpWhere, char *pcpADFlag)
 
     if (strncmp(pcpADFlag,"D",1) == 0)
     {
-        sprintf(pclSqlBuf, "SELECT STOD,ETDI,OFBL FROM AFTTAB WHERE %s", pcpWhere);
+        sprintf(pclSqlBuf, "SELECT STOD,ETDI,OFBL,ADID,URNO FROM AFTTAB WHERE %s", pcpWhere);
     }
     else if (strncmp(pcpADFlag,"A",1) == 0)
     {
-        sprintf(pclSqlBuf, "SELECT STOA,ETAI,TMOA,ONBL FROM AFTTAB WHERE %s", pcpWhere);
+        sprintf(pclSqlBuf, "SELECT STOA,ETAI,TMOA,ONBL,ADID,URNO FROM AFTTAB WHERE %s", pcpWhere);
     }
 
     strcpy(pcpSqlBuf,pclSqlBuf);
