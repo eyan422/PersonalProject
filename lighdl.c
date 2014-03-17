@@ -2236,8 +2236,8 @@ static int HandleInternalData()
                                     dbg(TRACE, "<%s> URNO <%s> RURN <%s> TYPE <%s> TIME <%s> STAT <%s> RTAB <%s> RFLD <%s> FVAL_ONBL <%s> ", pclFunc, pclUrnoP, pclRurnP, pclTypeP, pclTimeP, pclStatP, pclRtabP, pclRfldP, pclFval_ONB);
                                 }
 
+                                strcpy(rlTowing[ilCountTowing].pclOfbl,pclFval_OFB);
                                 strcpy(rlTowing[ilCountTowing].pclOnbl,pclFval_ONB);
-								strcpy(rlTowing[ilCountTowing].pclOfbl,pclFval_OFB);
 							}
 							ilNewTowingFlight = FALSE;
 						}
@@ -5088,13 +5088,13 @@ static void ShowMsgStruct(SENT_MSG rpSentMsg)
 	char *pclFunc = "ShowMsgStruct";
 
 	dbg(DEBUG,"<%s> POS<%s>",pclFunc,rpSentMsg.pclPosi);
-  dbg(DEBUG,"<%s> STA<%s>",pclFunc,rpSentMsg.pclStoa);
+    dbg(DEBUG,"<%s> STA<%s>",pclFunc,rpSentMsg.pclStoa);
 	dbg(DEBUG,"<%s> ETA<%s>",pclFunc,rpSentMsg.pclEtai);
-  dbg(DEBUG,"<%s> TMO<%s>",pclFunc,rpSentMsg.pclTmoa);
-  dbg(DEBUG,"<%s> ONB<%s>",pclFunc,rpSentMsg.pclOnbl);
-  dbg(DEBUG,"<%s> STD<%s>",pclFunc,rpSentMsg.pclStod);
-  dbg(DEBUG,"<%s> ETD<%s>",pclFunc,rpSentMsg.pclEtdi);
-  dbg(DEBUG,"<%s> OFB<%s>",pclFunc,rpSentMsg.pclOfbl);
+    dbg(DEBUG,"<%s> TMO<%s>",pclFunc,rpSentMsg.pclTmoa);
+    dbg(DEBUG,"<%s> ONB<%s>",pclFunc,rpSentMsg.pclOnbl);
+    dbg(DEBUG,"<%s> STD<%s>",pclFunc,rpSentMsg.pclStod);
+    dbg(DEBUG,"<%s> ETD<%s>",pclFunc,rpSentMsg.pclEtdi);
+    dbg(DEBUG,"<%s> OFB<%s>",pclFunc,rpSentMsg.pclOfbl);
 }
 
 static int GetSeqFlight(SENT_MSG *rpSentMsg,char *pcpADFlag)
@@ -5113,29 +5113,29 @@ static int GetSeqFlight(SENT_MSG *rpSentMsg,char *pcpADFlag)
 	char pclEtdi[16] = "\0";
 	char pclTmoa[16] = "\0";
 
-  if (strlen(pcpADFlag) == 0)
-  {
-  	dbg(TRACE,"<%s> pcpADFlag is null<%s>",pclFunc,pcpADFlag);
-  	return RC_FAIL;
-  }
-  dbg(TRACE,"<%s> pcpADFlag is <%s>",pclFunc,pcpADFlag);
+    if (strlen(pcpADFlag) == 0)
+    {
+    dbg(TRACE,"<%s> pcpADFlag is null<%s>",pclFunc,pcpADFlag);
+    return RC_FAIL;
+    }
+    dbg(TRACE,"<%s> pcpADFlag is <%s>",pclFunc,pcpADFlag);
 
-  /* Build Where Clause */
-  UpdBuildWhereClause(rpSentMsg,pclWhere,pcpADFlag);
+    /* Build Where Clause */
+    UpdBuildWhereClause(rpSentMsg,pclWhere,pcpADFlag);
 
-  /* Build Full Sql query */
-  UpdBuildFullQuery(pclSqlBuf,pclWhere,pcpADFlag);
+    /* Build Full Sql query */
+    UpdBuildFullQuery(pclSqlBuf,pclWhere,pcpADFlag);
 
-  ilRC = RunSQL(pclSqlBuf, pclSqlData);
-	if (ilRC != DB_SUCCESS)
-	{
-  	dbg(DEBUG, "<%s> Not found in AFTTAB", pclFunc);
-  	return RC_FAIL;
-	}
-	else
-	{
-		dbg(DEBUG, "<%s> Found in AFTTAB", pclFunc);
-	}
+    ilRC = RunSQL(pclSqlBuf, pclSqlData);
+    if (ilRC != DB_SUCCESS)
+    {
+        dbg(DEBUG, "<%s> Not found in AFTTAB", pclFunc);
+        return RC_FAIL;
+    }
+    else
+    {
+        dbg(DEBUG, "<%s> Found in AFTTAB", pclFunc);
+    }
 
 	if (strncmp(pcpADFlag,"D",1) == 0)
 	{
@@ -5160,6 +5160,8 @@ static int GetSeqFlight(SENT_MSG *rpSentMsg,char *pcpADFlag)
 		{
 			strncpy(rpSentMsg->pclOfbl,pclOfbl,strlen(pclOfbl));
 		}
+
+        /**/
 
 		dbg(DEBUG,"<%s> pclStod<%s>",pclFunc,pclStod);
 		dbg(DEBUG,"<%s> pclEtdi<%s>",pclFunc,pclEtdi);
@@ -5196,6 +5198,8 @@ static int GetSeqFlight(SENT_MSG *rpSentMsg,char *pcpADFlag)
 			strncpy(rpSentMsg->pclOnbl,pclOnbl,strlen(pclOnbl));
 		}
 
+		/**/
+
 		dbg(DEBUG,"<%s> pclStoa<%s>",pclFunc,pclStoa);
 		dbg(DEBUG,"<%s> pclEtai<%s>",pclFunc,pclEtai);
 		dbg(DEBUG,"<%s> pclTmoa<%s>",pclFunc,pclTmoa);
@@ -5212,25 +5216,25 @@ static int UpdBuildWhereClause(SENT_MSG *rpSentMsg, char *pcpWhere, char *pcpADF
 	char pclWhere[2048] = "\0";
 
 	if (strlen(pcpADFlag) == 0)
-  {
-  	dbg(TRACE,"<%s> pcpADFlag is null<%s>",pclFunc,pcpADFlag);
-  	return RC_FAIL;
-  }
-  dbg(TRACE,"<%s> pcpADFlag is <%s>",pclFunc,pcpADFlag);
+    {
+    dbg(TRACE,"<%s> pcpADFlag is null<%s>",pclFunc,pcpADFlag);
+    return RC_FAIL;
+    }
+    dbg(TRACE,"<%s> pcpADFlag is <%s>",pclFunc,pcpADFlag);
 
-	if (strncmp(pcpADFlag,"D",1) == 0)
-  {
-  	/*Seeking for related sequential departure flight*/
-  	sprintf(pclWhere,"(REGN = '%s' and RKEY = '%s') AND (TIFD > %s) AND FTYP NOT IN ('X','N') ORDER BY TIFD desc", rpSentMsg->pclRegn, rpSentMsg->pclRkey,rpSentMsg->pclTifa);
-  }
-  else if (strncmp(pcpADFlag,"A",1) == 0)
-  {
-  	/*Seeking for related sequential arrival flight*/
-  	sprintf(pclWhere,"(REGN = '%s' and RKEY = '%s') AND (TIFA < %s) AND FTYP NOT IN ('X','N') ORDER BY TIFA", rpSentMsg->pclRegn, rpSentMsg->pclRkey,rpSentMsg->pclTifd);
-  }
+    if (strncmp(pcpADFlag,"D",1) == 0)
+    {
+    /*Seeking for related sequential departure flight*/
+    sprintf(pclWhere,"(REGN = '%s' and RKEY = '%s') AND (TIFD > %s) AND FTYP NOT IN ('X','N') ORDER BY TIFD desc", rpSentMsg->pclRegn, rpSentMsg->pclRkey,rpSentMsg->pclTifa);
+    }
+    else if (strncmp(pcpADFlag,"A",1) == 0)
+    {
+    /*Seeking for related sequential arrival flight*/
+    sprintf(pclWhere,"(REGN = '%s' and RKEY = '%s') AND (TIFA < %s) AND FTYP NOT IN ('X','N') ORDER BY TIFA desc", rpSentMsg->pclRegn, rpSentMsg->pclRkey,rpSentMsg->pclTifd);
+    }
 
-  strcpy(pcpWhere,pclWhere);
-  dbg(DEBUG,"Where Clause<%s>",pcpWhere);
+    strcpy(pcpWhere,pclWhere);
+    dbg(DEBUG,"Where Clause<%s>",pcpWhere);
 }
 
 /* it is defined in urno_fn.h
@@ -5261,23 +5265,23 @@ static int UpdBuildFullQuery(char *pcpSqlBuf, char *pcpWhere, char *pcpADFlag)
 	char pclSqlBuf[2048] = "\0";
 
 	if (strlen(pcpADFlag) == 0)
-  {
-  	dbg(TRACE,"<%s> pcpADFlag is null<%s>",pclFunc,pcpADFlag);
-  	return RC_FAIL;
-  }
-  dbg(DEBUG,"<%s> pcpADFlag is <%s>",pclFunc,pcpADFlag);
+    {
+        dbg(TRACE,"<%s> pcpADFlag is null<%s>",pclFunc,pcpADFlag);
+        return RC_FAIL;
+    }
+    dbg(DEBUG,"<%s> pcpADFlag is <%s>",pclFunc,pcpADFlag);
 
-	if (strncmp(pcpADFlag,"D",1) == 0)
-  {
-  	sprintf(pclSqlBuf, "SELECT STOD,ETDI,OFBL FROM AFTTAB WHERE %s", pcpWhere);
-  }
-  else if (strncmp(pcpADFlag,"A",1) == 0)
-  {
-  	sprintf(pclSqlBuf, "SELECT STOA,ETAI,TMOA,ONBL FROM AFTTAB WHERE %s", pcpWhere);
-  }
+    if (strncmp(pcpADFlag,"D",1) == 0)
+    {
+        sprintf(pclSqlBuf, "SELECT STOD,ETDI,OFBL FROM AFTTAB WHERE %s", pcpWhere);
+    }
+    else if (strncmp(pcpADFlag,"A",1) == 0)
+    {
+        sprintf(pclSqlBuf, "SELECT STOA,ETAI,TMOA,ONBL FROM AFTTAB WHERE %s", pcpWhere);
+    }
 
-  strcpy(pcpSqlBuf,pclSqlBuf);
-  dbg(DEBUG,"\n*******************<%s>*******************",pclFunc);
+    strcpy(pcpSqlBuf,pclSqlBuf);
+    dbg(DEBUG,"\n*******************<%s>*******************",pclFunc);
 	dbg(DEBUG,"<%s>Full Query<%s>",pclFunc,pcpSqlBuf);
 }
 
@@ -6002,8 +6006,8 @@ static int function_PST_USAGE(SENT_MSG *rpSentMsg, char *pcpParkstand, int ipCon
 					ilRC = RunSQL(pclSqlBuf,pclSqlData);
 					if (ilRC != DB_SUCCESS)
 					{
-				  	dbg(DEBUG, "<%s> Not found in AFTTAB, line<%d>", pclFunc,__LINE__);
-				  	return RC_FAIL;
+                        dbg(DEBUG, "<%s> Not found in AFTTAB, line<%d>", pclFunc,__LINE__);
+                        return RC_FAIL;
 					}
 					/*
 					URNO,ADID,RKEY,REGN,
@@ -6105,8 +6109,8 @@ static int function_PST_USAGE(SENT_MSG *rpSentMsg, char *pcpParkstand, int ipCon
 		ilRC = RunSQL(pclSqlBuf,pclSqlData);
 		if (ilRC != DB_SUCCESS)
 		{
-	  	dbg(DEBUG, "<%s> Not found in AFTTAB, line<%d>", pclFunc,__LINE__);
-	  	/*return RC_FAIL;*/
+            dbg(DEBUG, "<%s> Not found in AFTTAB, line<%d>", pclFunc,__LINE__);
+            /*return RC_FAIL;*/
 		}
 
 		switch(ilRC)
@@ -6135,8 +6139,8 @@ static int function_PST_USAGE(SENT_MSG *rpSentMsg, char *pcpParkstand, int ipCon
 				ilRC = RunSQL(pclSqlBuf,pclSqlData);
 				if (ilRC != DB_SUCCESS)
 				{
-			  	dbg(DEBUG, "<%s> Not found in AFTTAB, line<%d>", pclFunc,__LINE__);
-			  	/*return RC_FAIL;*/
+                    dbg(DEBUG, "<%s> Not found in AFTTAB, line<%d>", pclFunc,__LINE__);
+                    /*return RC_FAIL;*/
 				}
 
 				/*get_real_fld(pclAdid);
@@ -6210,7 +6214,7 @@ static int function_PST_USAGE(SENT_MSG *rpSentMsg, char *pcpParkstand, int ipCon
 							strcpy(rpSentMsg->pclRegn,pclRegn);
 							strcpy(rpSentMsg->pclRkey,pclRkey);
 
-              ilFlagStart_use_found = START_FOUND;
+                ilFlagStart_use_found = START_FOUND;
             	ilFlagFind_Next_Seq_flight = TRUE;
 	          }
 	          else if (strcmp(pclPstd,pcpParkstand) == 0)
