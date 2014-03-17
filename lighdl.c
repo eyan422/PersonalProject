@@ -207,6 +207,7 @@ static int igBatch = 0;
 /*
 @fya 20140310
 */
+static int igNextAllocArrUpperRange = 0;
 static int igNextAllocDepUpperRange = 0;
 
 static int	Init_Handler();
@@ -2966,7 +2967,13 @@ static int GetConfig()
   if (ilRC == RC_SUCCESS)
       igNextAllocDepUpperRange = atoi(pclTmpBuf);
   else
-      igNextAllocDepUpperRange = 1;
+      igNextAllocDepUpperRange = 3;
+
+  ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","NEXT_ALLOC_ARR_UPPER",CFG_STRING,pclTmpBuf);
+  if (ilRC == RC_SUCCESS)
+      igNextAllocArrUpperRange = atoi(pclTmpBuf);
+  else
+      igNextAllocArrUpperRange = 3;
 
   ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","BATCH",CFG_STRING,pclTmpBuf);
   if (ilRC == RC_SUCCESS)
@@ -6467,15 +6474,15 @@ static void FindNextAllocArrBuildWhereClause(char *pcpWhere,char *pcpParkstand,c
 {
 	char *pclFunc = "FindNextAllocArrBuildWhereClause";
 	char pclWhere[2048] = "\0";
-	/*char pclTmpConfigEndShiftTime[TIMEFORMAT] = "\0";*/
+	char pclTmpTime[TIMEFORMAT] = "\0";
 
 	memset(pcpWhere,0,sizeof(pcpWhere));
 
-	/*strcpy(pclTmpConfigEndShiftTime,pclCurrentTime);
+	strcpy(pclTmpTime,pcpFormalTifd);
 
-	AddSecondsToCEDATime(pclTmpConfigEndShiftTime, ipConfigEndShiftTime*60*60*24, 1);*/
+	AddSecondsToCEDATime(pclTmpTime, igNextAllocAUpperRange * 60 * 60 * 24, 1);*/
 
-	sprintf(pclWhere,"PSTA = '%s' and FTYP NOT IN ('X','N') and ADID = 'A' and TIFA between '%s' and '%s' order by TIFA asc",pcpParkstand,pcpFormalTifd,pcpNextTifd);
+	sprintf(pclWhere,"PSTA = '%s' and FTYP NOT IN ('X','N') and ADID = 'A' and TIFA between '%s' and '%s' order by TIFA asc",pcpParkstand,pcpFormalTifd,pclTmpTime);
 
 	strcpy(pcpWhere,pclWhere);
   dbg(DEBUG,"<%s>Where Clause<%s>",pclFunc,pcpWhere);
