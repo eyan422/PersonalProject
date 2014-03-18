@@ -1,7 +1,7 @@
 #ifndef _DEF_mks_version
   #define _DEF_mks_version
   #include "ufisvers.h" /* sets UFIS_VERSION, must be done before mks_version */
-  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/AUH/AUH_Server/Base/Server/Interface/fidiku.c 1.9 2013/11/18 11:00:01 fya Exp  $";
+  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/AUH/AUH_Server/Base/Server/Interface/fidiku.c 1.91 2014/03/18 11:00:01 fya Exp  $";
 #endif /* _DEF_mks_version */
 /******************************************************************************/
 /*                                                                            */
@@ -16,13 +16,14 @@
    20120724 FYA v1.3 : fixing bug of ALC2, ALC3 in codeshare part. Current logic
    	is if ALC3 exists, then ALC2 is abandoned, otherwise, searching ALC3 by given
    	ALC2. If search fails, then use ALC2
-   20120803 FYA v1.4: if ALC3 and FLNO is null, then use YY9 to fill ALC3, and 
+   20120803 FYA v1.4: if ALC3 and FLNO is null, then use YY9 to fill ALC3, and
    	last 4 letters of CSGN to fill FLNO, which is configrable
    20120918 FYA v1.5: Use ICAO for Port and Vial instead of original three letters
    20121011 FYA v1.6: Support return taxi and return flight
    20121105 FYA v1.7: Check the time window every time before flight XML message generated.
    20130228 FYA v1.8: Make ACT3 & ACT5 configurable
-   20131115 FYA v1.9: Print the return value of syslibSearchDbData and returned ALC3 
+   20131115 FYA v1.9: Print the return value of syslibSearchDbData and returned ALC3
+   20140318 FYA v1.91: UFIS-5620  Use the letter "Q" for Requested flights which are marked as blank originaly.
    				*/
 /******************************************************************************/
 /*                                                                            */
@@ -286,18 +287,18 @@ typedef struct
     char GA1B[NORMAL_COLUMN_LEN];
     char GA1E[NORMAL_COLUMN_LEN];
     char ACT3[NORMAL_COLUMN_LEN];
-    
+
     //Frank v1.8 20130228
     char ACT5[NORMAL_COLUMN_LEN];
     //Frank v1.8 20130228
-    
+
     char ONBL[NORMAL_COLUMN_LEN];
     char OFBL[NORMAL_COLUMN_LEN];
     char ONBE[NORMAL_COLUMN_LEN];
     char STYP[NORMAL_COLUMN_LEN];
     char TTYP[NORMAL_COLUMN_LEN];
     char ADID[NORMAL_COLUMN_LEN];
-    
+
     //Frank v1.1
     char PSTA[NORMAL_COLUMN_LEN];
     char PSTD[NORMAL_COLUMN_LEN];
@@ -308,34 +309,34 @@ typedef struct
     char WRO1[NORMAL_COLUMN_LEN];
     char WRO2[NORMAL_COLUMN_LEN];
     //Frank v1.1
-    
+
     char ETOD[NORMAL_COLUMN_LEN];
     char ETOA[NORMAL_COLUMN_LEN];
-    
+
     //Frank v1.1
     char LAND[NORMAL_COLUMN_LEN];
     char AIRB[NORMAL_COLUMN_LEN];
     //Frank v1.1
-    
+
     char CTOT[NORMAL_COLUMN_LEN];
     char REGN[NORMAL_COLUMN_LEN];
-    
+
     //Frank v1.1
     char TMOA[NORMAL_COLUMN_LEN];
     //Frank v1.1
-    
+
     char PAXT[NORMAL_COLUMN_LEN];
-    
+
     //Frank v1.1
     char BLT1[NORMAL_COLUMN_LEN];
     char BLT2[NORMAL_COLUMN_LEN];
     //Frank v1.1
-    
+
     char VIA3[NORMAL_COLUMN_LEN];
     char CSGN[NORMAL_COLUMN_LEN];
     char FTYP[NORMAL_COLUMN_LEN];
     char NXTI[NORMAL_COLUMN_LEN];
-    
+
     char VIAN[NORMAL_COLUMN_LEN];
     char VIAL[VIALLEN];
     char AURN[NORMAL_COLUMN_LEN];
@@ -347,19 +348,19 @@ typedef struct
     char JCNT[NORMAL_COLUMN_LEN];
 
 		char GD1B[NORMAL_COLUMN_LEN];
-    char GD1E[NORMAL_COLUMN_LEN]; 
+    char GD1E[NORMAL_COLUMN_LEN];
 
 		char ORG3[NORMAL_COLUMN_LEN];
-    char DES3[NORMAL_COLUMN_LEN]; 
-    
-    char STEV[NORMAL_COLUMN_LEN]; 
-    
+    char DES3[NORMAL_COLUMN_LEN];
+
+    char STEV[NORMAL_COLUMN_LEN];
+
     char TIFA[NORMAL_COLUMN_LEN];
     char TIFD[NORMAL_COLUMN_LEN];
-    
+
     char ORG4[NORMAL_COLUMN_LEN];
-    char DES4[NORMAL_COLUMN_LEN]; 
-    char FLNS[NORMAL_COLUMN_LEN]; 
+    char DES4[NORMAL_COLUMN_LEN];
+    char FLNS[NORMAL_COLUMN_LEN];
 } AFTREC;
 
 typedef struct
@@ -544,9 +545,9 @@ MAIN
 {
     int    ilRc = RC_SUCCESS;            /* Return code            */
     int    ilCnt = 0;
-    
+
     INITIALIZE;            /* General initialization    */
-    
+
     dbg(TRACE,"MAIN: version <%s>",sccs_version);
     /* Attach to the MIKE queues */
     do
@@ -588,7 +589,7 @@ MAIN
     }else{
         dbg(TRACE,"MAIN: init_db() OK!");
     } /* end of if */
-    
+
     /* logon to DB is ok, but do NOT use DB while ctrl_sta == HSB_COMING_UP !!! */
     sprintf(cgConfigFile,"%s/%s.cfg",getenv("CFG_PATH"),mod_name);
     dbg(TRACE,"ConfigFile <%s>",cgConfigFile);
@@ -622,81 +623,81 @@ MAIN
     } else {
         Terminate();
     }/* end of if */
-    
+
     dbg(TRACE,"=====================");
     dbg(TRACE,"MAIN: initializing OK");
     dbg(TRACE,"=====================");
-    
+
     InitFieldIndex();
-    
+
     for(;;)
     {
         ilRc = que(QUE_GETBIG,0,mod_id,PRIORITY_3,igItemLen,(char *)&prgItem);
         /* Acknowledge the item */
         ilRc = que(QUE_ACK,0,mod_id,0,0,NULL);
-        if( ilRc != RC_SUCCESS ) 
+        if( ilRc != RC_SUCCESS )
         {
             /* handle que_ack error */
             HandleQueErr(ilRc);
         } /* fi */
-        
+
         /* depending on the size of the received item  */
         /* a realloc could be made by the que function */
         /* so do never forget to set event pointer !!! */
         prgEvent = (EVENT *) prgItem->text;
-                
+
         if( ilRc == RC_SUCCESS )
         {
         	lgEvtCnt++;
-        	
+
             /* Acknowledge the item */
             ilRc = que(QUE_ACK,0,mod_id,0,0,NULL);
-            if( ilRc != RC_SUCCESS ) 
+            if( ilRc != RC_SUCCESS )
             {
                 /* handle que_ack error */
                 HandleQueErr(ilRc);
             } /* fi */
-            
+
             switch( prgEvent->command )
             {
             case    HSB_STANDBY    :
                 ctrl_sta = prgEvent->command;
                 HandleQueues();
-                break;    
+                break;
             case    HSB_COMING_UP    :
                 ctrl_sta = prgEvent->command;
                 HandleQueues();
-                break;    
+                break;
             case    HSB_ACTIVE    :
                 ctrl_sta = prgEvent->command;
-                break;    
+                break;
             case    HSB_ACT_TO_SBY    :
                 ctrl_sta = prgEvent->command;
                 /* CloseConnection(); */
                 HandleQueues();
-                break;    
+                break;
             case    HSB_DOWN    :
                 /* whole system shutdown - do not further use que(), send_message() or timsch() ! */
                 ctrl_sta = prgEvent->command;
                 Terminate();
-                break;    
+                break;
             case    HSB_STANDALONE    :
                 ctrl_sta = prgEvent->command;
 
-                break;    
+                break;
 
             case    SHUTDOWN    :
                 /* process shutdown - maybe from uutil */
                 Terminate();
                 break;
-                    
+
             case    RESET        :
                 ilRc = Reset();
                 break;
-                    
+
             case    EVENT_DATA    :
                 if((ctrl_sta == HSB_STANDALONE) || (ctrl_sta == HSB_ACTIVE) || (ctrl_sta == HSB_ACT_TO_SBY))
-                {		
+                {
                 		dbg(TRACE,"process name       <%s>",argv[0]);
                     ilRc = HandleData(prgEvent);
                     if(ilRc != RC_SUCCESS)
@@ -709,7 +710,7 @@ MAIN
                     DebugPrintEvent(TRACE,prgEvent);
                 }/* end of if */
                 break;
-                    
+
             case    TRACE_ON :
                 dbg_handle_debug(prgEvent->command);
                 break;
@@ -726,11 +727,11 @@ MAIN
             /* Handle queuing errors */
             HandleQueErr(ilRc);
         } /* end else */
-        
+
     } /* end for */
-    
+
     exit(0);
-    
+
 } /* end of MAIN */
 
 /******************************************************************************/
@@ -742,11 +743,11 @@ static int Init_Process()
     char pclTmp[16] = "\0";
     char pclTmp1[16] = "\0";
     char pclSelection[1024] = "\0";
-    
+
     /* now reading from configfile or from database */
     SetSignals(HandleSignal);
     igInitOK = TRUE;
-    
+
     // Frank v1.1
     if(ilRc == RC_SUCCESS)
 		{
@@ -760,7 +761,7 @@ static int Init_Process()
 				dbg(TRACE,"<Init_Process> home airport <%s>",cgHopo);
 			}
 		}
-    
+
     //mode
     ilRc = ReadConfigEntry( cgConfigFile, "MAIN","MODE",pclSelection);
    	if( ilRc != RC_SUCCESS )
@@ -780,17 +781,17 @@ static int Init_Process()
     	 		dbg(TRACE,"<Init_Process> MODE <REAL> ilMode <%d>", pclSelection,ilMode);
     	 }
     }
-    
-    //Frank v1.4 20120803	
+
+    //Frank v1.4 20120803
     ilRc = ReadConfigEntry( cgConfigFile, "MAIN","CODE_FOR_CSGN",pclSelection);
     if( ilRc != RC_SUCCESS )
-    {    	
+    {
     	memset(pcgCodeForALC3,0,sizeof(pcgCodeForALC3));
-    }    
+    }
     else
-    {    	
+    {
 			strcpy(pcgCodeForALC3,pclSelection);
-			dbg(TRACE,"pcgCodeForALC3<%s>",pcgCodeForALC3);   
+			dbg(TRACE,"pcgCodeForALC3<%s>",pcgCodeForALC3);
     }
     ilRc = ReadConfigEntry( cgConfigFile, "MAIN","LAST_PART_OF_CSGN",pclSelection);
     if( ilRc != RC_SUCCESS )
@@ -802,46 +803,46 @@ static int Init_Process()
 			igLastPartOfCSGN = atoi(pclSelection);
 			dbg(TRACE,"igLastPartOfCSGN is <%d>",igLastPartOfCSGN);
     }
-    
+
     //Frank v1.8 20130228
     ilRc = ReadConfigEntry( cgConfigFile, "MAIN","ACT_ICAO",pclSelection);
     if( ilRc != RC_SUCCESS )
-    {    	
+    {
     	memset(pcgActICAO,0,sizeof(pcgActICAO));
     	strcpy(pcgActICAO,"NO");
-    }    
+    }
     else
-    {    	
+    {
 			strcpy(pcgActICAO,pclSelection);
-			dbg(TRACE,"pcgActICAO<%s>",pcgActICAO);   
+			dbg(TRACE,"pcgActICAO<%s>",pcgActICAO);
     }
     //Frank v1.8 20130228
-    
-    //Frank v1.5 20120918	
+
+    //Frank v1.5 20120918
     ilRc = ReadConfigEntry( cgConfigFile, "MAIN","PORT_ICAO",pclSelection);
     if( ilRc != RC_SUCCESS )
-    {    	
+    {
     	memset(pcgPortICAO,0,sizeof(pcgPortICAO));
     	strcpy(pcgPortICAO,"NO");
-    }    
+    }
     else
-    {    	
+    {
 			strcpy(pcgPortICAO,pclSelection);
-			dbg(TRACE,"pcgPortICAO<%s>",pcgPortICAO);   
+			dbg(TRACE,"pcgPortICAO<%s>",pcgPortICAO);
     }
     ilRc = ReadConfigEntry( cgConfigFile, "MAIN","VIAL_ICAO",pclSelection);
     if( ilRc != RC_SUCCESS )
-    {    	
+    {
     	memset(pcgVialICAO,0,sizeof(pcgVialICAO));
     	strcpy(pcgVialICAO,"NO");
-    }    
+    }
     else
-    {    	
+    {
 			strcpy(pcgVialICAO,pclSelection);
-			dbg(TRACE,"pcgVialICAO<%s>",pcgVialICAO);   
+			dbg(TRACE,"pcgVialICAO<%s>",pcgVialICAO);
     }
     //Frank v1.4 20120808
-    /*	
+    /*
     ilRc = ReadConfigEntry( cgConfigFile, "MAIN","ENABLE_APC3_DEFAULT_VALUE",pclSelection);
     if( ilRc != RC_SUCCESS )
     {
@@ -852,7 +853,7 @@ static int Init_Process()
 	strcpy(pcgApc3DefaultValueEnable,pclSelection);
 	dbg(TRACE,"pcgApc3DefaultValueEnable is <%s>",pcgApc3DefaultValueEnable);
     }
-    
+
     ilRc = ReadConfigEntry( cgConfigFile, "MAIN","APC3_DEFAULT_VALUE",pclSelection);
     if( ilRc != RC_SUCCESS )
     {
@@ -870,7 +871,7 @@ static int Init_Process()
     if( !strncmp( pclSelection, "DEBUG", 5 ) )
        debug_level = DEBUG;
     dbg(TRACE,"<Init_Process> debug_level <%s><%d>", pclSelection, debug_level);
-    
+
     // bulk time
     ilRc = ReadConfigEntry( cgConfigFile, "MAIN","BULK_TIME_HOUR",pclSelection);
     if( ilRc != RC_SUCCESS )
@@ -879,12 +880,12 @@ static int Init_Process()
     }
     else
     {
-    	
+
     	 glbBulkTimeHour = atoi(pclSelection);
     	 dbg(TRACE,"<Init_Process> BULK_TIME_HOUR <%s> glbBulkTimeHour <%d>", pclSelection,glbBulkTimeHour);
-    	 
+
     }
-    
+
     ilRc = ReadConfigEntry( cgConfigFile, "MAIN","TIME_WINDOW",pclSelection);
     if( ilRc != RC_SUCCESS )
     {
@@ -893,20 +894,20 @@ static int Init_Process()
     else
     {
     	 dbg(TRACE,"<TIME_WINDOW>pclSelection<%s>",pclSelection);
-    	 
+
     	 get_item(1,pclSelection,pclTmp,0,",","\0","\0");
     	 get_item(2,pclSelection,pclTmp1,0,",","\0","\0");
-    	
+
     	 dbg(TRACE,"---pclTmp<%s>",pclTmp);
     	 dbg(TRACE,"---pclTmp1<%s>",pclTmp1);
-    	 
+
     	 glTimeWindowStart = atoi(pclTmp);
     	 glTimeWindowEnd = atoi(pclTmp1);
-    	 
+
     	 dbg(TRACE,"---glTimeWindowStart<%d>",glTimeWindowStart);
     	 dbg(TRACE,"---glTimeWindowEnd<%d>",glTimeWindowEnd);
     }
-    
+
     // send to modid fid glbWMFIDF
     ilRc = ReadConfigEntry( cgConfigFile, "MAIN","WMFIDF_MODID",pclSelection);
     if( ilRc != RC_SUCCESS )
@@ -939,9 +940,9 @@ static int Init_Process()
     {
     	 glbWMFIDA = atoi(pclSelection);
     	 dbg(TRACE,"<Init_Process> WMFIDA_MODID <%s> glbWMFIDA <%d>", pclSelection,glbWMFIDA);
-    }    
+    }
     return(ilRc);
-    
+
 } /* end of initialize */
 /******************************************************************************/
 /* The initialization routine                                                 */
@@ -960,7 +961,7 @@ static int ReadConfigEntry(char *pcpFname, char *pcpSection,char *pcpKeyword, ch
                CFG_STRING,pcpCfgBuffer);
     if(ilRc != RC_SUCCESS){
         dbg(TRACE,"Not found in %s: <%s> <%s>",cgConfigFile,clSection,clKeyword);
-    } 
+    }
     else{
         dbg(DEBUG,"Config Entry <%s>,<%s>:<%s> found in %s",
         clSection, clKeyword ,pcpCfgBuffer, cgConfigFile);
@@ -973,11 +974,11 @@ static int ReadConfigEntry(char *pcpFname, char *pcpSection,char *pcpKeyword, ch
 static int Reset()
 {
     int    ilRc = RC_SUCCESS;                /* Return code */
-    
+
     dbg(TRACE,"Reset: now resetting");
-    
+
     return ilRc;
-    
+
 } /* end of Reset */
 
 /******************************************************************************/
@@ -987,9 +988,9 @@ static void Terminate()
 {
 
     dbg(TRACE,"Terminate: now leaving ...");
-    
+
     exit(0);
-    
+
 } /* end of Terminate */
 
 /******************************************************************************/
@@ -1006,7 +1007,7 @@ static void HandleSignal(int pipSig)
         break;
     } /* end of switch */
     exit(0);
-    
+
 } /* end of HandleSignal */
 
 /******************************************************************************/
@@ -1024,7 +1025,7 @@ static void HandleErr(int pipErr)
 static void HandleQueErr(int pipErr)
 {
     int    ilRc = RC_SUCCESS;
-    
+
     switch(pipErr) {
     case    QUE_E_FUNC    :    /* Unknown function */
         dbg(TRACE,"<%d> : unknown function",pipErr);
@@ -1084,7 +1085,7 @@ static void HandleQueErr(int pipErr)
         dbg(TRACE,"<%d> : unknown error",pipErr);
         break;
     } /* end switch */
-         
+
     return;
 } /* end of HandleQueErr */
 
@@ -1095,68 +1096,68 @@ static void HandleQueues()
 {
     int    ilRc = RC_SUCCESS;            /* Return code */
     int    ilBreakOut = FALSE;
-    
+
     do
     {
         ilRc = que(QUE_GETBIG,0,mod_id,PRIORITY_3,igItemLen,(char *)&prgItem);
         /* depending on the size of the received item  */
         /* a realloc could be made by the que function */
         /* so do never forget to set event pointer !!! */
-        prgEvent = (EVENT *) prgItem->text;    
+        prgEvent = (EVENT *) prgItem->text;
         if( ilRc == RC_SUCCESS )
         {
             /* Acknowledge the item */
             ilRc = que(QUE_ACK,0,mod_id,0,0,NULL);
-            if( ilRc != RC_SUCCESS ) 
+            if( ilRc != RC_SUCCESS )
             {
                 /* handle que_ack error */
                 HandleQueErr(ilRc);
             } /* fi */
-        
+
             switch( prgEvent->command )
             {
             case    HSB_STANDBY    :
                 ctrl_sta = prgEvent->command;
-                break;    
-    
+                break;
+
             case    HSB_COMING_UP    :
                 ctrl_sta = prgEvent->command;
-                break;    
-    
+                break;
+
             case    HSB_ACTIVE    :
                 ctrl_sta = prgEvent->command;
                 ilBreakOut = TRUE;
-                break;    
+                break;
             case    HSB_ACT_TO_SBY    :
                 ctrl_sta = prgEvent->command;
-                break;    
-    
+                break;
+
             case    HSB_DOWN    :
                 /* whole system shutdown - do not further use que(), send_message() or timsch() ! */
                 ctrl_sta = prgEvent->command;
                 Terminate();
-                break;    
-    
+                break;
+
             case    HSB_STANDALONE    :
                 ctrl_sta = prgEvent->command;
 
                 ilBreakOut = TRUE;
-                break;    
+                break;
 
             case    SHUTDOWN    :
                 Terminate();
                 break;
-                        
+
             case    RESET        :
                 ilRc = Reset();
                 break;
-                        
+
             case    EVENT_DATA    :
                 dbg(TRACE,"HandleQueues: wrong hsb status <%d>",ctrl_sta);
                 DebugPrintItem(TRACE,prgItem);
                 DebugPrintEvent(TRACE,prgEvent);
                 break;
-                    
+
             case    TRACE_ON :
                 dbg_handle_debug(prgEvent->command);
                 break;
@@ -1184,14 +1185,14 @@ static void HandleQueues()
     }/* end of if */
     /* OpenConnection(); */
 } /* end of HandleQueues */
-    
+
 
 /******************************************************************************/
 /* The handle data routine                                                    */
 /******************************************************************************/
 static int HandleData(EVENT *prpEvent)
-{ 
-    int ilRc = RC_SUCCESS;         
+{
+    int ilRc = RC_SUCCESS;
     int ilCmd = 0;
     int ilUpdPoolJob = TRUE;
     int ilNumdays;
@@ -1215,7 +1216,7 @@ static int HandleData(EVENT *prpEvent)
     strcpy(clTable,prlCmdblk->obj_name);
 
     dbg(TRACE,"========== START <%10.10d> ==========",lgEvtCnt);
-    
+
      /****************************************/
     if(ilMode == 1)
     {
@@ -1233,9 +1234,9 @@ static int HandleData(EVENT *prpEvent)
     dbg(TRACE,"fields    <%s>",pclFields);
     dbg(TRACE,"data      <%s>",pclData);
     dbg(TRACE,"pid       <%d>",igMyPid = getpid());
-    
+
     /****************************************/
-    
+
     /* From NTISCH */
     //fidblk
     if( !strcmp(prlCmdblk->command,"TIM") )
@@ -1249,7 +1250,7 @@ static int HandleData(EVENT *prpEvent)
     	{
     		dbg(TRACE,"<HandleData> : handle afttab update ");
     		HandleFlightUpdate(pclFields,pclData);
-		
+
 		/*if( strstr(pclFields,"BLT1") != 0 || strstr(pclFields,"BLT2"))
 		{
     			HandleBag(pclFields,pclData);
@@ -1400,7 +1401,7 @@ static int HandleData(EVENT *prpEvent)
 
     /****************************************/
     return ilRc;
-    
+
 } /* end of HandleData */
 
 //static void HandleBag(char *fld,char *data)
@@ -1409,12 +1410,12 @@ static void HandleBag(char *fld,char *data,char *Selection)
 	int ilRc = 0;
 	char clUrno[24] = "\0";
 	char clBagSelection[1024] = "\0";
-	
+
 	char *pclTmp=NULL;
 	char *pclTmp1=NULL;
-	
+
 	//ilRc = tool_get_field_data (fld, data, "URNO", clUrno );
-	
+
 	if(strstr(Selection,"WHERE")!=0)
 	{
 		dbg(TRACE,"<HandleBag>Selection<%s>",Selection);
@@ -1424,11 +1425,11 @@ static void HandleBag(char *fld,char *data,char *Selection)
 		pclTmp1=strstr(clUrno,"\n");
 		dbg(TRACE,"<HandleBag>pclTmp1<%s>",pclTmp1+1);
 		strcpy(clUrno,pclTmp1+1);
-		
+
 		if (!IS_EMPTY (clUrno))
 		{
 			dbg(TRACE,"<HandleBag> : get bag URNO <%s>",clUrno);
-		
+
 		  /*** SQL Queries ***/
 		  sprintf( clBagSelection, "SELECT %s FROM AFTTAB WHERE URNO = '%s' ",
 	                                   pcgBagFields, clUrno);
@@ -1452,7 +1453,7 @@ static void sendBagData(char *mySqlBuf)
 	short slSqlFunc = 0;
   short slCursor = 0;
   char pclDataArea[4096] = "\0";
-	
+
 	/*** Actual SQL Queries ***/
 	dbg(TRACE,"<sendBagData> : sql buf <%s>",mySqlBuf);
 	//1.get Gate data
@@ -1460,7 +1461,7 @@ static void sendBagData(char *mySqlBuf)
   dbg(TRACE,"<sendBagData> : flds count <%d>",flds_count);
   slSqlFunc = START;
   slCursor = 0;
-  
+
   while((ilRc = sql_if(slSqlFunc,&slCursor,mySqlBuf,pclDataArea)) == DB_SUCCESS)
   {
   	BuildItemBuffer(pclDataArea, NULL, flds_count, ",");
@@ -1468,7 +1469,7 @@ static void sendBagData(char *mySqlBuf)
   	memset( &rlBagrec, 0, sizeof(rlBagrec) );
   	ilRecordCount++;
     slSqlFunc = NEXT;
-    
+
     get_fld_value(pclDataArea,igBagUrno,rlBagrec.URNO); TrimRight(rlBagrec.URNO);
     get_fld_value(pclDataArea,igBagAlc3,rlBagrec.ALC3); TrimRight(rlBagrec.ALC3);
     get_fld_value(pclDataArea,igBagFltn,rlBagrec.FLTN); TrimRight(rlBagrec.FLTN);
@@ -1479,7 +1480,7 @@ static void sendBagData(char *mySqlBuf)
     get_fld_value(pclDataArea,igBagB1ea,rlBagrec.B1EA); TrimRight(rlBagrec.B1EA);
     //get_fld_value(pclDataArea,igBagB2ba,rlBagrec.B2BA); TrimRight(rlBagrec.B2BA);
     get_fld_value(pclDataArea,igBagCsgn,rlBagrec.CSGN); TrimRight(rlBagrec.CSGN);
-    
+
     dbg(DEBUG,"<sendBagData> : URNO <%s>", rlBagrec.URNO);
     dbg(DEBUG,"<sendBagData> : ALC3 <%s>", rlBagrec.ALC3);
     dbg(DEBUG,"<sendBagData> : FLTN <%s>", rlBagrec.FLTN);
@@ -1490,7 +1491,7 @@ static void sendBagData(char *mySqlBuf)
     dbg(DEBUG,"<sendBagData> : B1EA <%s>", rlBagrec.B1EA);
     //dbg(DEBUG,"<sendBagData> : B2BA <%s>", rlBagrec.B2BA);
     dbg(DEBUG,"<sendBagData> : CSGN <%s>", rlBagrec.CSGN);
-    
+
     PackBagXml(rlBagrec);
   }
   close_my_cursor(&slCursor);
@@ -1506,26 +1507,26 @@ static void HandleMsgFromFIDS(char *data)
 	char mySelectTime_[20] = "\0";
 	char tmp[20] = "201205021740";
 	int  myBulkTimeSecond = 0;
-	
+
 	char clALC3[8192] = "\0";
 	char clFLNO[8192] = "\0";
 	char clSTAD[8192] = "\0";
-	
+
 	char clREM[8192]  = "\0";
-	
+
 	char clGTID[8192] = "\0";
 	char clTERM[8192] = "\0";
 	char clGD1X[8192] = "\0";
 	char clGD1Y[8192]  = "\0";
-	
+
 	char clCKID[8192] = "\0";
 	char clCKBA[8192] = "\0";
 	char clCKEA[8192] = "\0";
-	
+
 	CCAREC rlCcarec;
 
 	dbg(TRACE,"<HandleMsgFromFIDS> : Request XML Message \n<\n%s>",data);
-	
+
 	if (GetKeyItem(clALC3,&llResultLen,data,"<ALC3>","</",TRUE) != NULL)
 	{
 		dbg(DEBUG,"ALC3 <%s>llResultLen<%d>",clALC3,llResultLen);
@@ -1538,7 +1539,7 @@ static void HandleMsgFromFIDS(char *data)
 	{
 		dbg(DEBUG,"STAD <%s>llResultLen<%d>",clSTAD,llResultLen);
 	}
-		
+
 	if (GetKeyItem(myTimeFrom,&llResultLen,data,"<timefrom>","</timefrom>",TRUE) != NULL)
 	{
 		if (llResultLen == 14)
@@ -1553,11 +1554,11 @@ static void HandleMsgFromFIDS(char *data)
 	    sprintf( clHFMSelection, "SELECT %s FROM AFTTAB WHERE ((TIFD BETWEEN '%s' AND '%s') OR (TIFA BETWEEN '%s' AND '%s')) ",
                                    pcgAftFields,myTimeFrom,myTimeTo,myTimeFrom,myTimeTo );
       */
-      
+
       sprintf( clHFMSelection, "SELECT %s FROM AFTTAB WHERE (FTYP<>'T' AND (((ADID='A' OR ADID='B') AND TIFA BETWEEN '%s' and '%s') OR (ADID='D' AND TIFD BETWEEN '%s' AND '%s'))) OR (FTYP='T' AND ((TIFA BETWEEN '%s' AND '%s') OR (TIFD BETWEEN '%s' AND '%s')))", pcgAftFields,myTimeFrom,myTimeTo,myTimeFrom,myTimeTo,myTimeFrom,myTimeTo,myTimeFrom,myTimeTo);
-      
+
       dbg(TRACE,"<HandleMsgFromFIDS> : clHFMSelection <%s> ",clHFMSelection);
-    
+
       //2.send
       memset(&rlCcarec,0,sizeof(rlCcarec));
       sendAftData(clHFMSelection,rlCcarec,FALSE);
@@ -1593,7 +1594,7 @@ static void HandleMsgFromFIDS(char *data)
 		{
 			dbg(DEBUG,"GD1Y <%s>llResultLen<%d>",clGD1Y,llResultLen);
 		}
-		
+
 		HandleFidsGate(clALC3,clFLNO,clSTAD,clGTID,clTERM,clGD1X,clGD1Y);
 	}
 	else if (GetKeyItem(myTimeFrom,&llResultLen,data,"<CHKIN_Flight","</CHKIN_Flight>",TRUE) != NULL)
@@ -1616,8 +1617,8 @@ static void HandleMsgFromFIDS(char *data)
 			dbg(DEBUG,"CKEA <%s>llResultLen<%d>",clCKEA,llResultLen);
 		}
 		HandleFidsCheckIN(clALC3,clFLNO,clSTAD,clCKID,clTERM,clCKBA,clCKEA);
-	}	
-	
+	}
+
 	dbg(DEBUG,"exit HandleMsgFromFIDS");
 }//HandleMsgFromFIDS
 
@@ -1643,15 +1644,15 @@ int HandleFidsGate(char *cpAlc3, char *cpFlno, char *cpStad, char *cpGTID, char*
 	long llResultLen = 0;
 
 	memset(&rlAftrec,0,sizeof(rlAftrec));
-	
+
 	//modification
 	/*
 	SELECT %s FROM AFTTAB
-	WHERE ALC3='%s' AND 
-	FTYP IN ('O','S') AND 
+	WHERE ALC3='%s' AND
+	FTYP IN ('O','S') AND
 	((ADID ='D' AND STOD LIKE '%12.12%%') OR (ADID='A' AND STOA LIKE '%12.12%%'))
 	*/
-	
+
 	sprintf(clFidSelection,"SELECT %s FROM AFTTAB "
 													"WHERE ALC3='%s' AND "
 													"FLTN='%s' AND "
@@ -1662,15 +1663,15 @@ int HandleFidsGate(char *cpAlc3, char *cpFlno, char *cpStad, char *cpGTID, char*
 													cpAlc3,
 													cpFlno,
 													cpStad);
-	
+
 	 dbg(TRACE,"clFidSelection<%s>",clFidSelection);
-	 
+
 	 flds_count = get_flds_count(pcgAftFields);
    dbg(TRACE,"<HandleFidsGate> : flds count <%d>",flds_count);
 	 slSqlFunc = START;
 	 slCursor = 0;
 	 if((ilRc = sql_if(slSqlFunc,&slCursor,clFidSelection,pclDataArea)) == DB_SUCCESS)
-	 {	
+	 {
 	 		memset(rlAftrec.URNO,0,sizeof(rlAftrec.URNO));
 	 		memset(rlAftrec.ADID,0,sizeof(rlAftrec.ADID));
 	 		BuildItemBuffer(pclDataArea, NULL, flds_count, ",");
@@ -1679,27 +1680,27 @@ int HandleFidsGate(char *cpAlc3, char *cpFlno, char *cpStad, char *cpGTID, char*
     	slSqlFunc = NEXT;
   		get_fld_value(pclDataArea,igAftUrno,rlAftrec.URNO); TrimRight(rlAftrec.URNO);
   		get_fld_value(pclDataArea,igAftAdid,rlAftrec.ADID); TrimRight(rlAftrec.ADID);
-  		
+
   		dbg(TRACE,"<HandleFidsGate> : URNO <%s>", rlAftrec.URNO);
   		dbg(TRACE,"ADID<%s>",rlAftrec.ADID);
-  		
+
   		if( strlen(rlAftrec.URNO) > 0 && atoi(rlAftrec.URNO) > 0 )
   		{
   			//Found, update the record in AFTTAB
-  		
+
 				memset(pclSelection,0,sizeof(pclSelection));
 				memset(pclField,0,sizeof(pclField));
 				memset(pclData,0,sizeof(pclData));
 				sprintf(pclSelection,"WHERE URNO=%s",rlAftrec.URNO);
-				
+
 				if(strncmp(rlAftrec.ADID,"B",1)==0)
 				{
 					dbg(TRACE,"This is a B flight -> GTA1,TGA1,GD1X,GD1Y");
 					sprintf(pclField,"GTA1,TGA1,GD1X,GD1Y");
 				}
-				
+
 				//sprintf(pclField,"GTA1,TGA1,GD1X,GD1Y");
-				
+
 				if(strncmp(rlAftrec.ADID,"A",1)==0)
 				{
 					dbg(TRACE,"This is a arrivial flight -> GTA1,TGA1,GD1X,GD1Y");
@@ -1710,24 +1711,24 @@ int HandleFidsGate(char *cpAlc3, char *cpFlno, char *cpStad, char *cpGTID, char*
 					dbg(TRACE,"This is a departure flight -> GTD1,TGD1,GD1X,GD1Y");
 					sprintf(pclField,"GTD1,TGD1,GD1X,GD1Y");
 				}
-				
+
 				sprintf(pclData,"%s,%s,%s,%s",cpGTID,cpTERM,cpGD1X,cpGD1Y);
-				
+
 				dbg(TRACE,"SendCedaEvent CMD<%s> to MOD<%d> TABLE<%s>",pclCmd,igFlight,pclTab);
 				dbg(TRACE,"SendCedaEvent SELECTION<%s>",pclSelection);
 				dbg(TRACE,"SendCedaEvent FIELD<%s>",pclField);
 				dbg(TRACE,"SendCedaEvent DATA<%s>",pclData);
-				
+
   			//ilRc = SendCedaEvent(igFlight, 0, mod_name, "", "", "",pclCmd, pclTab, pclSelection, pclField, pclData, "", 3, 0);
   			ilRc = SendCedaEvent(igFlight, 0, mod_name, "", "", "",pclCmd, pclTab, pclSelection, pclField, pclData, "", 3, NETOUT_NO_ACK);
-				
+
   		}
 	 }
 	 close_my_cursor(&slCursor);
 	 dbg(TRACE,"<HandleFidsGate> : records count <%d>",ilRecordCount);
-	 
+
 	 dbg(TRACE,"<HandleFidsGate> end");
-	 return ilRc;					
+	 return ilRc;
 }
 
 int HandleFidsCheckIN(char *cpAlc3, char *cpFlno, char *cpStad, char *clCKID,char *clTERM,char *clCKBA,char *clCKEA)
@@ -1759,7 +1760,7 @@ int HandleFidsCheckIN(char *cpAlc3, char *cpFlno, char *cpStad, char *clCKID,cha
 	long llResultLen = 0;
 
 	memset(&rlAftrec,0,sizeof(rlAftrec));
-	
+
 	sprintf(clFidSelection,"SELECT %s FROM AFTTAB "
 													"WHERE ALC3='%s' AND "
 													"FLTN='%s' AND "
@@ -1771,62 +1772,62 @@ int HandleFidsCheckIN(char *cpAlc3, char *cpFlno, char *cpStad, char *clCKID,cha
 													cpAlc3,
 													cpFlno,
 													cpStad);
-	
+
 	 dbg(TRACE,"clFidSelection<%s>",clFidSelection);
-	 
+
 	 flds_count = get_flds_count(pcgAftFields);
    dbg(TRACE,"<HandleFidsCheckIN> : flds count <%d>",flds_count);
 	 slSqlFunc = START;
 	 slCursor = 0;
 	 if((ilRc = sql_if(slSqlFunc,&slCursor,clFidSelection,pclDataArea)) == DB_SUCCESS)
-	 {	
+	 {
 	 		memset(rlAftrec.URNO,0,sizeof(rlAftrec.URNO));
 	 		BuildItemBuffer(pclDataArea, NULL, flds_count, ",");
   		dbg(TRACE,"<HandleFidsCheckIN> : pclDataArea <%s>",pclDataArea);
   		ilRecordCount++;
     	slSqlFunc = NEXT;
   		get_fld_value(pclDataArea,igAftUrno,rlAftrec.URNO); TrimRight(rlAftrec.URNO);
-  		
+
   		dbg(TRACE,"<HandleFidsCheckIN> : URNO <%s>", rlAftrec.URNO);
-  		
+
   		if( strlen(rlAftrec.URNO) > 0 && atoi(rlAftrec.URNO) > 0 )
   		{
   			//Found, update the record in AFTTAB
-  		
+
 				memset(pclSelection,0,sizeof(pclSelection));
 				memset(pclSelection1,0,sizeof(pclSelection1));
 				memset(pclField,0,sizeof(pclField));
 				memset(pclData,0,sizeof(pclData));
 				//sprintf(pclSelection,"SELECT URNO FROM CCATAB WHERE FLNU='%s' AND CKIC='%s' AND CKIT='%s'",rlAftrec.URNO,clCKID,clTERM);
-				
+
 				sprintf(pclSelection,"SELECT URNO FROM CCATAB WHERE FLNU='%s' AND CKIC='%s'",rlAftrec.URNO,clCKID);
-				
+
 				slSqlFunc1 = START;
 	 			slCursor1 = 0;
 	 			if((ilRc = sql_if(slSqlFunc1,&slCursor1,pclSelection,CCATABUrno)) == DB_SUCCESS)
 				{
 						sprintf(pclSelection1,"WHERE URNO='%s'",CCATABUrno);
-						
+
 						sprintf(pclField,"CKBA,CKEA");
 						sprintf(pclData,"%s,%s",clCKBA,clCKEA);
-						
+
 						dbg(TRACE,"SendCedaEvent CMD<%s> to MOD<%d> TABLE<%s>",pclCmd,igSqlhdl,pclTab);
 						dbg(TRACE,"SendCedaEvent SELECTION<%s>",pclSelection1);
 						dbg(TRACE,"SendCedaEvent FIELD<%s>",pclField);
 						dbg(TRACE,"SendCedaEvent DATA<%s>",pclData);
-						
+
 		  			//ilRc = SendCedaEvent(igFlight, 0, mod_name, "", "", "",pclCmd, pclTab, pclSelection, pclField, pclData, "", 3, 0);
 		  			ilRc = SendCedaEvent(igSqlhdl, 0, mod_name, "", "", "",pclCmd, pclTab, pclSelection1, pclField, pclData, "", 3, NETOUT_NO_ACK);
-						
+
 				}
 				close_my_cursor(&slCursor1);
   		}
 	 }
 	 close_my_cursor(&slCursor);
 	 dbg(TRACE,"<HandleFidsCheckIN> : records count <%d>",ilRecordCount);
-	 
+
 	 dbg(TRACE,"<HandleFidsCheckIN> end");
-	 return ilRc;					
+	 return ilRc;
 }
 
 //Frank v1.1
@@ -1848,7 +1849,7 @@ int HandleFidsRemark(char *cpAlc3, char *cpFlno, char *cpStad, char *cpRem)
 	long llResultLen = 0;
 
 	memset(&rlAftrec,0,sizeof(rlAftrec));
-	
+
 	sprintf(clFidSelection,"SELECT %s FROM AFTTAB "
 													"WHERE ALC3='%s' AND "
 													"FLTN='%s' AND "
@@ -1860,24 +1861,24 @@ int HandleFidsRemark(char *cpAlc3, char *cpFlno, char *cpStad, char *cpRem)
 													cpFlno,
 													cpStad,
 													cpStad);
-	
+
 	 dbg(TRACE,"clFidSelection<%s>",clFidSelection);
-	 
+
 	 flds_count = get_flds_count(pcgAftFields);
    dbg(TRACE,"<HandleFidsRemark> : flds count <%d>",flds_count);
 	 slSqlFunc = START;
 	 slCursor = 0;
 	 while((ilRc = sql_if(slSqlFunc,&slCursor,clFidSelection,pclDataArea)) == DB_SUCCESS)
-	 {	
+	 {
 	 		memset(rlAftrec.URNO,0,sizeof(rlAftrec.URNO));
 	 		BuildItemBuffer(pclDataArea, NULL, flds_count, ",");
   		dbg(TRACE,"<HandleFidsRemark> : pclDataArea <%s>",pclDataArea);
   		ilRecordCount++;
     	slSqlFunc = NEXT;
   		get_fld_value(pclDataArea,igAftUrno,rlAftrec.URNO); TrimRight(rlAftrec.URNO);
-  		
+
   		dbg(TRACE,"<HandleFidsRemark> : URNO <%s>", rlAftrec.URNO);
-  		
+
   		if( strlen(rlAftrec.URNO) > 0 && atoi(rlAftrec.URNO) > 0 )
   		{
   			//Found, update the record in AFTTAB
@@ -1889,12 +1890,12 @@ int HandleFidsRemark(char *cpAlc3, char *cpFlno, char *cpStad, char *cpRem)
 					sprintf(pclSelection,"WHERE URNO=%s",rlAftrec.URNO);
 					sprintf(pclField,"REMP");
 					sprintf(pclData,"%s",cpRem);
-					
+
 					dbg(TRACE,"SendCedaEvent CMD<%s> to MOD<%d> TABLE<%s>",pclCmd,igFlight,pclTab);
 					dbg(TRACE,"SendCedaEvent SELECTION<%s>",pclSelection);
 					dbg(TRACE,"SendCedaEvent FIELD<%s>",pclField);
 					dbg(TRACE,"SendCedaEvent DATA<%s>",pclData);
-					
+
     			//ilRc = SendCedaEvent(igFlight, 0, mod_name, "", "", "",pclCmd, pclTab, pclSelection, pclField, pclData, "", 3, 0);
     			ilRc = SendCedaEvent(igFlight, 0, mod_name, "", "", "",pclCmd, pclTab, pclSelection, pclField, pclData, "", 3, NETOUT_NO_ACK);
     			dbg(TRACE,"ilRc = SendCedaEvent()<%d>",ilRc);
@@ -1903,9 +1904,9 @@ int HandleFidsRemark(char *cpAlc3, char *cpFlno, char *cpStad, char *cpRem)
 	 }
 	 close_my_cursor(&slCursor);
 	 dbg(TRACE,"<HandleFidsRemark> : records count <%d>",ilRecordCount);
-	 
+
 	 dbg(TRACE,"<HandleFidsRemark> end");
-	 return ilRc;					
+	 return ilRc;
 }
 //Frank v1.1
 
@@ -1917,7 +1918,7 @@ static void HandleBeat(char *data)
 	dbg(TRACE,"<HandleBeat> : Beat XML Message \n<\n%s>",data);
 	ilRc = SendCedaEvent(glbWMFIDA,0, " ", " ", " ", " ",cmd, " ", " "," ", data, "", 3, 0) ;
   if(ilRc==RC_SUCCESS)
-		dbg(DEBUG, "<HandleBeat> \n ****** Send command report ****** \nSending command: <%s> to <%d>\n ****** End send command report ****** ", cmd, glbWMFIDB); 
+		dbg(DEBUG, "<HandleBeat> \n ****** Send command report ****** \nSending command: <%s> to <%d>\n ****** End send command report ****** ", cmd, glbWMFIDB);
 	else
 		dbg(DEBUG,"<HandleBeat> unable send command:<%s> to <%d> ",cmd,glbWMFIDB);
   dbg(TRACE,"<HandleBeat> : end");
@@ -1932,7 +1933,7 @@ static void HandlePstUpdateInsert(char *fld,char *data,char *updateOrInsert)
 	if ( (ilRc == RC_SUCCESS) && !IS_EMPTY (clUrno) )
 	{
 		dbg(TRACE,"<HandlePstUpdateInsert> : get gate URNO <%s>",clUrno);
-	
+
 	  /*** SQL Queries ***/
 	  sprintf( clPstSelection, "SELECT %s FROM PSTTAB WHERE URNO = '%s' ",
                                    pcgPstFields, clUrno);
@@ -1951,7 +1952,7 @@ static void sendPstData(char *mySqlBuf,char *updateOrInsert)
 	short slSqlFunc = 0;
   short slCursor = 0;
   char pclDataArea[4096] = "\0";
-	
+
 	/*** Actual SQL Queries ***/
 	dbg(TRACE,"<sendPstData> : sql buf <%s>",mySqlBuf);
 	//1.get Gate data
@@ -1959,7 +1960,7 @@ static void sendPstData(char *mySqlBuf,char *updateOrInsert)
   dbg(TRACE,"<sendPstData> : flds count <%d>",flds_count);
   slSqlFunc = START;
   slCursor = 0;
-  
+
   while((ilRc = sql_if(slSqlFunc,&slCursor,mySqlBuf,pclDataArea)) == DB_SUCCESS)
   {
   	BuildItemBuffer(pclDataArea, NULL, flds_count, ",");
@@ -1967,13 +1968,13 @@ static void sendPstData(char *mySqlBuf,char *updateOrInsert)
   	memset( &rlPstrec, 0, sizeof(rlPstrec) );
   	ilRecordCount++;
     slSqlFunc = NEXT;
-    
+
     get_fld_value(pclDataArea,igPstUrno,rlPstrec.URNO); TrimRight(rlPstrec.URNO);
     get_fld_value(pclDataArea,igPstPnam,rlPstrec.PNAM); TrimRight(rlPstrec.PNAM);
-    
+
     dbg(DEBUG,"<sendPstData> : URNO <%s>", rlPstrec.URNO);
     dbg(DEBUG,"<sendPstData> : PNAM <%s>", rlPstrec.PNAM);
-    
+
     PackPstXml(rlPstrec,updateOrInsert);
   }
   close_my_cursor(&slCursor);
@@ -1986,18 +1987,18 @@ int PackBagXml(BAGREC rlBagrec)
 	static char myBagXml[2048] = "\0";
 	char cmd[5] = "XMLO";
 	 char pclALC3[16] = "\0";
-        char pclFLNO[16] = "\0";	
+        char pclFLNO[16] = "\0";
 
 	if( strlen(pcgCodeForALC3) != 0 && igLastPartOfCSGN != 0)
 	{
 		dbg(TRACE,"Check the ALC3 & FLNO null or not");
-	
+
 		ilRc = IsAlc3AndFlnoNullForAdHocFlightBAG(rlBagrec,pclALC3,pclFLNO);
                 if( ilRc == RC_SUCCESS)
-                {    
+                {
                         strcpy(rlBagrec.ALC3,pclALC3);
                         strcpy(rlBagrec.FLTN,pclFLNO);
-                } 
+                }
 	}
 	else
 	{
@@ -2047,18 +2048,18 @@ int PackBagXml(BAGREC rlBagrec)
 			                        rlBagrec.B1BA,
 			                        rlBagrec.B1EA
 			                        );
-	} 
-	*/         
-	
+	}
+	*/
+
 	dbg(TRACE,"<PackBagXml> : Parking Stand XML Message <%s>",myBagXml);
   //ilRc = SendCedaEvent(glbWMFIDB,0, " ", " ", " ", " ",cmd, " ", " "," ", myBagXml, "", 3, 0) ;
   ilRc = SendCedaEvent(glbWMFIDF,0, " ", " ", " ", " ",cmd, " ", " "," ", myBagXml, "", 3, 0) ;
   if(ilRc==RC_SUCCESS)
-		dbg(DEBUG, "<PackBagXml> \n ****** Send command report ****** \nSending command: <%s> to <%d>\n ****** End send command report ****** ", cmd, glbWMFIDF); 
+		dbg(DEBUG, "<PackBagXml> \n ****** Send command report ****** \nSending command: <%s> to <%d>\n ****** End send command report ****** ", cmd, glbWMFIDF);
 	else
 		dbg(DEBUG,"<PackBagXml> unable send command:<%s> to <%d> ",cmd,glbWMFIDF);
   dbg(TRACE,"<PackBagXml> : end");
-  
+
   return ilRc;
 }
 
@@ -2080,11 +2081,11 @@ int PackPstXml(PSTREC rlPstrec,char *updateOrInsert)
 	dbg(TRACE,"<PackPstXml> : Parking Stand XML Message <%s>",myPstXml);
   ilRc = SendCedaEvent(glbWMFIDB,0, " ", " ", " ", " ",cmd, " ", " "," ", myPstXml, "", 3, 0) ;
   if(ilRc==RC_SUCCESS)
-		dbg(DEBUG, "<PackPstXml> \n ****** Send command report ****** \nSending command: <%s> to <%d>\n ****** End send command report ****** ", cmd, glbWMFIDB); 
+		dbg(DEBUG, "<PackPstXml> \n ****** Send command report ****** \nSending command: <%s> to <%d>\n ****** End send command report ****** ", cmd, glbWMFIDB);
 	else
 		dbg(DEBUG,"<PackPstXml> unable send command:<%s> to <%d> ",cmd,glbWMFIDB);
   dbg(TRACE,"<PackPstXml> : end");
-  
+
   return ilRc;
 }
 static void HandleBltUpdateInsert(char *fld,char *data,char *updateOrInsert)
@@ -2096,7 +2097,7 @@ static void HandleBltUpdateInsert(char *fld,char *data,char *updateOrInsert)
 	if ( (ilRc == RC_SUCCESS) && !IS_EMPTY (clUrno) )
 	{
 		dbg(TRACE,"<HandleBltUpdateInsert> : get gate URNO <%s>",clUrno);
-	
+
 	  /*** SQL Queries ***/
 	  sprintf( clBltSelection, "SELECT %s FROM BLTTAB WHERE URNO = '%s' ",
                                    pcgBltFields, clUrno);
@@ -2115,7 +2116,7 @@ static void sendBltData(char *mySqlBuf,char *updateOrInsert)
 	short slSqlFunc = 0;
   short slCursor = 0;
   char pclDataArea[4096] = "\0";
-	
+
 	/*** Actual SQL Queries ***/
 	dbg(TRACE,"<sendBltData> : sql buf <%s>",mySqlBuf);
 	//1.get Gate data
@@ -2123,7 +2124,7 @@ static void sendBltData(char *mySqlBuf,char *updateOrInsert)
   dbg(TRACE,"<sendBltData> : flds count <%d>",flds_count);
   slSqlFunc = START;
   slCursor = 0;
-  
+
   while((ilRc = sql_if(slSqlFunc,&slCursor,mySqlBuf,pclDataArea)) == DB_SUCCESS)
   {
   	BuildItemBuffer(pclDataArea, NULL, flds_count, ",");
@@ -2131,15 +2132,15 @@ static void sendBltData(char *mySqlBuf,char *updateOrInsert)
   	memset( &rlBltrec, 0, sizeof(rlBltrec) );
   	ilRecordCount++;
     slSqlFunc = NEXT;
-    
+
     get_fld_value(pclDataArea,igBltUrno,rlBltrec.URNO); TrimRight(rlBltrec.URNO);
     get_fld_value(pclDataArea,igBltBnam,rlBltrec.BNAM); TrimRight(rlBltrec.BNAM);
     get_fld_value(pclDataArea,igBltTerm,rlBltrec.TERM); TrimRight(rlBltrec.TERM);
-    
+
     dbg(DEBUG,"<sendBltData> : URNO <%s>", rlBltrec.URNO);
     dbg(DEBUG,"<sendBltData> : BNAM <%s>", rlBltrec.BNAM);
     dbg(DEBUG,"<sendBltData> : TERM <%s>", rlBltrec.TERM);
-    
+
     PackBltXml(rlBltrec,updateOrInsert);
   }
   close_my_cursor(&slCursor);
@@ -2165,11 +2166,11 @@ int PackBltXml(BLTREC rlBltrec,char *updateOrInsert)
 	dbg(TRACE,"<PackBltXml> : Belt XML Message <%s>",myBltXml);
   ilRc = SendCedaEvent(glbWMFIDB,0, " ", " ", " ", " ",cmd, " ", " "," ", myBltXml, "", 3, 0) ;
   if(ilRc==RC_SUCCESS)
-		dbg(DEBUG, "<PackBltXml> \n ****** Send command report ****** \nSending command: <%s> to <%d>\n ****** End send command report ****** ", cmd, glbWMFIDB); 
+		dbg(DEBUG, "<PackBltXml> \n ****** Send command report ****** \nSending command: <%s> to <%d>\n ****** End send command report ****** ", cmd, glbWMFIDB);
 	else
 		dbg(DEBUG,"<PackBltXml> unable send command:<%s> to <%d> ",cmd,glbWMFIDB);
   dbg(TRACE,"<PackBltXml> : end");
-  
+
   return ilRc;
 }
 static void HandleCICUpdateInsert(char *fld,char *data,char *updateOrInsert)
@@ -2181,7 +2182,7 @@ static void HandleCICUpdateInsert(char *fld,char *data,char *updateOrInsert)
 	if ( (ilRc == RC_SUCCESS) && !IS_EMPTY (clUrno) )
 	{
 		dbg(TRACE,"<HandleCICUpdateInsert> : get gate URNO <%s>",clUrno);
-	
+
 	  /*** SQL Queries ***/
 	  sprintf( clCicSelection, "SELECT %s FROM CICTAB WHERE URNO = '%s' ",
                                    pcgCicFields, clUrno);
@@ -2200,7 +2201,7 @@ static void sendCicData(char *mySqlBuf,char *updateOrInsert)
 	short slSqlFunc = 0;
   short slCursor = 0;
   char pclDataArea[4096] = "\0";
-	
+
 	/*** Actual SQL Queries ***/
 	dbg(TRACE,"<sendCicData> : sql buf <%s>",mySqlBuf);
 	//1.get Gate data
@@ -2208,7 +2209,7 @@ static void sendCicData(char *mySqlBuf,char *updateOrInsert)
   dbg(TRACE,"<sendCicData> : flds count <%d>",flds_count);
   slSqlFunc = START;
   slCursor = 0;
-  
+
   while((ilRc = sql_if(slSqlFunc,&slCursor,mySqlBuf,pclDataArea)) == DB_SUCCESS)
   {
   	BuildItemBuffer(pclDataArea, NULL, flds_count, ",");
@@ -2216,15 +2217,15 @@ static void sendCicData(char *mySqlBuf,char *updateOrInsert)
   	memset( &rlCicrec, 0, sizeof(rlCicrec) );
   	ilRecordCount++;
     slSqlFunc = NEXT;
-    
+
     get_fld_value(pclDataArea,igCicUrno,rlCicrec.URNO); TrimRight(rlCicrec.URNO);
     get_fld_value(pclDataArea,igCicCnam,rlCicrec.CNAM); TrimRight(rlCicrec.CNAM);
     get_fld_value(pclDataArea,igCicTerm,rlCicrec.TERM); TrimRight(rlCicrec.TERM);
-    
+
     dbg(DEBUG,"<sendCicData> : URNO <%s>", rlCicrec.URNO);
     dbg(DEBUG,"<sendCicData> : CNAM <%s>", rlCicrec.CNAM);
     dbg(DEBUG,"<sendCicData> : TERM <%s>", rlCicrec.TERM);
-    
+
     PackCicXml(rlCicrec,updateOrInsert);
   }
   close_my_cursor(&slCursor);
@@ -2251,11 +2252,11 @@ int PackCicXml(CICREC rlCicrec,char *updateOrInsert)
   ilRc = SendCedaEvent(glbWMFIDB,0, " ", " ", " ", " ",cmd, " ", " "," ", myCicXml, "", 3, 0) ;
   //ilRc = SendCedaEvent(glbWMFIDF,0, " ", " ", " ", " ",cmd, " ", " "," ", myCicXml, "", 3, 0) ;
   if(ilRc==RC_SUCCESS)
-		dbg(DEBUG, "<PackCicXml> \n ****** Send command report ****** \nSending command: <%s> to <%d>\n ****** End send command report ****** ", cmd, glbWMFIDB); 
+		dbg(DEBUG, "<PackCicXml> \n ****** Send command report ****** \nSending command: <%s> to <%d>\n ****** End send command report ****** ", cmd, glbWMFIDB);
 	else
 		dbg(DEBUG,"<PackCicXml> unable send command:<%s> to <%d> ",cmd,glbWMFIDB);
   dbg(TRACE,"<PackCicXml> : end");
-  
+
   return ilRc;
 }
 static void HandleGateUpdateInsert(char *fld,char *data,char *updateOrInsert)
@@ -2267,7 +2268,7 @@ static void HandleGateUpdateInsert(char *fld,char *data,char *updateOrInsert)
 	if ( (ilRc == RC_SUCCESS) && !IS_EMPTY (clUrno) )
 	{
 		dbg(TRACE,"<HandleGateUpdateInsert> : get gate URNO <%s>",clUrno);
-	
+
 	  /*** SQL Queries ***/
 	  sprintf( clGateSelection, "SELECT %s FROM GATTAB WHERE URNO = '%s' ",
                                    pcgGatFields, clUrno);
@@ -2286,7 +2287,7 @@ static void sendGateData(char *mySqlBuf,char *updateOrInsert)
 	short slSqlFunc = 0;
   short slCursor = 0;
   char pclDataArea[4096] = "\0";
-	
+
 	/*** Actual SQL Queries ***/
 	dbg(TRACE,"<sendGateData> : sql buf <%s>",mySqlBuf);
 	//1.get Gate data
@@ -2294,7 +2295,7 @@ static void sendGateData(char *mySqlBuf,char *updateOrInsert)
   dbg(TRACE,"<sendGateData> : flds count <%d>",flds_count);
   slSqlFunc = START;
   slCursor = 0;
-  
+
   while((ilRc = sql_if(slSqlFunc,&slCursor,mySqlBuf,pclDataArea)) == DB_SUCCESS)
   {
   	BuildItemBuffer(pclDataArea, NULL, flds_count, ",");
@@ -2302,15 +2303,15 @@ static void sendGateData(char *mySqlBuf,char *updateOrInsert)
   	memset( &rlGatrec, 0, sizeof(rlGatrec) );
   	ilRecordCount++;
     slSqlFunc = NEXT;
-    
+
     get_fld_value(pclDataArea,igGatUrno,rlGatrec.URNO); TrimRight(rlGatrec.URNO);
     get_fld_value(pclDataArea,igGatGnam,rlGatrec.GNAM); TrimRight(rlGatrec.GNAM);
     get_fld_value(pclDataArea,igGatTerm,rlGatrec.TERM); TrimRight(rlGatrec.TERM);
-    
+
     dbg(DEBUG,"<sendGateData> : URNO <%s>", rlGatrec.URNO);
     dbg(DEBUG,"<sendGateData> : GNAM <%s>", rlGatrec.GNAM);
     dbg(DEBUG,"<sendGateData> : TERM <%s>", rlGatrec.TERM);
-    
+
     PackGateXml(rlGatrec,updateOrInsert);
   }
   close_my_cursor(&slCursor);
@@ -2336,11 +2337,11 @@ int PackGateXml(GATREC rlGatrec,char *updateOrInsert)
 	dbg(TRACE,"<PackGateXml> : Gate XML Message <%s>",myGateXml);
   ilRc = SendCedaEvent(glbWMFIDB,0, " ", " ", " ", " ",cmd, " ", " "," ", myGateXml, "", 3, 0) ;
   if(ilRc==RC_SUCCESS)
-		dbg(DEBUG, "<PackGateXml> \n ****** Send command report ****** \nSending command: <%s> to <%d>\n ****** End send command report ****** ", cmd, glbWMFIDB); 
+		dbg(DEBUG, "<PackGateXml> \n ****** Send command report ****** \nSending command: <%s> to <%d>\n ****** End send command report ****** ", cmd, glbWMFIDB);
 	else
 		dbg(DEBUG,"<PackGateXml> unable send command:<%s> to <%d> ",cmd,glbWMFIDB);
   dbg(TRACE,"<PackGateXml> : end");
-  
+
   return ilRc;
 }
 static void HandleAirportUpdateInsert(char *fld,char *data,char *updateOrInsert)
@@ -2352,7 +2353,7 @@ static void HandleAirportUpdateInsert(char *fld,char *data,char *updateOrInsert)
 	if ( (ilRc == RC_SUCCESS) && !IS_EMPTY (clUrno) )
 	{
 		dbg(TRACE,"<HandleAirportUpdateInsert> : get airport URNO <%s>",clUrno);
-	
+
 	  /*** SQL Queries ***/
 	  sprintf( clAptSelection, "SELECT %s FROM APTTAB WHERE URNO = '%s' ",
                                    pcgAptFields, clUrno);
@@ -2377,7 +2378,7 @@ static void sendAptData(char *mySqlBuf,char *updateOrInsert)
   short slCursor2 = 0;
   char pclDataArea2[32] = "\0";
   char  mySqlBuf2[256] = "\0";
-	
+
 	/*** Actual SQL Queries ***/
 	dbg(TRACE,"<sendAptData> : sql buf <%s>",mySqlBuf);
 	//1.get Airport data
@@ -2385,7 +2386,7 @@ static void sendAptData(char *mySqlBuf,char *updateOrInsert)
   dbg(TRACE,"<sendAptData> : flds count <%d>",flds_count);
   slSqlFunc = START;
   slCursor = 0;
-  
+
   while((ilRc = sql_if(slSqlFunc,&slCursor,mySqlBuf,pclDataArea)) == DB_SUCCESS)
   {
   	BuildItemBuffer(pclDataArea, NULL, flds_count, ",");
@@ -2393,19 +2394,19 @@ static void sendAptData(char *mySqlBuf,char *updateOrInsert)
   	memset( &rlAptrec, 0, sizeof(rlAptrec) );
   	ilRecordCount++;
     slSqlFunc = NEXT;
-    
+
     get_fld_value(pclDataArea,igAltUrno,rlAptrec.URNO); TrimRight(rlAptrec.URNO);
     get_fld_value(pclDataArea,igAltAlc2,rlAptrec.APC3); TrimRight(rlAptrec.APC3);
     get_fld_value(pclDataArea,igAltAlc3,rlAptrec.APC4); TrimRight(rlAptrec.APC4);
     get_fld_value(pclDataArea,igAltAlfn,rlAptrec.APFN); TrimRight(rlAptrec.APFN);
     get_fld_value(pclDataArea,igAltAdd4,rlAptrec.APSN); TrimRight(rlAptrec.APSN);
-    
+
     dbg(DEBUG,"<sendAptData> : URNO <%s>", rlAptrec.URNO);
     dbg(DEBUG,"<sendAptData> : APC3 <%s>", rlAptrec.APC3);
     dbg(DEBUG,"<sendAptData> : APC4 <%s>", rlAptrec.APC4);
     dbg(DEBUG,"<sendAptData> : APFN <%s>", rlAptrec.APFN);
     dbg(DEBUG,"<sendAptData> : APSN <%s>", rlAptrec.APSN);
-    
+
     PackAirportXml(rlAptrec,updateOrInsert);
   }
   close_my_cursor(&slCursor);
@@ -2430,12 +2431,12 @@ int PackAirportXml(APTREC rlAptrec,char *updateOrInsert)
 			dbg(DEBUG,"APC3 is null, replace it using APC3_DEFAULT_VALUE<%s> in fidbas.cfg",pcgApc3DefaultValue);
 			memset(rlAptrec.APC3,0,sizeof(rlAptrec.APC3));
 			strcpy(rlAptrec.APC3,pcgApc3DefaultValue);
-			
+
 		}
 		else
 		{
 			dbg(DEBUG,"APC3 is not null");
-		}	
+		}
 	}
 	else
 	{
@@ -2462,21 +2463,21 @@ int PackAirportXml(APTREC rlAptrec,char *updateOrInsert)
 		                        //rlAptrec.APSN
 					bufout
 		                        );
-		
+
 	//ConvertEncoding("CP1256", "UTF-8", myAirportXml, xmlout);
 
 	dbg(TRACE,"<PackAirportXml> : Airport XML Message <%s>",myAirportXml);
 	//dbg(TRACE,"<PackAirportXml> : Airport XML Message <%s>",xmlout);
-	
-	
+
+
   ilRc = SendCedaEvent(glbWMFIDB,0, " ", " ", " ", " ",cmd, " ", " "," ", myAirportXml, "", 3, 0) ;
   //ilRc = SendCedaEvent(glbWMFIDB,0, " ", " ", " ", " ",cmd, " ", " "," ", xmlout, "", 3, 0) ;
   if(ilRc==RC_SUCCESS)
-		dbg(DEBUG, "<PackAirportXml> \n ****** Send command report ****** \nSending command: <%s> to <%d>\n ****** End send command report ****** ", cmd, glbWMFIDB); 
+		dbg(DEBUG, "<PackAirportXml> \n ****** Send command report ****** \nSending command: <%s> to <%d>\n ****** End send command report ****** ", cmd, glbWMFIDB);
 	else
 		dbg(DEBUG,"<PackAirportXml> unable send command:<%s> to <%d> ",cmd,glbWMFIDB);
   dbg(TRACE,"<PackAirportXml> : end");
-  
+
   return ilRc;
 }
 
@@ -2490,7 +2491,7 @@ int ConvertEncoding( char *encFrom, char *encTo, const char *in, char *out)
 	int	lenout;
 	int	ret;
         iconv_t c_pt;
-	
+
 	memset(out,0,sizeof(out));
 
         if ((c_pt = iconv_open(encTo, encFrom)) == (iconv_t)-1)
@@ -2510,7 +2511,7 @@ int ConvertEncoding( char *encFrom, char *encTo, const char *in, char *out)
                 return RC_FAIL;
         }
         iconv_close(c_pt);
-	
+
 	strcpy(out,bufout);
         return RC_SUCCESS;
 }
@@ -2525,7 +2526,7 @@ static void HandleRemarkMessageUpdateInsert(char *fld,char *data,char *updateOrI
      if ( (ilRc == RC_SUCCESS) && !IS_EMPTY (clUrno) )
      {
 	      dbg(TRACE,"<HandleRemarkMessageUpdateInsert> : get fidtab URNO <%s>",clUrno);
-	     
+
 	      /*** SQL Queries ***/
 	      sprintf( clFidSelection, "SELECT %s FROM FIDTAB WHERE URNO = '%s' ",
 	                                   pcgFidFields, clUrno);
@@ -2546,7 +2547,7 @@ static void HandleAirlineUpdateInsert(char *fld,char *data,char *updateOrInsert)
 	if ( (ilRc == RC_SUCCESS) && !IS_EMPTY (clUrno) )
 	{
 		dbg(TRACE,"<HandleAirlineUpdateInsert> : get airline URNO <%s>",clUrno);
-	
+
 	  /*** SQL Queries ***/
 	  sprintf( clAltSelection, "SELECT %s FROM ALTTAB WHERE URNO = '%s' ",
                                    pcgAltFields, clUrno);
@@ -2567,16 +2568,16 @@ static void sendFidData(char *mySqlBuf,char *updateOrInsert)
 	  short slSqlFunc = 0;
 	  short slCursor = 0;
 	  char pclDataArea[4096] = "\0";
-	   
+
 	   /*** Actual SQL Queries ***/
 	   dbg(TRACE,"<sendFidData> : sql buf <%s>",mySqlBuf);
 	   //1.get Remark data
-	   
+
 	  flds_count = get_flds_count(pcgFidFields);
 	  dbg(TRACE,"<sendFidData> : flds count <%d>",flds_count);
 	  slSqlFunc = START;
 	  slCursor = 0;
-	  
+
 	  while((ilRc = sql_if(slSqlFunc,&slCursor,mySqlBuf,pclDataArea)) == DB_SUCCESS)
 	  {
 	      BuildItemBuffer(pclDataArea, NULL, flds_count, ",");
@@ -2584,17 +2585,17 @@ static void sendFidData(char *mySqlBuf,char *updateOrInsert)
 	      memset( &rlFidrec, 0, sizeof(rlFidrec) );
 	      ilRecordCount++;
 	    	slSqlFunc = NEXT;
-	    
+
 	    	get_fld_value(pclDataArea,igFidUrno,rlFidrec.URNO); TrimRight(rlFidrec.URNO);
 		    get_fld_value(pclDataArea,igFidCode,rlFidrec.CODE); TrimRight(rlFidrec.CODE);
 		    get_fld_value(pclDataArea,igFidBeme,rlFidrec.BEME); TrimRight(rlFidrec.BEME);
 		    get_fld_value(pclDataArea,igFidBemd,rlFidrec.BEMD); TrimRight(rlFidrec.BEMD);
-	    
+
 		    dbg(DEBUG,"<sendFidData> : URNO <%s>", rlFidrec.URNO);
 		    dbg(DEBUG,"<sendFidData> : CODE <%s>", rlFidrec.CODE);
 		    dbg(DEBUG,"<sendFidData> : BEME <%s>", rlFidrec.BEME);
 		    dbg(DEBUG,"<sendFidData> : BEMD <%s>", rlFidrec.BEMD);
-		    
+
 		    PackRemarkXml(rlFidrec,updateOrInsert);
 	  }
 	  close_my_cursor(&slCursor);
@@ -2616,7 +2617,7 @@ static void sendAltData(char *mySqlBuf,char *updateOrInsert)
   short slCursor2 = 0;
   char pclDataArea2[32] = "\0";
   char  mySqlBuf2[256] = "\0";
-	
+
 	/*** Actual SQL Queries ***/
 	dbg(TRACE,"<sendAltData> : sql buf <%s>",mySqlBuf);
 	//1.get Airline data
@@ -2624,7 +2625,7 @@ static void sendAltData(char *mySqlBuf,char *updateOrInsert)
   dbg(TRACE,"<sendAltData> : flds count <%d>",flds_count);
   slSqlFunc = START;
   slCursor = 0;
-  
+
   while((ilRc = sql_if(slSqlFunc,&slCursor,mySqlBuf,pclDataArea)) == DB_SUCCESS)
   {
   	BuildItemBuffer(pclDataArea, NULL, flds_count, ",");
@@ -2632,19 +2633,19 @@ static void sendAltData(char *mySqlBuf,char *updateOrInsert)
   	memset( &rlAltrec, 0, sizeof(rlAltrec) );
   	ilRecordCount++;
     slSqlFunc = NEXT;
-    
+
     get_fld_value(pclDataArea,igAltUrno,rlAltrec.URNO); TrimRight(rlAltrec.URNO);
     get_fld_value(pclDataArea,igAltAlc2,rlAltrec.ALC2); TrimRight(rlAltrec.ALC2);
     get_fld_value(pclDataArea,igAltAlc3,rlAltrec.ALC3); TrimRight(rlAltrec.ALC3);
     get_fld_value(pclDataArea,igAltAlfn,rlAltrec.ALFN); TrimRight(rlAltrec.ALFN);
     get_fld_value(pclDataArea,igAltAdd4,rlAltrec.ADD4); TrimRight(rlAltrec.ADD4);
-    
+
     dbg(DEBUG,"<sendAltData> : URNO <%s>", rlAltrec.URNO);
     dbg(DEBUG,"<sendAltData> : ALC2 <%s>", rlAltrec.ALC2);
     dbg(DEBUG,"<sendAltData> : ALC3 <%s>", rlAltrec.ALC3);
     dbg(DEBUG,"<sendAltData> : ALFN <%s>", rlAltrec.ALFN);
     dbg(DEBUG,"<sendAltData> : ADD4 <%s>", rlAltrec.ADD4);
-    
+
     PackAirlineXml(rlAltrec,updateOrInsert);
   }
   close_my_cursor(&slCursor);
@@ -2661,7 +2662,7 @@ int PackRemarkXml(FIDREC rlFidrec,char *updateOrInsert)
         char	bufout[1024] = "\0";
 
 	ConvertEncoding("CP1256", "UTF-8", rlFidrec.BEMD, bufout);
-  
+
 	dbg(TRACE,"<PackRemarkXml> : begin updateOrInsert <%s>",updateOrInsert);
 	sprintf( myRemarkXml, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
 		                    "<FIDS_Data xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\">\n"
@@ -2679,11 +2680,11 @@ int PackRemarkXml(FIDREC rlFidrec,char *updateOrInsert)
 	dbg(TRACE,"<PackRemarkXml> : Remark XML Message <%s>",myRemarkXml);
   ilRc = SendCedaEvent(glbWMFIDB,0, " ", " ", " ", " ",cmd, " ", " "," ", myRemarkXml, "", 3, 0) ;
   if(ilRc==RC_SUCCESS)
-		dbg(DEBUG, "<PackRemarkXml> \n ****** Send command report ****** \nSending command: <%s> to <%d>\n ****** End send command report ****** ", cmd, glbWMFIDB); 
+		dbg(DEBUG, "<PackRemarkXml> \n ****** Send command report ****** \nSending command: <%s> to <%d>\n ****** End send command report ****** ", cmd, glbWMFIDB);
 	else
 		dbg(DEBUG,"<PackRemarkXml> unable send command:<%s> to <%d> ",cmd,glbWMFIDB);
   dbg(TRACE,"<PackRemarkXml> : end");
-  
+
   return ilRc;
 }
 //Frank v1.1
@@ -2698,7 +2699,7 @@ int PackAirlineXml(ALTREC rlAltrec,char *updateOrInsert)
         char bufout[1024] = "\0";
 
 	ConvertEncoding("CP1256", "UTF-8", rlAltrec.ADD4, bufout);
-  
+
 	dbg(TRACE,"<PackAirlineXml> : begin updateOrInsert <%s>",updateOrInsert);
 	sprintf( myAirlineXml, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
 		                    "<FIDS_Data xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\">\n"
@@ -2723,11 +2724,11 @@ int PackAirlineXml(ALTREC rlAltrec,char *updateOrInsert)
 	dbg(TRACE,"<PackAirlineXml> : Airline XML Message <%s>",myAirlineXml);
   ilRc = SendCedaEvent(glbWMFIDB,0, " ", " ", " ", " ",cmd, " ", " "," ", myAirlineXml, "", 3, 0) ;
   if(ilRc==RC_SUCCESS)
-		dbg(DEBUG, "<PackAirlineXml> \n ****** Send command report ****** \nSending command: <%s> to <%d>\n ****** End send command report ****** ", cmd, glbWMFIDB); 
+		dbg(DEBUG, "<PackAirlineXml> \n ****** Send command report ****** \nSending command: <%s> to <%d>\n ****** End send command report ****** ", cmd, glbWMFIDB);
 	else
 		dbg(DEBUG,"<PackAirlineXml> unable send command:<%s> to <%d> ",cmd,glbWMFIDB);
   dbg(TRACE,"<PackAirlineXml> : end");
-  
+
   return ilRc;
 }
 static void HandleCheckinCounterInsert(char *fld,char *data)
@@ -2740,7 +2741,7 @@ static void HandleCheckinCounterUpdate(char *fld,char *data)
 	char clCCABTABUrno[21] = "\0";
 	char clCcaSelection[1024] = "\0";
 	char clAftSelection[1024] = "\0";
-	
+
 	CCAREC rlCcarec;
 	AFTREC rlAftrec;
 	int ilRecordCount = 0;
@@ -2748,25 +2749,25 @@ static void HandleCheckinCounterUpdate(char *fld,char *data)
   short slCursor = 0;
   char pclDataArea[4096] = "\0";
   int flds_count = 0;
-  
+
   memset(pclDataArea,0,sizeof(pclDataArea));
-	
+
 	ilRc = tool_get_field_data (fld, data, "URNO", clCCABTABUrno );
 	if ( (ilRc == RC_SUCCESS) && !IS_EMPTY (clCCABTABUrno) )
 	{
 		dbg(TRACE,"<HandleCheckinCounterUpdate> : get counter URNO <%s>",clCCABTABUrno);
-	
+
 	  /*** SQL Queries ***/
 	  sprintf( clCcaSelection, "SELECT %s FROM CCATAB WHERE URNO = '%s' ",
                                    pcgCcaFields, clCCABTABUrno);
-    
+
     dbg(TRACE,"<HandleCheckinCounterUpdate> : sql buf <%s>",clCcaSelection);
     flds_count = get_flds_count(pcgCcaFields);
     dbg(TRACE,"<HandleCheckinCounterUpdate> : flds count <%d>",flds_count);
-    
+
     slSqlFunc = START;
   	slCursor = 0;
-  	
+
   	if((ilRc = sql_if(slSqlFunc,&slCursor,clCcaSelection,pclDataArea)) == DB_SUCCESS)
   	{
   		BuildItemBuffer(pclDataArea, NULL, flds_count, ",");
@@ -2774,7 +2775,7 @@ static void HandleCheckinCounterUpdate(char *fld,char *data)
   		memset( &rlCcarec, 0, sizeof(rlCcarec) );
   		ilRecordCount++;
     	slSqlFunc = NEXT;
-    	
+
     	get_fld_value(pclDataArea,igCcaUrno,rlCcarec.URNO); TrimRight(rlCcarec.URNO);
 	    get_fld_value(pclDataArea,igCcaCkic,rlCcarec.CKIC); TrimRight(rlCcarec.CKIC);
 	    get_fld_value(pclDataArea,igCcaCkit,rlCcarec.CKIT); TrimRight(rlCcarec.CKIT);
@@ -2783,7 +2784,7 @@ static void HandleCheckinCounterUpdate(char *fld,char *data)
 	    get_fld_value(pclDataArea,igCcaFlno,rlCcarec.FLNO); TrimRight(rlCcarec.FLNO);
 	    get_fld_value(pclDataArea,igCcaFlnu,rlCcarec.FLNU); TrimRight(rlCcarec.FLNU);
 	    get_fld_value(pclDataArea,igCcaCtyp,rlCcarec.CTYP); TrimRight(rlCcarec.CTYP);
-	    
+
 	    dbg(DEBUG,"<HandleCheckinCounterUpdate> : URNO <%s>", rlCcarec.URNO);
 	    dbg(DEBUG,"<HandleCheckinCounterUpdate> : CKIC <%s>", rlCcarec.CKIC);
 	    dbg(DEBUG,"<HandleCheckinCounterUpdate> : CKIT <%s>", rlCcarec.CKIT);
@@ -2795,17 +2796,17 @@ static void HandleCheckinCounterUpdate(char *fld,char *data)
   	}
   	close_my_cursor(&slCursor);
   	dbg(TRACE,"<HandleCheckinCounterUpdate> : records count <%d>",ilRecordCount);
-  	
+
   	//
   	memset(pclDataArea,0,sizeof(pclDataArea));
   	sprintf( clAftSelection, "SELECT %s FROM AFTTAB WHERE URNO = '%s' ",pcgAftFields,rlCcarec.FLNU);
   	dbg(TRACE,"<HandleCheckinCounterUpdate> : sql buf <%s>",clAftSelection);
   	flds_count = get_flds_count(pcgAftFields);
     dbg(TRACE,"<HandleCheckinCounterUpdate> : flds count <%d>",flds_count);
-    
+
     slSqlFunc = START;
   	slCursor = 0;
-  	
+
   	if((ilRc = sql_if(slSqlFunc,&slCursor,clAftSelection,pclDataArea)) == DB_SUCCESS)
   	{
   		BuildItemBuffer(pclDataArea, NULL, flds_count, ",");
@@ -2813,11 +2814,11 @@ static void HandleCheckinCounterUpdate(char *fld,char *data)
   		memset( &rlAftrec, 0, sizeof(rlAftrec) );
   		ilRecordCount++;
     	slSqlFunc = NEXT;
-    	
+
     	get_fld_value(pclDataArea,igAftUrno,rlAftrec.URNO); TrimRight(rlAftrec.URNO);
 	    get_fld_value(pclDataArea,igAftCkif,rlAftrec.CKIF); TrimRight(rlAftrec.CKIF);
 	    get_fld_value(pclDataArea,igAftCkit,rlAftrec.CKIT); TrimRight(rlAftrec.CKIT);
-	    
+
 	    dbg(DEBUG,"<HandleCheckinCounterUpdate> : URNO <%s>", rlAftrec.URNO);
 	    dbg(DEBUG,"<HandleCheckinCounterUpdate> : CKIF <%s>", rlAftrec.CKIF);
 	    dbg(DEBUG,"<HandleCheckinCounterUpdate> : CKIT <%s>", rlAftrec.CKIT);
@@ -2843,7 +2844,7 @@ static void HandleCheckinCounterUpdate(char *fld,char *data)
     	{
     		dbg(TRACE,"<HandleCheckinCounterUpdate> : <rlCcarec.CKIC(%s) == rlAftrec.CKIF(%s) || rlCcarec.CKIC(%s) == rlAftrec.CKIT(%s)>",rlCcarec.CKIC,rlAftrec.CKIF,rlCcarec.CKIC,rlAftrec.CKIT);
 	    	dbg(TRACE,"<HandleCheckinCounterUpdate> : clAftSelection <%s> ",clAftSelection);
-	    
+
 	    	sendAftData(clAftSelection,rlCcarec,TRUE);
 	  	}
 	  	else
@@ -2869,7 +2870,7 @@ static void sendCcaData(char *mySqlBuf)
   short slCursor2 = 0;
   char pclDataArea2[32] = "\0";
   char  mySqlBuf2[256] = "\0";
-	
+
 	/*** Actual SQL Queries ***/
 	dbg(TRACE,"<sendCcaData> : sql buf <%s>",mySqlBuf);
 	//1.get Flight data
@@ -2877,9 +2878,9 @@ static void sendCcaData(char *mySqlBuf)
   dbg(TRACE,"<sendCcaData> : flds count <%d>",flds_count);
   slSqlFunc = START;
   slCursor = 0;
-  
+
   memset(pclDataArea,0,sizeof(pclDataArea));
-  
+
   while((ilRc = sql_if(slSqlFunc,&slCursor,mySqlBuf,pclDataArea)) == DB_SUCCESS)
   {
   	BuildItemBuffer(pclDataArea, NULL, flds_count, ",");
@@ -2887,7 +2888,7 @@ static void sendCcaData(char *mySqlBuf)
   	memset( &rlCcarec, 0, sizeof(rlCcarec) );
   	ilRecordCount++;
     slSqlFunc = NEXT;
-    
+
     get_fld_value(pclDataArea,igCcaUrno,rlCcarec.URNO); TrimRight(rlCcarec.URNO);
     get_fld_value(pclDataArea,igCcaCkic,rlCcarec.CKIC); TrimRight(rlCcarec.CKIC);
     get_fld_value(pclDataArea,igCcaCkit,rlCcarec.CKIT); TrimRight(rlCcarec.CKIT);
@@ -2896,7 +2897,7 @@ static void sendCcaData(char *mySqlBuf)
     get_fld_value(pclDataArea,igCcaFlno,rlCcarec.FLNO); TrimRight(rlCcarec.FLNO);
     get_fld_value(pclDataArea,igCcaFlnu,rlCcarec.FLNU); TrimRight(rlCcarec.FLNU);
     get_fld_value(pclDataArea,igCcaCtyp,rlCcarec.CTYP); TrimRight(rlCcarec.CTYP);
-    
+
     dbg(DEBUG,"<sendCcaData> : URNO <%s>", rlCcarec.URNO);
     dbg(DEBUG,"<sendCcaData> : CKIC <%s>", rlCcarec.CKIC);
     dbg(DEBUG,"<sendCcaData> : CKIT <%s>", rlCcarec.CKIT);
@@ -2905,12 +2906,12 @@ static void sendCcaData(char *mySqlBuf)
     dbg(DEBUG,"<sendCcaData> : FLNO <%s>", rlCcarec.FLNO);
     dbg(DEBUG,"<sendCcaData> : FLNU <%s>", rlCcarec.FLNU);
     dbg(DEBUG,"<sendCcaData> : CTYP <%s>", rlCcarec.CTYP);
-    
+
     //get flgiht type
     slSqlFunc2 = START;
     slCursor2 = 0;
     memset(pclDataArea2,0x00,32);
-    
+
     sprintf(mySqlBuf2,"SELECT FTYP FROM AFTTAB WHERE URNO = '%s'",rlCcarec.FLNU);
     //sprintf(mySqlBuf2,"SELECT FTYP FROM AFTTAB WHERE URNO = '23107433'");
     dbg(TRACE,"mySqlBuf2<%s>",mySqlBuf2);
@@ -2938,7 +2939,7 @@ int PackCheckinCounterXml(CCAREC rlCcarec)
 	int ilRc = 0;
 	static char myCheckinCounterXml[2048] = "\0";
 	char cmd[5] = "XMLO";
-	
+
 	memset(myCheckinCounterXml,0x00,2048);
 
   dbg(TRACE,"<PackCheckinCounterXml> : begin");
@@ -2963,11 +2964,11 @@ int PackCheckinCounterXml(CCAREC rlCcarec)
   //ilRc = SendCedaEvent(glbWMFIDB,0, " ", " ", " ", " ",cmd, " ", " "," ", myCheckinCounterXml, "", 3, 0) ;
   ilRc = SendCedaEvent(glbWMFIDF,0, " ", " ", " ", " ",cmd, " ", " "," ", myCheckinCounterXml, "", 3, 0) ;
   if(ilRc==RC_SUCCESS)
-		dbg(DEBUG, "<PackCheckinCounterXml> \n ****** Send command report ****** \nSending command: <%s> to <%d>\n ****** End send command report ****** ", cmd, glbWMFIDF); 
+		dbg(DEBUG, "<PackCheckinCounterXml> \n ****** Send command report ****** \nSending command: <%s> to <%d>\n ****** End send command report ****** ", cmd, glbWMFIDF);
 	else
 		dbg(DEBUG,"<PackCheckinCounterXml> unable send command:<%s> to <%d> ",cmd,glbWMFIDF);
   dbg(TRACE,"<PackCheckinCounterXml> : end");
-  
+
   return ilRc;
 
 }
@@ -2977,17 +2978,17 @@ static void HandleFlightUpdate(char *fld,char *data)
 	char clUrno[21] = "\0";
 	char clAftSelection[1024] = "\0";
 	CCAREC rlCcarec;
-	
+
 	ilRc = tool_get_field_data (fld, data, "URNO", clUrno );
 	if ( (ilRc == RC_SUCCESS) && !IS_EMPTY (clUrno) )
 	{
 		dbg(TRACE,"<HandleFlightUpdate> : get flight URNO <%s>",clUrno);
-	
+
 	  /*** SQL Queries ***/
 	  sprintf( clAftSelection, "SELECT %s FROM AFTTAB WHERE URNO = '%s' ",
                                    pcgAftFields, clUrno);
     dbg(TRACE,"<HandleFlightUpdate> : clAftSelection <%s> ",clAftSelection);
-    
+
     memset(&rlCcarec,0,sizeof(rlCcarec));
     sendAftData(clAftSelection,rlCcarec,TRUE);
 	}
@@ -3008,7 +3009,7 @@ static void sendAftData(char *mySqlBuf, CCAREC rpCcarec,int ilFlag)
 	short slSqlFunc = 0;
   short slCursor = 0;
   char pclDataArea[4096] = "\0";
-  
+
   //Frank v1.1
   CCAREC rlCcarecCKBS;
   CCAREC rlCcarecCKES;
@@ -3017,29 +3018,29 @@ static void sendAftData(char *mySqlBuf, CCAREC rpCcarec,int ilFlag)
   short slCursor1 = 0;
   char pclDataArea1[4096] = "\0";
   char pclCCASqlbuf[4096] = "\0";
-  
+
   CICREC rlCicrec;
   int flds_count2 = 0;
   short slSqlFunc2 = 0;
   short slCursor2 = 0;
   char pclDataArea2[4096] = "\0";
   char pclCICSqlbuf[4096] = "\0";
-  
+
   CCAREC rlCcarec;
   int flds_count3 = 0;
   short slSqlFunc3 = 0;
   short slCursor3 = 0;
   char pclDataArea3[4096] = "\0";
   char pclCCASqlbuf1[4096] = "\0";
-  
+
   //int ilFoundCKBS = FALSE;
   //int ilFoundCKES = FALSE;
   memset( &rlCcarecCKBS, 0, sizeof(rlCcarecCKBS) );
   memset( &rlCcarecCKES, 0, sizeof(rlCcarecCKES) );
   //Frank v1.1
-  
+
   memset( &rlCcarec, 0, sizeof(rlCcarec) );
- 
+
 	/*** Actual SQL Queries ***/
 	dbg(TRACE,"<sendAftData> : sql buf <%s>",mySqlBuf);
 	//1.get Flight data
@@ -3047,7 +3048,7 @@ static void sendAftData(char *mySqlBuf, CCAREC rpCcarec,int ilFlag)
   dbg(TRACE,"<sendAftData> : flds count <%d>",flds_count);
   slSqlFunc = START;
   slCursor = 0;
-  
+
   while((ilRc = sql_if(slSqlFunc,&slCursor,mySqlBuf,pclDataArea)) == DB_SUCCESS)
   {
   	BuildItemBuffer(pclDataArea, NULL, flds_count, ",");
@@ -3055,7 +3056,7 @@ static void sendAftData(char *mySqlBuf, CCAREC rpCcarec,int ilFlag)
   	memset( &rlAftrec, 0, sizeof(rlAftrec) );
   	ilRecordCount++;
     slSqlFunc = NEXT;
-    
+
     get_fld_value(pclDataArea,igAftUrno,rlAftrec.URNO); TrimRight(rlAftrec.URNO);
     get_fld_value(pclDataArea,igAftAlc3,rlAftrec.ALC3); TrimRight(rlAftrec.ALC3);
     get_fld_value(pclDataArea,igAftFltn,rlAftrec.FLTN); TrimRight(rlAftrec.FLTN);
@@ -3069,11 +3070,11 @@ static void sendAftData(char *mySqlBuf, CCAREC rpCcarec,int ilFlag)
     get_fld_value(pclDataArea,igAftGa1b,rlAftrec.GA1B); TrimRight(rlAftrec.GA1B);
     get_fld_value(pclDataArea,igAftGa1e,rlAftrec.GA1E); TrimRight(rlAftrec.GA1E);
     get_fld_value(pclDataArea,igAftAct3,rlAftrec.ACT3); TrimRight(rlAftrec.ACT3);
-    
+
     //Frank v1.8 20130228
     get_fld_value(pclDataArea,igAftAct5,rlAftrec.ACT5); TrimRight(rlAftrec.ACT5);
     //Frank v1.8 20130228
-    
+
     get_fld_value(pclDataArea,igAftOnbl,rlAftrec.ONBL); TrimRight(rlAftrec.ONBL);
 //    dbg(TRACE,"<sendAftBulkData> : 2");
     get_fld_value(pclDataArea,igAftOfbl,rlAftrec.OFBL); TrimRight(rlAftrec.OFBL);
@@ -3081,37 +3082,37 @@ static void sendAftData(char *mySqlBuf, CCAREC rpCcarec,int ilFlag)
     get_fld_value(pclDataArea,igAftStyp,rlAftrec.STYP); TrimRight(rlAftrec.STYP);
     get_fld_value(pclDataArea,igAftTtyp,rlAftrec.TTYP); TrimRight(rlAftrec.TTYP);
     get_fld_value(pclDataArea,igAftAdid,rlAftrec.ADID); TrimRight(rlAftrec.ADID);
-    
+
     //Frank v1.1
     get_fld_value(pclDataArea,igAftPsta,rlAftrec.PSTA); TrimRight(rlAftrec.PSTA);
     get_fld_value(pclDataArea,igAftPstd,rlAftrec.PSTD); TrimRight(rlAftrec.PSTD);
     get_fld_value(pclDataArea,igAftGta1,rlAftrec.GTA1); TrimRight(rlAftrec.GTA1);
     get_fld_value(pclDataArea,igAftGtd1,rlAftrec.GTD1); TrimRight(rlAftrec.GTD1);
-    
+
     get_fld_value(pclDataArea,igAftWro1,rlAftrec.WRO1); TrimRight(rlAftrec.WRO1);
     get_fld_value(pclDataArea,igAftWro2,rlAftrec.WRO2); TrimRight(rlAftrec.WRO2);
-    
+
     get_fld_value(pclDataArea,igAftEtai,rlAftrec.ETAI); TrimRight(rlAftrec.ETAI);
     get_fld_value(pclDataArea,igAftEtdi,rlAftrec.ETDI); TrimRight(rlAftrec.ETDI);
     //Frank v1.1
-    
-    
+
+
 //    dbg(TRACE,"<sendAftBulkData> : 3");
     get_fld_value(pclDataArea,igAftEtod,rlAftrec.ETOD); TrimRight(rlAftrec.ETOD);
     get_fld_value(pclDataArea,igAftEtoa,rlAftrec.ETOA); TrimRight(rlAftrec.ETOA);
-    
+
     //Frank v1.1
 		get_fld_value(pclDataArea,igAftLand,rlAftrec.LAND); TrimRight(rlAftrec.LAND);
 		get_fld_value(pclDataArea,igAftAirb,rlAftrec.AIRB); TrimRight(rlAftrec.AIRB);
 		//Frank v1.1
-    
+
     get_fld_value(pclDataArea,igAftCtot,rlAftrec.CTOT); TrimRight(rlAftrec.CTOT);
     get_fld_value(pclDataArea,igAftRegn,rlAftrec.REGN); TrimRight(rlAftrec.REGN);
-    
+
     //Frank v1.1
     get_fld_value(pclDataArea,igAftTmoa,rlAftrec.TMOA); TrimRight(rlAftrec.TMOA);
     //Frank v1.1
-    
+
     get_fld_value(pclDataArea,igAftPaxt,rlAftrec.PAXT); TrimRight(rlAftrec.PAXT);
 //    dbg(TRACE,"<sendAftBulkData> : 4");
 
@@ -3119,9 +3120,9 @@ static void sendAftData(char *mySqlBuf, CCAREC rpCcarec,int ilFlag)
     get_fld_value(pclDataArea,igAftBlt1,rlAftrec.BLT1); TrimRight(rlAftrec.BLT1);
     get_fld_value(pclDataArea,igAftBlt2,rlAftrec.BLT2); TrimRight(rlAftrec.BLT2);
     //Frank v1.1
-    
+
    	//get_fld_value(pclDataArea,igAftVia3,rlAftrec.VIA3); TrimRight(rlAftrec.VIA3);
-    
+
 //    dbg(TRACE,"<sendAftBulkData> : 5");
 //    dbg(TRACE,"<sendAftBulkData> : pclDataArea <%s>",pclDataArea);
     get_fld_value(pclDataArea,igAftCsgn,rlAftrec.CSGN); TrimRight(rlAftrec.CSGN);
@@ -3129,10 +3130,10 @@ static void sendAftData(char *mySqlBuf, CCAREC rpCcarec,int ilFlag)
     get_fld_value(pclDataArea,igAftFtyp,rlAftrec.FTYP); TrimRight(rlAftrec.FTYP);
 //    dbg(TRACE,"<sendAftBulkData> : 22");
     get_fld_value(pclDataArea,igAftNxti,rlAftrec.NXTI); TrimRight(rlAftrec.NXTI);
-    
+
     get_fld_value(pclDataArea,igAftVian,rlAftrec.VIAN); TrimRight(rlAftrec.VIAN);
     get_fld_value(pclDataArea,igAftVial,rlAftrec.VIAL); TrimSpace(rlAftrec.VIAL);//TrimRight(rlAftrec.VIAL);
-    
+
     get_fld_value(pclDataArea,igAftAurn,rlAftrec.AURN); TrimRight(rlAftrec.AURN);
     get_fld_value(pclDataArea,igAftRtow,rlAftrec.RTOW); TrimRight(rlAftrec.RTOW);
     get_fld_value(pclDataArea,igAftTga1,rlAftrec.TGA1); TrimRight(rlAftrec.TGA1);
@@ -3145,15 +3146,15 @@ static void sendAftData(char *mySqlBuf, CCAREC rpCcarec,int ilFlag)
     get_fld_value(pclDataArea,igAftOrg3,rlAftrec.ORG3); TrimRight(rlAftrec.ORG3);
     get_fld_value(pclDataArea,igAftDes3,rlAftrec.DES3); TrimRight(rlAftrec.DES3);
     get_fld_value(pclDataArea,igAftStev,rlAftrec.STEV); TrimRight(rlAftrec.STEV);
-    
+
     get_fld_value(pclDataArea,igAftTifa,rlAftrec.TIFA); TrimRight(rlAftrec.TIFA);
     get_fld_value(pclDataArea,igAftTifd,rlAftrec.TIFD); TrimRight(rlAftrec.TIFD);
-    
+
     //Frank v1.5 20120918
     get_fld_value(pclDataArea,igAftOrg4,rlAftrec.ORG4); TrimRight(rlAftrec.ORG4);
     get_fld_value(pclDataArea,igAftDes4,rlAftrec.DES4); TrimRight(rlAftrec.DES4);
     get_fld_value(pclDataArea,igAftFlns,rlAftrec.FLNS); TrimRight(rlAftrec.FLNS);
-    
+
     //dbg(TRACE,"<sendAftBulkData> : pclDataArea 2 <%s>",pclDataArea);
     dbg(DEBUG,"<sendAftData> : URNO <%s>", rlAftrec.URNO);
     dbg(DEBUG,"<sendAftData> : ALC3 <%s>", rlAftrec.ALC3);
@@ -3167,17 +3168,17 @@ static void sendAftData(char *mySqlBuf, CCAREC rpCcarec,int ilFlag)
     dbg(DEBUG,"<sendAftData> : GA1B <%s>", rlAftrec.GA1B);
     dbg(DEBUG,"<sendAftData> : GA1E <%s>", rlAftrec.GA1E);
     dbg(DEBUG,"<sendAftData> : ACT3 <%s>", rlAftrec.ACT3);
-    
+
     //Frank v1.8 20130228
     dbg(DEBUG,"<sendAftData> : ACT5 <%s>", rlAftrec.ACT5);
-    
+
     dbg(DEBUG,"<sendAftData> : ONBL <%s>", rlAftrec.ONBL);
     dbg(DEBUG,"<sendAftData> : OFBL <%s>", rlAftrec.OFBL);
     dbg(DEBUG,"<sendAftData> : ONBE <%s>", rlAftrec.ONBE);
     dbg(DEBUG,"<sendAftData> : STYP <%s>", rlAftrec.STYP);
     dbg(DEBUG,"<sendAftData> : TTYP <%s>", rlAftrec.TTYP);
     dbg(DEBUG,"<sendAftData> : ADID <%s>", rlAftrec.ADID);
-    
+
     //Frank v1.1
     dbg(DEBUG,"<sendAftData> : PSTA <%s>", rlAftrec.PSTA);
     dbg(DEBUG,"<sendAftData> : PSTD <%s>", rlAftrec.PSTD);
@@ -3188,34 +3189,34 @@ static void sendAftData(char *mySqlBuf, CCAREC rpCcarec,int ilFlag)
     dbg(DEBUG,"<sendAftData> : ETAI <%s>", rlAftrec.ETAI);
     dbg(DEBUG,"<sendAftData> : ETDI <%s>", rlAftrec.ETDI);
     //Frank v1.1
-    
+
     dbg(DEBUG,"<sendAftData> : ETOD <%s>", rlAftrec.ETOD);
     dbg(DEBUG,"<sendAftData> : ETOA <%s>", rlAftrec.ETOA);
-    
+
     //Frank v1.1
     dbg(DEBUG,"<sendAftData> : LAND <%s>", rlAftrec.LAND);
     dbg(DEBUG,"<sendAftData> : AIRB <%s>", rlAftrec.AIRB);
     //Frank v1.1
-    
+
     dbg(DEBUG,"<sendAftData> : CTOT <%s>", rlAftrec.CTOT);
     dbg(DEBUG,"<sendAftData> : REGN <%s>", rlAftrec.REGN);
-    
+
     //Frank v1.1
     dbg(DEBUG,"<sendAftData> : TMOA <%s>", rlAftrec.TMOA);
     //Frank v1.1
-    
+
     dbg(DEBUG,"<sendAftData> : PAXT <%s>", rlAftrec.PAXT);
-    
+
     //Frank v1.1
     dbg(DEBUG,"<sendAftData> : BLT1 <%s>", rlAftrec.BLT1);
     dbg(DEBUG,"<sendAftData> : BLT2 <%s>", rlAftrec.BLT2);
     //Frank v1.1
-    
+
     //dbg(DEBUG,"<sendAftData> : VIA3 <%s>", rlAftrec.VIA3);
     dbg(DEBUG,"<sendAftData> : CSGN <%s>", rlAftrec.CSGN);
     dbg(DEBUG,"<sendAftData> : FTYP <%s>", rlAftrec.FTYP);
     dbg(DEBUG,"<sendAftData> : NXTI <%s>", rlAftrec.NXTI);
-    
+
     dbg(DEBUG,"<sendAftData> : VIAN <%s>", rlAftrec.VIAN);
     dbg(DEBUG,"<sendAftData> : VIAL <%s>", rlAftrec.VIAL);
     dbg(DEBUG,"<sendAftData> : AURN <%s>", rlAftrec.AURN);
@@ -3230,16 +3231,16 @@ static void sendAftData(char *mySqlBuf, CCAREC rpCcarec,int ilFlag)
     dbg(DEBUG,"<sendAftData> : ORG3 <%s>", rlAftrec.ORG3);
     dbg(DEBUG,"<sendAftData> : DES3 <%s>", rlAftrec.DES3);
     dbg(DEBUG,"<sendAftData> : STEV <%s>", rlAftrec.STEV);
-    
+
     dbg(DEBUG,"<sendAftData> : TIFA <%s>", rlAftrec.TIFA);
     dbg(DEBUG,"<sendAftData> : TIFD <%s>", rlAftrec.TIFD);
-    
+
     //Frank v1.5 20120918
     dbg(DEBUG,"<sendAftData> : ORG4 <%s>", rlAftrec.ORG4);
     dbg(DEBUG,"<sendAftData> : DES4 <%s>", rlAftrec.DES4);
     dbg(DEBUG,"<sendAftData> : FLNS <%s>", rlAftrec.FLNS);
     //cictab
-    
+
     memset( &rlCicrec, 0, sizeof(rlCicrec) );
     flds_count2 = get_flds_count(pcgCicFields);
     dbg(TRACE,"<sendAftData> : flds count2 <%d>",flds_count2);
@@ -3252,20 +3253,20 @@ static void sendAftData(char *mySqlBuf, CCAREC rpCcarec,int ilFlag)
     	BuildItemBuffer(pclDataArea2, NULL, flds_count2, ",");
     	dbg(TRACE,"<sendAftData> : pclDataArea2 <%s>",pclDataArea2);
     	memset( &rlCicrec, 0, sizeof(rlCicrec) );
-    	
+
     	get_fld_value(pclDataArea2,igCicUrno,rlCicrec.URNO); TrimRight(rlCicrec.URNO);
 		  get_fld_value(pclDataArea2,igCicCnam,rlCicrec.CNAM); TrimRight(rlCicrec.CNAM);
 		  get_fld_value(pclDataArea2,igCicTerm,rlCicrec.TERM); TrimRight(rlCicrec.TERM);
 		  dbg(TRACE,"<sendAftData> : URNO <%s>", rlCicrec.URNO);
 		  dbg(TRACE,"<sendAftData> : CNAM <%s>", rlCicrec.CNAM);
-		  dbg(TRACE,"<sendAftData> : TERM <%s>", rlCicrec.TERM);		  
+		  dbg(TRACE,"<sendAftData> : TERM <%s>", rlCicrec.TERM);
     }
     close_my_cursor(&slCursor2);
-    
+
     //test towing
     //memset(rlAftrec.FTYP,0,sizeof(rlAftrec.FTYP));
     //strncpy(rlAftrec.FTYP,"T",1);
-    
+
     //ccatab
     if (strncmp(rlAftrec.FTYP,"T",1) != 0)
     {
@@ -3276,7 +3277,7 @@ static void sendAftData(char *mySqlBuf, CCAREC rpCcarec,int ilFlag)
     	sprintf(pclCCASqlbuf1,"SELECT %s FROM CCATAB WHERE FLNU='%s' AND CTYP<>'C' AND CKIC<>' '",pcgCcaFields,rlAftrec.URNO);
     	dbg(TRACE,"<sendAftData> : sql buf <%s>",pclCCASqlbuf1);
     	memset(pclDataArea3,0,sizeof(pclDataArea3));
-    	
+
     	if((ilRc = sql_if(slSqlFunc3,&slCursor3,pclCCASqlbuf1,pclDataArea3))==DB_SUCCESS)
     	{
     		BuildItemBuffer(pclDataArea3, NULL, flds_count3, ",");
@@ -3286,7 +3287,7 @@ static void sendAftData(char *mySqlBuf, CCAREC rpCcarec,int ilFlag)
 			  //get_fld_value(pclDataArea3,igCcaCkit,rlCcarec.CKIT); TrimRight(rlCcarec.CKIT);
 			  //dbg(TRACE,"<sendAftData> : CKIC <%s>", rlCcarec.CKIC);
 			  dbg(TRACE,"<sendAftData> : URNO <%s>", rlCcarec.URNO);
-			  
+
     		//if( strlen(rlCcarec.CKIC)==0 && strlen(rlCcarec.CKIT)==0 )
     		if(strlen(rlCcarec.URNO)==0)
     		{
@@ -3296,7 +3297,7 @@ static void sendAftData(char *mySqlBuf, CCAREC rpCcarec,int ilFlag)
 					memset(&rlCicrec,0,sizeof(rlCicrec));
 					memset(rlAftrec.CKIF,0,sizeof(rlAftrec.CKIF));
 					memset(rlAftrec.CKIT,0,sizeof(rlAftrec.CKIT));
-					
+
 					if(ilFlag==TRUE)
 					{
 						if(IsFlightInTimeWindow( rlAftrec.ADID, rlAftrec.TIFA, rlAftrec.TIFD )==RC_SUCCESS)
@@ -3312,20 +3313,20 @@ static void sendAftData(char *mySqlBuf, CCAREC rpCcarec,int ilFlag)
     		else if(strlen(pclDataArea3)!=0 && strncmp(pclDataArea3," ",1)!=0)
     		{
 	    		dbg(TRACE,"<sendAftData><pclDataArea3-%s><line-%d> FOUND - Non Zero result",pclDataArea3,__LINE__);
-	    		
+
 			    // get ccatab data URNO,CKBS,CKES
 			    flds_count1 = get_flds_count(pcgCcaFields);
 			  	dbg(TRACE,"<sendAftData> : flds_count1 <%d>",flds_count1);
 			    slSqlFunc1 = START;
 			  	slCursor1 = 0;
 			    sprintf(pclCCASqlbuf,"SELECT %s FROM CCATAB WHERE FLNU='%s' AND CKIC='%s'",pcgCcaFields,rlAftrec.URNO,rlAftrec.CKIF);
-			    
+
 			    if((ilRc = sql_if(slSqlFunc1,&slCursor1,pclCCASqlbuf,pclDataArea1)) == DB_SUCCESS)
 			  	{
 			  		BuildItemBuffer(pclDataArea1, NULL, flds_count1, ",");
 			  		dbg(TRACE,"<sendAftData> : pclDataArea1 <%s>",pclDataArea1);
 			  		memset( &rlCcarecCKBS, 0, sizeof(rlCcarecCKBS) );
-			    
+
 			    	get_fld_value(pclDataArea1,igCcaUrno,rlCcarecCKBS.URNO); TrimRight(rlCcarecCKBS.URNO);
 			    	get_fld_value(pclDataArea1,igCcaCkic,rlCcarecCKBS.CKIC); TrimRight(rlCcarecCKBS.CKIC);
 			    	get_fld_value(pclDataArea1,igCcaCkit,rlCcarecCKBS.CKIT); TrimRight(rlCcarecCKBS.CKIT);
@@ -3333,7 +3334,7 @@ static void sendAftData(char *mySqlBuf, CCAREC rpCcarec,int ilFlag)
 			    	get_fld_value(pclDataArea1,igCcaCkes,rlCcarecCKBS.CKES); TrimRight(rlCcarecCKBS.CKES);
 			    	get_fld_value(pclDataArea1,igCcaFlno,rlCcarecCKBS.FLNO); TrimRight(rlCcarecCKBS.FLNO);
 			    	get_fld_value(pclDataArea1,igCcaFlnu,rlCcarecCKBS.FLNU); TrimRight(rlCcarecCKBS.FLNU);
-			    	
+
 			    	dbg(DEBUG,"<sendAftData> : line <%d> CKBS", __LINE__);
 			    	dbg(TRACE,"<sendAftData> : URNO <%s>", rlCcarecCKBS.URNO);
 			    	dbg(TRACE,"<sendAftData> : CKIC <%s>", rlCcarecCKBS.CKIC);
@@ -3344,7 +3345,7 @@ static void sendAftData(char *mySqlBuf, CCAREC rpCcarec,int ilFlag)
 			    	dbg(TRACE,"<sendAftData> : FLNU <%s>", rlCcarecCKBS.FLNU);
 				  }
 				  close_my_cursor(&slCursor1);
-				  
+
 				  strcpy(rlCcarecCKES.CKES,rlCcarecCKBS.CKES);
 				  memset(pclCCASqlbuf,0,sizeof(pclCCASqlbuf));
 				  memset(pclDataArea1,0,sizeof(pclDataArea1));
@@ -3354,13 +3355,13 @@ static void sendAftData(char *mySqlBuf, CCAREC rpCcarec,int ilFlag)
 		  		slCursor1 = 0;
 		    	sprintf(pclCCASqlbuf,"SELECT %s FROM CCATAB WHERE FLNU='%s' AND CKIC='%s'",pcgCcaFields,rlAftrec.URNO,rlAftrec.CKIT);
 		    	dbg(TRACE,"<sendAftData> : sql buf <%s>",pclCCASqlbuf);
-				  
+
 				  if((ilRc = sql_if(slSqlFunc1,&slCursor1,pclCCASqlbuf,pclDataArea1)) == DB_SUCCESS)
 			  	{
 			  		BuildItemBuffer(pclDataArea1, NULL, flds_count1, ",");
 			  		dbg(TRACE,"<sendAftData> : pclDataArea1 <%s>",pclDataArea1);
 			  		memset( &rlCcarecCKES, 0, sizeof(rlCcarecCKES) );
-			    
+
 			    	get_fld_value(pclDataArea1,igCcaUrno,rlCcarecCKES.URNO); TrimRight(rlCcarecCKES.URNO);
 			    	get_fld_value(pclDataArea1,igCcaCkic,rlCcarecCKES.CKIC); TrimRight(rlCcarecCKES.CKIC);
 			    	get_fld_value(pclDataArea1,igCcaCkit,rlCcarecCKES.CKIT); TrimRight(rlCcarecCKES.CKIT);
@@ -3368,7 +3369,7 @@ static void sendAftData(char *mySqlBuf, CCAREC rpCcarec,int ilFlag)
 			    	get_fld_value(pclDataArea1,igCcaCkes,rlCcarecCKES.CKES); TrimRight(rlCcarecCKES.CKES);
 			    	get_fld_value(pclDataArea1,igCcaFlno,rlCcarecCKES.FLNO); TrimRight(rlCcarecCKES.FLNO);
 			    	get_fld_value(pclDataArea1,igCcaFlnu,rlCcarecCKES.FLNU); TrimRight(rlCcarecCKES.FLNU);
-			    	
+
 			    	dbg(DEBUG,"<sendAftData> : line <%d> CKES", __LINE__);
 			    	dbg(TRACE,"<sendAftData> : URNO <%s>", rlCcarecCKES.URNO);
 			    	dbg(TRACE,"<sendAftData> : CKIC <%s>", rlCcarecCKES.CKIC);
@@ -3379,7 +3380,7 @@ static void sendAftData(char *mySqlBuf, CCAREC rpCcarec,int ilFlag)
 			    	dbg(TRACE,"<sendAftData> : FLNU <%s>", rlCcarecCKES.FLNU);
 				  }
 				  close_my_cursor(&slCursor1);
-				  
+
 				  //Frank 20121105 v1.7
 				  if(ilFlag==TRUE)
 					{
@@ -3397,13 +3398,13 @@ static void sendAftData(char *mySqlBuf, CCAREC rpCcarec,int ilFlag)
 			else
 			{
 				dbg(TRACE,"<sendAftData><line-%d>All CTYP='C',CKIF,CKIT and TERM are filled into blank",__LINE__);
-				
+
 				memset(&rlCcarecCKBS,0,sizeof(rlCcarecCKBS));
 				memset(&rlCcarecCKES,0,sizeof(rlCcarecCKES));
 				memset(&rlCicrec,0,sizeof(rlCicrec));
 				memset(rlAftrec.CKIF,0,sizeof(rlAftrec.CKIF));
 				memset(rlAftrec.CKIT,0,sizeof(rlAftrec.CKIT));
-				
+
 				if(ilFlag==TRUE)
 				{
 					if( IsFlightInTimeWindow( rlAftrec.ADID, rlAftrec.TIFA, rlAftrec.TIFD ) == RC_SUCCESS )
@@ -3423,7 +3424,7 @@ static void sendAftData(char *mySqlBuf, CCAREC rpCcarec,int ilFlag)
 		   //make towing xml
 		   PackTowingXml(rlAftrec);
 		}
-    
+
     memset(pclDataArea,0x00,4096);
   }
   close_my_cursor(&slCursor);
@@ -3437,22 +3438,22 @@ static int IsFlightInTimeWindow(char * pcpAdid, char *pcpTifa, char *pcpTifd)
 	char pclRangeUTCTimeStart[20] = "\0";
 	char pclRangeUTCTimeEnd[20] = "\0";
 	int  myBulkTimeSecond = 0;
-	
+
 	memset(pclNowUTCTime,0,sizeof(pclNowUTCTime));
 	//memset(pclRangeUTCTime,0,sizeof(pclRangeUTCTime));
 	memset(pclRangeUTCTimeStart,0,sizeof(pclRangeUTCTimeStart));
 	memset(pclRangeUTCTimeEnd,0,sizeof(pclRangeUTCTimeEnd));
-	
+
 	GetServerTimeStamp("UTC",1,0,pclNowUTCTime);
 	dbg(TRACE,"<HandleBulkData> : Current UTC Time <%s>",pclNowUTCTime);
-	
+
 	//strncpy(pclRangeUTCTime,pclNowUTCTime,14);
 	strncpy(pclRangeUTCTimeStart,pclNowUTCTime,14);
 	strncpy(pclRangeUTCTimeEnd,pclNowUTCTime,14);
 
 	dbg(TRACE,"---glTimeWindowStart<%d>",glTimeWindowStart);
   dbg(TRACE,"---glTimeWindowEnd<%d>",glTimeWindowEnd);
-    	 
+
 	//myBulkTimeSecond = glbBulkTimeHour * SECONDS_PER_HOUR;
 	myBulkTimeSecond = glTimeWindowStart * SECONDS_PER_HOUR;
 	AddSecondsToCEDATime(pclRangeUTCTimeStart,myBulkTimeSecond,1);
@@ -3460,31 +3461,31 @@ static int IsFlightInTimeWindow(char * pcpAdid, char *pcpTifa, char *pcpTifd)
 	myBulkTimeSecond = glTimeWindowEnd * SECONDS_PER_HOUR;
 	AddSecondsToCEDATime(pclRangeUTCTimeEnd,myBulkTimeSecond,1);
 	//AddSecondsToCEDATime(pclRangeUTCTime,myBulkTimeSecond,1);
-	
+
 	//dbg(TRACE,"<HandleBulkData> : Bulk UTC Time <%s>",pclRangeUTCTime);
 	dbg(TRACE,"<HandleBulkData> : pclRangeUTCTimeStart<%s>",pclRangeUTCTimeStart);
 	dbg(TRACE,"<HandleBulkData> : pclRangeUTCTimeEnd<%s>",pclRangeUTCTimeEnd);
-	
+
 	if( strlen(pcpAdid) == 0 )
 	{
 		dbg(DEBUG,"ADID is NULL, return and does not send out counter XML meaasge");
 		return RC_FAIL;
 	}
-	
+
 	if( strncmp(pcpAdid," ",1) == 0 || isalpha(*pcpAdid) == 0 )
 	{
 		dbg(DEBUG,"ADID is invalid(space or not alphabetic letter),return and does not send out counter XML meaasge");
 		return RC_FAIL;
 	}
-	
+
 	if( strncmp(pcpAdid,"A",1) == 0)
 	{
 		dbg(DEBUG,"ADID is %s",pcpAdid);
-		
+
 		if( strlen(pcpTifa) == 0 || strncmp(pcpTifa," ",1) == 0)
 		{
 			dbg(DEBUG,"TIFA is invalid(NULL or space),return and does not send out counter XML meaasge");
-			
+
 			return RC_FAIL;
 		}
 		else
@@ -3506,11 +3507,11 @@ static int IsFlightInTimeWindow(char * pcpAdid, char *pcpTifa, char *pcpTifd)
 	else
 	{
 		dbg(DEBUG,"ADID is %s",pcpAdid);
-		
+
 		if( strlen(pcpTifd) == 0 || strncmp(pcpTifd," ",1) == 0)
 		{
 			dbg(DEBUG,"TIFD is invalid(NULL or space),return and does not send out counter XML meaasge");
-			
+
 			return RC_FAIL;
 		}
 		else
@@ -3537,14 +3538,14 @@ static void HandleBulkData()
 	char pclRangeUTCTime[20] = "\0";
 	int  myBulkTimeSecond = 0;
 	int  myDiffMin = 0;
-	
+
 	memset(pclRangeUTCTime,0,sizeof(pclRangeUTCTime));
-	
+
 	dbg( TRACE,"<HandleBulkData> ------------------ START ------------------" );
-	
+
 	GetServerTimeStamp("UTC",1,0,pclNowUTCTime);
 	dbg(TRACE,"<HandleBulkData> : Current UTC Time <%s>",pclNowUTCTime);
-	
+
 	//compare current time and last TIM time , if > 1 ,then need do sth
 	if (strlen(glbLastServerUTCTime) != 0)
   {
@@ -3553,11 +3554,11 @@ static void HandleBulkData()
   }
   dbg(TRACE,"<HandleBulkData> : myDiffMin <%d>",myDiffMin);
 	strcpy(glbLastServerUTCTime,pclNowUTCTime);
-	
-	
+
+
 	/* Arrival Flight */
 	myBulkTimeSecond = glbBulkTimeHour * SECONDS_PER_HOUR;
-	
+
 	strncpy(pclRangeUTCTime,pclNowUTCTime,14);
   AddSecondsToCEDATime(pclNowUTCTime,myBulkTimeSecond,1);
   dbg(TRACE,"<HandleBulkData> : Bulk UTC Time <%s>",pclNowUTCTime);
@@ -3574,20 +3575,20 @@ static void sendAftBulkData(char *mySelectTime, char *pclNowUTCTime)
   short slCursor = 0;
 	char clAftSelection[4096] = "\0";
 	CCAREC rlCcarec;
-	
+
 	memset(clAftSelection,0,sizeof(clAftSelection));
 	//char mySelectTime_[20] = "\0";
 	//char tmp[20] = "201205021740";
 	//getCurrentTime
-	
+
 	/*** Actual SQL Queries ***/
 	//strncpy(mySelectTime_,mySelectTime,12);
 	//strncpy(mySelectTime_,tmp,12);
-	
+
 	// Frank v1.1
 	//dbg(TRACE,"<sendAftBulkData> : Select Time <%s> <%s>",mySelectTime,mySelectTime_);
 	dbg(DEBUG,"<sendAftBulkData> : Select Time <%s> <%s>",mySelectTime,pclNowUTCTime);
-	
+
 	//1.get Flight data
 	// Frank v1.1
 	/*sprintf( clAftSelection, "SELECT %s FROM AFTTAB WHERE (TIFD LIKE '%s%') OR (TIFA LIKE '%s%') ",
@@ -3596,23 +3597,23 @@ static void sendAftBulkData(char *mySelectTime, char *pclNowUTCTime)
   dbg(DEBUG,"line<%d>++++++++++++++++++++++",__LINE__);
   //sprintf(clAftSelection,"Hello,world");
   //dbg(DEBUG,"clAftSelection<%s>",clAftSelection);
-  
+
   /*
   sprintf( clAftSelection, "SELECT %s FROM AFTTAB WHERE (TIFD BETWEEN '%s' AND '%s') OR (TIFA BETWEEN '%s' and '%s') ",
                                    pcgAftFields,mySelectTime,pclNowUTCTime,mySelectTime,pclNowUTCTime);
   */
-  
+
   //strcpy(pclNowUTCTime,"201204020310");
-  
+
   /*
   sprintf( clAftSelection, "SELECT %s FROM AFTTAB WHERE (FTYP<>'T' AND ((ADID='A' AND TIFA LIKE '%12.12s%%') OR (ADID='D' AND TIFD LIKE '%12.12s%%'))) OR (FTYP='T' AND (TIFA LIKE '%12.12s%%' OR TIFD LIKE '%12.12s%%'))", pcgAftFields,pclNowUTCTime,pclNowUTCTime,pclNowUTCTime,pclNowUTCTime);
   */
-  
+
   /* Frank v1.1g */
   sprintf( clAftSelection, "SELECT %s FROM AFTTAB WHERE (FTYP<>'T' AND (((ADID='A' OR ADID='B') AND TIFA LIKE '%12.12s%%') OR ((ADID<>'A' AND ADID<>'B') AND TIFD LIKE '%12.12s%%'))) OR (FTYP='T' AND (TIFA LIKE '%12.12s%%' OR TIFD LIKE '%12.12s%%'))", pcgAftFields,pclNowUTCTime,pclNowUTCTime,pclNowUTCTime,pclNowUTCTime);
-  
+
   dbg(DEBUG,"<sendAftBulkData> : clAftSelection <%s> ",clAftSelection);
-  
+
   memset(&rlCcarec,0,sizeof(rlCcarec));
   sendAftData(clAftSelection,rlCcarec,FALSE);
 }
@@ -3622,22 +3623,22 @@ int PackTowingXml( AFTREC rpAftrec )
 	int ilRc = 0;
 	static char myTowingXml[2048] = "\0";
 	char cmd[5] = "XMLO";
-	
+
 	short slSqlFunc = 0;
   short slCursor = 0;
   char pclDataArea[1024] = "\0";
-  
+
   char TowSqlBuf[1024] = "\0";
-  
+
   sprintf(TowSqlBuf,"SELECT FLNO FROM AFTTAB WHERE RKEY='%s' AND ADID='D'",rpAftrec.AURN);
-  
+
   dbg(TRACE,"TowSqlBuf<%s>",TowSqlBuf);
-  
+
   slSqlFunc= START;
   ilRc = sql_if(slSqlFunc,&slCursor,TowSqlBuf,pclDataArea);
  	dbg(TRACE,"pclDataArea<%s>ilRc<%d>",pclDataArea,ilRc);
  	close_my_cursor(&slCursor);
- 	
+
  	if(ilRc!=DB_SUCCESS)
  	{
  		memset(pclDataArea,0,sizeof(pclDataArea));
@@ -3646,9 +3647,9 @@ int PackTowingXml( AFTREC rpAftrec )
  	{
  		TrimRight(pclDataArea);
  	}
-	
+
 	memset(myTowingXml,0x00,2048);
-	
+
 	dbg(TRACE,"<PackTowingXml> : arrival flight");
 	sprintf( myTowingXml, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
 	                    "<TOW_Data xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\">\n"
@@ -3692,10 +3693,10 @@ int PackTowingXml( AFTREC rpAftrec )
    dbg(TRACE,"<PackTowingXml> : Towing XML Message <%s>",myTowingXml);
    ilRc = SendCedaEvent(glbWMFIDF,0, " ", " ", " ", " ",cmd, " ", " "," ", myTowingXml, "", 3, 0) ;
    if(ilRc==RC_SUCCESS)
-	   dbg(DEBUG, "<PackTowingXml> \n ****** Send command report ****** \nSending command: <%s> to <%d>\n ****** End send command report ****** ", cmd, glbWMFIDF); 
+	   dbg(DEBUG, "<PackTowingXml> \n ****** Send command report ****** \nSending command: <%s> to <%d>\n ****** End send command report ****** ", cmd, glbWMFIDF);
    else
 	   dbg(DEBUG,"<PackTowingXml> unable send command:<%s> to <%d> ",cmd,glbWMFIDF);
-	
+
 	return ilRc;
 }
 
@@ -3704,7 +3705,7 @@ int PackFlightXml( AFTREC rpAftrec, CCAREC rpCcarecCKBS, CCAREC rpCcarecCKES,CIC
 	int ilRc = 0;
 	static char myFlightXml[2048] = "\0";
 	char cmd[5] = "XMLO";
-	
+
 	//
 	char cli = '0';
 	int ili = 0;
@@ -3714,41 +3715,41 @@ int PackFlightXml( AFTREC rpAftrec, CCAREC rpCcarecCKBS, CCAREC rpCcarecCKES,CIC
   char pclXML1[8192]="\0";
   char *pclPointer = "\0";
   int ilVIAN = 0;
-	
+
 	char pclALC3[16] = "\0";
 	char pclFLNO[16] = "\0";
-	
+
 	ilVIAN = atoi(rpAftrec.VIAN);
-	
+
 	if(strlen(rpCcarecCKBS.CKBS) == 0 && strlen(rpCcarecCKES.CKES) == 0 && strlen(rpCicrec.TERM) == 0
 		&& strlen(rpCcarecCKBS.CKIT) == 0)
 	{
 		dbg(DEBUG,"This is new \"abnormal\" procedure");
-		
+
 		//For terminal : STEV
 		strcpy(rpCcarecCKBS.CKIT,rpAftrec.STEV);
 	}
-	  
+
 //FYA 20120606 v1.2c
  PackCodeShare(rpAftrec,pclXML1);
-	
+
 	// For test
 	/*
 	strncpy(rpAftrec.VIAN,"4",1);
 	ilVIAN = atoi(rpAftrec.VIAN);
 	memset(rpAftrec.VIAL,0,sizeof(rpAftrec.VIAL));
 	strcpy(rpAftrec.VIAL,"LADFNLU20110512134500                                          20110512154500                                           NBOYNBO20110512193500                                          20110512230500                                           AMSEHAM20110513074000                                          20110513103500                                           SHJOMSJ20110513170500                                          20110513180500");
-	*/	
+	*/
 	// end For test
-	
+
 	pclPointer = rpAftrec.VIAL;
 	dbg(DEBUG,"<\npclPointer<%s>\n>",pclPointer);
-	
+
 	for(ili=0;ili < ilVIAN;ili++)
   {
           memset(pclTmp,0,sizeof(pclTmp));
           memset(pclTmp1,0,sizeof(pclTmp1));
-          
+
           if(strncmp(pcgVialICAO,"YES",3)!=0)
           {
 	          strncpy(pclTmp,pclPointer,3);
@@ -3759,7 +3760,7 @@ int PackFlightXml( AFTREC rpAftrec, CCAREC rpCcarecCKBS, CCAREC rpCcarecCKES,CIC
 	          else
 	          {
 	          		pclPointer += 120;
-	          }	
+	          }
 	          //dbg(DEBUG,"three letter is <%s>\n",pclTmp);
 					}
 					else
@@ -3772,10 +3773,10 @@ int PackFlightXml( AFTREC rpAftrec, CCAREC rpCcarecCKBS, CCAREC rpCcarecCKES,CIC
 	          else
 	          {
 	          		pclPointer += 120;
-	          }	
+	          }
 	          //dbg(DEBUG,"four letter is <%s>\n",pclTmp);
 					}
-					
+
           cli++;
           sprintf(pclTmp1,"\t\t<VIA%c>%s</VIA%c>\n",cli,pclTmp,cli);
           strcat(pclXML,pclTmp1);
@@ -3783,10 +3784,10 @@ int PackFlightXml( AFTREC rpAftrec, CCAREC rpCcarecCKBS, CCAREC rpCcarecCKES,CIC
   //printf("+++<\n%s\n>+++",pclXML);
   //dbg(DEBUG,"+++<\n%s\n>+++",pclXML);
 
-	//Frank 20120803  
-	//rpAftrec.ALC3 & rpAftrec.FLTN,//FLNO have been TrimRight() in sendAftData  
+	//Frank 20120803
+	//rpAftrec.ALC3 & rpAftrec.FLTN,//FLNO have been TrimRight() in sendAftData
 	if( strlen(pcgCodeForALC3) != 0 && igLastPartOfCSGN != 0)
-	{	
+	{
 		dbg(TRACE,"Check the ALC3 & FLNO null or not");
 
 		ilRc = IsAlc3AndFlnoNullForAdHocFlight(rpAftrec,pclALC3,pclFLNO);
@@ -3797,8 +3798,8 @@ int PackFlightXml( AFTREC rpAftrec, CCAREC rpCcarecCKBS, CCAREC rpCcarecCKES,CIC
 		}
 	}
 	else
-	{	
-		
+	{
+
 		dbg(TRACE,"pcgCodeForALC3 is null and igLastPartOfCSGN is zero, so do not check the ALC3 & FLNO null or not");
 	}
 
@@ -3863,7 +3864,12 @@ int PackFlightXml( AFTREC rpAftrec, CCAREC rpCcarecCKBS, CCAREC rpCcarecCKES,CIC
                                      rpAftrec.ALC3,
                                      rpAftrec.FLTN,rpAftrec.FLNS,//FLNO
                                      rpAftrec.STOA,//STAD
-                                     rpAftrec.FTYP,
+                                     /*rpAftrec.FTYP,*/
+                                     /*
+                                     fya 20140318 v1.91
+                                     Q for requestd flights
+                                     */
+                                     strlen(rpAftrec.FTYP) == 0 ? "Q" : rpAftrec.FTYP,
                                      rpAftrec.STYP,
                                      rpAftrec.TTYP,
                                      rpAftrec.CSGN,
@@ -3904,7 +3910,7 @@ int PackFlightXml( AFTREC rpAftrec, CCAREC rpCcarecCKBS, CCAREC rpCcarecCKES,CIC
                                      //rpAftrec.NXTI);
      strcat(myFlightXml,pclXML);
      strcat(myFlightXml,"   </PORTS>\n");
-     
+
      if(strlen(pclXML1) != 0)
      {
      	strcat(myFlightXml,pclXML1);
@@ -3913,21 +3919,21 @@ int PackFlightXml( AFTREC rpAftrec, CCAREC rpCcarecCKBS, CCAREC rpCcarecCKES,CIC
      {
      	strcat(myFlightXml,"   <codeshare>\n   </codeshare>\n");
      }
-     
+
      memset(pclTmp1,0,sizeof(pclTmp1));
      sprintf(pclTmp1,"   <NXTI>%s</NXTI>\n",rpAftrec.NXTI);
      strcat(myFlightXml,pclTmp1);
      strcat(myFlightXml,"</FIS_Flight>\n"
                         "</FIDS_Data>");
-     
+
      dbg(TRACE,"<PackFlightXml> : Flight XML Message <%s>",myFlightXml);
      ilRc = SendCedaEvent(glbWMFIDF,0, " ", " ", " ", " ",cmd, " ", " "," ", myFlightXml, "", 3, 0) ;
      if(ilRc==RC_SUCCESS)
-		   dbg(DEBUG, "<PackFlightXml> \n ****** Send command report ****** \nSending command: <%s> to <%d>\n ****** End send command report ****** ", cmd, glbWMFIDF); 
+		   dbg(DEBUG, "<PackFlightXml> \n ****** Send command report ****** \nSending command: <%s> to <%d>\n ****** End send command report ****** ", cmd, glbWMFIDF);
 	   else
 		   dbg(DEBUG,"<PackFlightXml> unable send command:<%s> to <%d> ",cmd,glbWMFIDF);
 	}//Frank v1.1g
-	
+
 	if (strncmp(rpAftrec.ADID,"A",1) != 0 || strncmp(rpAftrec.FTYP,"B",1)==0 ||strncmp(rpAftrec.FTYP,"Z",1)==0) /*else if (strncmp(rpAftrec.ADID,"D",1) == 0)*/
  	{
 	//	2. Departure Flight
@@ -3990,7 +3996,12 @@ int PackFlightXml( AFTREC rpAftrec, CCAREC rpCcarecCKBS, CCAREC rpCcarecCKES,CIC
                                    rpAftrec.ALC3,
                                    rpAftrec.FLTN,rpAftrec.FLNS,//FLNO
                                    rpAftrec.STOD,//STAD
-                                   rpAftrec.FTYP,
+                                   /*rpAftrec.FTYP,*/
+                                   /*
+                                   fya 20140318 v1.91
+                                    Q for requestd flights
+                                    */
+                                   strlen(rpAftrec.FTYP) == 0 ? "Q" : rpAftrec.FTYP,
                                    rpAftrec.STYP,
                                    rpAftrec.TTYP,
                                    rpAftrec.CSGN,
@@ -4033,7 +4044,7 @@ int PackFlightXml( AFTREC rpAftrec, CCAREC rpCcarecCKBS, CCAREC rpCcarecCKES,CIC
      //
      strcat(myFlightXml,pclXML);
      strcat(myFlightXml,"   </PORTS>\n");
-     
+
      if(strlen(pclXML1) != 0)
      {
      	strcat(myFlightXml,pclXML1);
@@ -4048,11 +4059,11 @@ int PackFlightXml( AFTREC rpAftrec, CCAREC rpCcarecCKBS, CCAREC rpCcarecCKES,CIC
      strcat(myFlightXml,pclTmp1);
      strcat(myFlightXml,"</FIS_Flight>\n"
                         "</FIDS_Data>");
-     
+
      dbg(TRACE,"<PackFlightXml> : Flight XML Message <%s>",myFlightXml);
      ilRc = SendCedaEvent(glbWMFIDF,0, " ", " ", " ", " ",cmd, " ", " "," ", myFlightXml, "", 3, 0) ;
      if(ilRc==RC_SUCCESS)
-		   dbg(DEBUG, "<PackFlightXml> \n ****** Send command report ****** \nSending command: <%s> to <%d>\n ****** End send command report ****** ", cmd, glbWMFIDF); 
+		   dbg(DEBUG, "<PackFlightXml> \n ****** Send command report ****** \nSending command: <%s> to <%d>\n ****** End send command report ****** ", cmd, glbWMFIDF);
 	   else
 		   dbg(DEBUG,"<PackFlightXml> unable send command:<%s> to <%d> ",cmd,glbWMFIDF);
 	}
@@ -4072,8 +4083,8 @@ int IsAlc3AndFlnoNullForAdHocFlightBAG(BAGREC rpBagrec,char *pcpALC3,char *pcpFL
         char *pclFunc = "IsAlc3AndFlnoNullForAdHocFlight";
         int ilLengthOfCsgn = 0;
 
-        //Frank 20120803  
-        //rpBagrec.ALC3 & rpBagrec.FLTN,//FLNO have been TrimRight() in sendAftData();  
+        //Frank 20120803
+        //rpBagrec.ALC3 & rpBagrec.FLTN,//FLNO have been TrimRight() in sendAftData();
 
         //test
         //memset(rpBagrec.ALC3,0,sizeof(rpBagrec.ALC3));
@@ -4083,8 +4094,8 @@ int IsAlc3AndFlnoNullForAdHocFlightBAG(BAGREC rpBagrec,char *pcpALC3,char *pcpFL
         if( strlen(rpBagrec.ALC3) == 0 )
         {
                 dbg(DEBUG,"%s: ALC3 is null",pclFunc);
-                //if( strlen(rpBagrec.FLTN) == 0 )              
-                //{                     
+                //if( strlen(rpBagrec.FLTN) == 0 )
+                //{
                         dbg(DEBUG,"%s: FLNO is null too, then filling ALC3 by %s, and FLNO by the last %d alphanumeric characters of the call-sign ",pclFunc,pcgCodeForALC3,igLastPartOfCSGN);
 
 
@@ -4099,24 +4110,24 @@ int IsAlc3AndFlnoNullForAdHocFlightBAG(BAGREC rpBagrec,char *pcpALC3,char *pcpFL
                         ilLengthOfCsgn = strlen(rpBagrec.CSGN);
                         if( ilLengthOfCsgn >= igLastPartOfCSGN )
                         {
-                                pclOrg = rpBagrec.CSGN + ilLengthOfCsgn - igLastPartOfCSGN;                                         
+                                pclOrg = rpBagrec.CSGN + ilLengthOfCsgn - igLastPartOfCSGN;
 
                                 strcpy(pcpFLNO,pclOrg);
                                 dbg(DEBUG,"%s The modified rpBagrec.FLTN is <%s> which is last <%d> of rpBagrec.CSGN<%s>",pclFunc,pcpFLNO,igLastPartOfCSGN,rpBagrec.CSGN);
-                                //return RC_SUCCESS;            
+                                //return RC_SUCCESS;
                         }
                         else
                         {
                                 strcpy(pcpFLNO,rpBagrec.CSGN);
                                 dbg(DEBUG,"%s The ilLengthOfCsgn is <%d>pcpFLNO<%s>",pclFunc,ilLengthOfCsgn,pcpFLNO);
-                                //return RC_FAIL;               
+                                //return RC_FAIL;
                         }
                         return RC_SUCCESS;
-                //}             
+                //}
                 //else
-                //{                     
+                //{
                         //dbg(DEBUG,"%s: FLTN is not null",pclFunc);
-                        //return RC_FAIL;               
+                        //return RC_FAIL;
                 //}
         }
         else
@@ -4127,60 +4138,60 @@ int IsAlc3AndFlnoNullForAdHocFlightBAG(BAGREC rpBagrec,char *pcpALC3,char *pcpFL
 }
 
 int IsAlc3AndFlnoNullForAdHocFlight(AFTREC rpAftrec,char *pcpALC3,char *pcpFLNO)
-{	
-	char *pclOrg;	
-	char *pclFunc = "IsAlc3AndFlnoNullForAdHocFlight";	
-	int ilLengthOfCsgn = 0;    
-	
-	//Frank 20120803  
-	//rpAftrec.ALC3 & rpAftrec.FLTN,//FLNO have been TrimRight() in sendAftData();  
-	
+{
+	char *pclOrg;
+	char *pclFunc = "IsAlc3AndFlnoNullForAdHocFlight";
+	int ilLengthOfCsgn = 0;
+
+	//Frank 20120803
+	//rpAftrec.ALC3 & rpAftrec.FLTN,//FLNO have been TrimRight() in sendAftData();
+
 	//test
 	//memset(rpAftrec.ALC3,0,sizeof(rpAftrec.ALC3));
 	//memset(rpAftrec.FLTN,0,sizeof(rpAftrec.FLTN));
 	//test
-	dbg(DEBUG,"%s: Checking ALC3 and FLNO null or not",pclFunc);	
-	if( strlen(rpAftrec.ALC3) == 0 )	
-	{		
-		dbg(DEBUG,"%s: ALC3 is null",pclFunc);		
-		//if( strlen(rpAftrec.FLTN) == 0 )		
-		//{			
+	dbg(DEBUG,"%s: Checking ALC3 and FLNO null or not",pclFunc);
+	if( strlen(rpAftrec.ALC3) == 0 )
+	{
+		dbg(DEBUG,"%s: ALC3 is null",pclFunc);
+		//if( strlen(rpAftrec.FLTN) == 0 )
+		//{
 			dbg(DEBUG,"%s: FLNO is null too, then filling ALC3 by %s, and FLNO by the last %d alphanumeric characters of the call-sign ",pclFunc,pcgCodeForALC3,igLastPartOfCSGN);
-			
-			
+
+
 			dbg(DEBUG,"%s The original rpAftrec.ALC3 is <%s>,pcgCodeForALC3<%s>",pclFunc,rpAftrec.ALC3,pcgCodeForALC3);
 			memset(pcpALC3,0,sizeof(pcpALC3));
 			strcpy(pcpALC3,pcgCodeForALC3);
 			dbg(DEBUG,"%s The modified pcpALC3 is <%s>",pclFunc,pcpALC3);
-			
+
 			dbg(DEBUG,"%s The original rpAftrec.FLTN is <%s>",pclFunc,rpAftrec.FLTN);
 			memset(pcpFLNO,0,sizeof(pcpFLNO));
-			
+
 			ilLengthOfCsgn = strlen(rpAftrec.CSGN);
 			if( ilLengthOfCsgn >= igLastPartOfCSGN )
 			{
-				pclOrg = rpAftrec.CSGN + ilLengthOfCsgn - igLastPartOfCSGN;								
+				pclOrg = rpAftrec.CSGN + ilLengthOfCsgn - igLastPartOfCSGN;
 				strcpy(pcpFLNO,pclOrg);
-				dbg(DEBUG,"%s The modified rpAftrec.FLTN is <%s> which is last <%d> of rpAftrec.CSGN<%s>",pclFunc,pcpFLNO,igLastPartOfCSGN,rpAftrec.CSGN);			
-				//return RC_SUCCESS;		
-			}			
+				dbg(DEBUG,"%s The modified rpAftrec.FLTN is <%s> which is last <%d> of rpAftrec.CSGN<%s>",pclFunc,pcpFLNO,igLastPartOfCSGN,rpAftrec.CSGN);
+				//return RC_SUCCESS;
+			}
 			else
-			{	
+			{
 				strcpy(pcpFLNO,rpAftrec.CSGN);
 				dbg(DEBUG,"%s The ilLengthOfCsgn is <%d>pcpFLNO<%s>",pclFunc,ilLengthOfCsgn,pcpFLNO);
-				//return RC_FAIL;		
+				//return RC_FAIL;
 			}
 			return RC_SUCCESS;
-		//}		
-		//else
-		//{			
-			//dbg(DEBUG,"%s: FLTN is not null",pclFunc);
-			//return RC_FAIL;		
 		//}
-	}	
-	else	
-	{		
-		dbg(DEBUG,"%s: ALC3 is not null",pclFunc);		
+		//else
+		//{
+			//dbg(DEBUG,"%s: FLTN is not null",pclFunc);
+			//return RC_FAIL;
+		//}
+	}
+	else
+	{
+		dbg(DEBUG,"%s: ALC3 is not null",pclFunc);
 		return RC_FAIL;
 	}
 }
@@ -4191,11 +4202,11 @@ void get_fld_value(char *buf,short fld_no,char *dest)
 	char *ret;
 	char myDataArea[4096] = "\0";
 	strncpy(myDataArea,buf,strlen(buf));
-	
-	ret = strtok(myDataArea, ","); 
+
+	ret = strtok(myDataArea, ",");
 	for(i=1;i<fld_no;i++)
 	{
-	   ret = strtok(NULL, ","); 
+	   ret = strtok(NULL, ",");
   }
   strncpy(dest,ret,strlen(ret));
 }
@@ -4205,14 +4216,14 @@ int get_flds_count(char *buf)
 	char *ret;
 	char myDataArea[4096] = "\0";
 	strncpy(myDataArea,buf,strlen(buf));
-	
-	ret = strtok(myDataArea, ","); 
+
+	ret = strtok(myDataArea, ",");
 	while(ret != NULL)
 	{
 		i++;
-		ret = strtok(NULL, ","); 
+		ret = strtok(NULL, ",");
 	}
-	
+
 	return i;
 }
 static int InitFieldIndex()
@@ -4236,17 +4247,17 @@ static int InitFieldIndex()
   FindItemInList(pcgAftFields,"GD1E",',',&igAftGd1e,&ilCol,&ilPos);
 
   FindItemInList(pcgAftFields,"ACT3",',',&igAftAct3,&ilCol,&ilPos);
-  
+
   //Frank v1.8 20130228
   FindItemInList(pcgAftFields,"ACT5",',',&igAftAct5,&ilCol,&ilPos);
-  
+
   FindItemInList(pcgAftFields,"ONBL",',',&igAftOnbl,&ilCol,&ilPos);
   FindItemInList(pcgAftFields,"OFBL",',',&igAftOfbl,&ilCol,&ilPos);
   FindItemInList(pcgAftFields,"ONBE",',',&igAftOnbe,&ilCol,&ilPos);
   FindItemInList(pcgAftFields,"STYP",',',&igAftStyp,&ilCol,&ilPos);
   FindItemInList(pcgAftFields,"TTYP",',',&igAftTtyp,&ilCol,&ilPos);
   FindItemInList(pcgAftFields,"ADID",',',&igAftAdid,&ilCol,&ilPos);
-  
+
   //Frank v1.1
   FindItemInList(pcgAftFields,"PSTA",',',&igAftPsta,&ilCol,&ilPos);
   FindItemInList(pcgAftFields,"PSTD",',',&igAftPstd,&ilCol,&ilPos);
@@ -4257,35 +4268,35 @@ static int InitFieldIndex()
   FindItemInList(pcgAftFields,"ETAI",',',&igAftEtai,&ilCol,&ilPos);
   FindItemInList(pcgAftFields,"ETDI",',',&igAftEtdi,&ilCol,&ilPos);
   //Frank v1.1
-  
+
   FindItemInList(pcgAftFields,"ETOD",',',&igAftEtod,&ilCol,&ilPos);
   FindItemInList(pcgAftFields,"ETOA",',',&igAftEtoa,&ilCol,&ilPos);
-  
+
   //Frank v1.1
   FindItemInList(pcgAftFields,"LAND",',',&igAftLand,&ilCol,&ilPos);
   FindItemInList(pcgAftFields,"AIRB",',',&igAftAirb,&ilCol,&ilPos);
   //Frank v1.1
-  
+
   FindItemInList(pcgAftFields,"CTOT",',',&igAftCtot,&ilCol,&ilPos);
   FindItemInList(pcgAftFields,"REGN",',',&igAftRegn,&ilCol,&ilPos);
-  
+
   //Frank v1.1
   FindItemInList(pcgAftFields,"TMOA",',',&igAftTmoa,&ilCol,&ilPos);
   //Frank v1.1
-  
+
   FindItemInList(pcgAftFields,"PAXT",',',&igAftPaxt,&ilCol,&ilPos);
-  
+
   //Frank v1.1
   FindItemInList(pcgAftFields,"BLT1",',',&igAftBlt1,&ilCol,&ilPos);
   FindItemInList(pcgAftFields,"BLT2",',',&igAftBlt2,&ilCol,&ilPos);
   //Frank v1.1
-  
-  
+
+
   //FindItemInList(pcgAftFields,"VIA3",',',&igAftVia3,&ilCol,&ilPos);
   FindItemInList(pcgAftFields,"CSGN",',',&igAftCsgn,&ilCol,&ilPos);
   FindItemInList(pcgAftFields,"FTYP",',',&igAftFtyp,&ilCol,&ilPos);
   FindItemInList(pcgAftFields,"NXTI",',',&igAftNxti,&ilCol,&ilPos);
-  
+
   FindItemInList(pcgAftFields,"VIAN",',',&igAftVian,&ilCol,&ilPos);
   FindItemInList(pcgAftFields,"VIAL",',',&igAftVial,&ilCol,&ilPos);
   FindItemInList(pcgAftFields,"AURN",',',&igAftAurn,&ilCol,&ilPos);
@@ -4298,15 +4309,15 @@ static int InitFieldIndex()
   FindItemInList(pcgAftFields,"DES3",',',&igAftDes3,&ilCol,&ilPos);
   FindItemInList(pcgAftFields,"STEV",',',&igAftStev,&ilCol,&ilPos);
   FindItemInList(pcgAftFields,"TGD1",',',&igAftTgd1,&ilCol,&ilPos);
-  
+
   FindItemInList(pcgAftFields,"TIFA",',',&igAftTifa,&ilCol,&ilPos);
   FindItemInList(pcgAftFields,"TIFD",',',&igAftTifd,&ilCol,&ilPos);
-  
+
   //Frank v1.5 20120918
   FindItemInList(pcgAftFields,"ORG4",',',&igAftOrg4,&ilCol,&ilPos);
   FindItemInList(pcgAftFields,"DES4",',',&igAftDes4,&ilCol,&ilPos);
   FindItemInList(pcgAftFields,"FLNS",',',&igAftFlns,&ilCol,&ilPos);
-  
+
   if(ilMode == 1)
   {
 	  dbg(TRACE,"<InitFieldIndex> : igAftUrno<%d>",igAftUrno);
@@ -4328,7 +4339,7 @@ static int InitFieldIndex()
 	  dbg(TRACE,"<InitFieldIndex> : igAftTtyp<%d>",igAftTtyp);
 	  dbg(TRACE,"<InitFieldIndex> : igAftAdid<%d>",igAftAdid);
 
-	  
+
 	  //Frank v1.1
 	  dbg(TRACE,"<InitFieldIndex> : igAftPsta<%d>",igAftPsta);
 	  dbg(TRACE,"<InitFieldIndex> : igAftPstd<%d>",igAftPstd);
@@ -4336,41 +4347,41 @@ static int InitFieldIndex()
 	  dbg(TRACE,"<InitFieldIndex> : igAftGtd1<%d>",igAftGtd1);
 	  dbg(TRACE,"<InitFieldIndex> : igAftWro1<%d>",igAftWro1);
 	  dbg(TRACE,"<InitFieldIndex> : igAftWro2<%d>",igAftWro2);
-	  
+
 	  dbg(TRACE,"<InitFieldIndex> : igAftEtai<%d>",igAftEtai);
 	  dbg(TRACE,"<InitFieldIndex> : igAftEtdi<%d>",igAftEtdi);
 	  //Frank v1.1
-	  
+
 	  dbg(TRACE,"<InitFieldIndex> : igAftEtod<%d>",igAftEtod);
 	  dbg(TRACE,"<InitFieldIndex> : igAftEtoa<%d>",igAftEtoa);
-	  
+
 	  //Frank v1.1
 	  dbg(TRACE,"<InitFieldIndex> : igAftLand<%d>",igAftLand);
 	  dbg(TRACE,"<InitFieldIndex> : igAftAirb<%d>",igAftAirb);
 	  //Frank v1.1
-	  
+
 	  dbg(TRACE,"<InitFieldIndex> : igAftCtot<%d>",igAftCtot);
 	  dbg(TRACE,"<InitFieldIndex> : igAftRegn<%d>",igAftRegn);
-	  
+
 	  //Frank v1.1
 	  dbg(TRACE,"<InitFieldIndex> : igAftTmoa<%d>",igAftTmoa);
 	  //Frank v1.1
-	  
+
 	  dbg(TRACE,"<InitFieldIndex> : igAftPaxt<%d>",igAftPaxt);
-	  
+
 	  //Frank v1.1
 	  dbg(TRACE,"<InitFieldIndex> : igAftBlt1<%d>",igAftBlt1);
 	  dbg(TRACE,"<InitFieldIndex> : igAftBlt2<%d>",igAftBlt2);
 	  //Frank v1.1
-	  
+
 	  //dbg(TRACE,"<InitFieldIndex> : igAftVia3<%d>",igAftVia3);
 	  dbg(TRACE,"<InitFieldIndex> : igAftCsgn<%d>",igAftCsgn);
 	  dbg(TRACE,"<InitFieldIndex> : igAftFtyp<%d>",igAftFtyp);
 	  dbg(TRACE,"<InitFieldIndex> : igAftNxti<%d>",igAftNxti);
-	  
+
 	  dbg(TRACE,"<InitFieldIndex> : igAftAurn<%d>",igAftAurn);
 	}
-	
+
   FindItemInList(pcgCcaFields,"URNO",',',&igCcaUrno,&ilCol,&ilPos);
   FindItemInList(pcgCcaFields,"CKIC",',',&igCcaCkic,&ilCol,&ilPos);
   FindItemInList(pcgCcaFields,"CKIT",',',&igCcaCkit,&ilCol,&ilPos);
@@ -4379,7 +4390,7 @@ static int InitFieldIndex()
   FindItemInList(pcgCcaFields,"FLNO",',',&igCcaFlno,&ilCol,&ilPos);
   FindItemInList(pcgCcaFields,"FLNU",',',&igCcaFlnu,&ilCol,&ilPos);
   FindItemInList(pcgCcaFields,"CTYP",',',&igCcaCtyp,&ilCol,&ilPos);
-  
+
   if(ilMode == 1)
   {
 	  dbg(DEBUG,"<InitFieldIndex> : igCcaUrno<%d>",igCcaUrno);
@@ -4395,7 +4406,7 @@ static int InitFieldIndex()
   FindItemInList(pcgAltFields,"ALC3",',',&igAltAlc3,&ilCol,&ilPos);
   FindItemInList(pcgAltFields,"ALFN",',',&igAltAlfn,&ilCol,&ilPos);
   FindItemInList(pcgAltFields,"ADD4",',',&igAltAdd4,&ilCol,&ilPos);
-  
+
   if(ilMode == 1)
   {
   	dbg(DEBUG,"<InitFieldIndex> : igAltUrno<%d>",igAltUrno);
@@ -4404,13 +4415,13 @@ static int InitFieldIndex()
   	dbg(DEBUG,"<InitFieldIndex> : igAltAlfn<%d>",igAltAlfn);
   	dbg(DEBUG,"<InitFieldIndex> : igAltAdd4<%d>",igAltAdd4);
   }
-  
+
   FindItemInList(pcgAptFields,"URNO",',',&igAptUrno,&ilCol,&ilPos);
   FindItemInList(pcgAptFields,"APC3",',',&igAptApc3,&ilCol,&ilPos);
   FindItemInList(pcgAptFields,"APC4",',',&igAptApc4,&ilCol,&ilPos);
   FindItemInList(pcgAptFields,"APFN",',',&igAptApfn,&ilCol,&ilPos);
   FindItemInList(pcgAptFields,"APSN",',',&igAptApsn,&ilCol,&ilPos);
-  
+
   if(ilMode == 1)
   {
   	dbg(DEBUG,"<InitFieldIndex> : igAptUrno<%d>",igAptUrno);
@@ -4422,58 +4433,58 @@ static int InitFieldIndex()
   FindItemInList(pcgGatFields,"URNO",',',&igGatUrno,&ilCol,&ilPos);
   FindItemInList(pcgGatFields,"GNAM",',',&igGatGnam,&ilCol,&ilPos);
   FindItemInList(pcgGatFields,"TERM",',',&igGatTerm,&ilCol,&ilPos);
-  
+
   if(ilMode == 1)
   {
   	dbg(DEBUG,"<InitFieldIndex> : igGatUrno<%d>",igGatUrno);
   	dbg(DEBUG,"<InitFieldIndex> : igGatGnam<%d>",igGatGnam);
   	dbg(DEBUG,"<InitFieldIndex> : igGatTerm<%d>",igGatTerm);
   }
-  
+
   FindItemInList(pcgCicFields,"URNO",',',&igCicUrno,&ilCol,&ilPos);
   FindItemInList(pcgCicFields,"CNAM",',',&igCicCnam,&ilCol,&ilPos);
   FindItemInList(pcgCicFields,"TERM",',',&igCicTerm,&ilCol,&ilPos);
-  
+
   if(ilMode == 1)
   {
   	dbg(DEBUG,"<InitFieldIndex> : igCicUrno<%d>",igCicUrno);
   	dbg(DEBUG,"<InitFieldIndex> : igCicCnam<%d>",igCicCnam);
   	dbg(DEBUG,"<InitFieldIndex> : igCicTerm<%d>",igCicTerm);
   }
-  
+
   FindItemInList(pcgBltFields,"URNO",',',&igBltUrno,&ilCol,&ilPos);
   FindItemInList(pcgBltFields,"BNAM",',',&igBltBnam,&ilCol,&ilPos);
   FindItemInList(pcgBltFields,"TERM",',',&igBltTerm,&ilCol,&ilPos);
-  
+
   if(ilMode == 1)
   {
   	dbg(DEBUG,"<InitFieldIndex> : igBltUrno<%d>",igBltUrno);
   	dbg(DEBUG,"<InitFieldIndex> : igBltBnam<%d>",igBltBnam);
   	dbg(DEBUG,"<InitFieldIndex> : igBltTerm<%d>",igBltTerm);
   }
-  
+
   FindItemInList(pcgPstFields,"URNO",',',&igPstUrno,&ilCol,&ilPos);
   FindItemInList(pcgPstFields,"PNAM",',',&igPstPnam,&ilCol,&ilPos);
-  
+
   if(ilMode == 1)
   {
   	dbg(DEBUG,"<InitFieldIndex> : igPstUrno<%d>",igPstUrno);
   	dbg(DEBUG,"<InitFieldIndex> : igPstPnam<%d>",igPstPnam);
-  }  
-  
+  }
+
   FindItemInList(pcgFidFields,"URNO",',',&igFidUrno,&ilCol,&ilPos);
   FindItemInList(pcgFidFields,"CODE",',',&igFidCode,&ilCol,&ilPos);
   FindItemInList(pcgFidFields,"BEME",',',&igFidBeme,&ilCol,&ilPos);
   FindItemInList(pcgFidFields,"BEMD",',',&igFidBemd,&ilCol,&ilPos);
-  
+
   if(ilMode == 1)
   {
   	dbg(DEBUG,"<InitFieldIndex> : igFidUrno<%d>",igFidUrno);
   	dbg(DEBUG,"<InitFieldIndex> : igFidCode<%d>",igFidCode);
   	dbg(DEBUG,"<InitFieldIndex> : igFidBeme<%d>",igFidBeme);
   	dbg(DEBUG,"<InitFieldIndex> : igFidBemd<%d>",igFidBemd);
-  }  
-  
+  }
+
   FindItemInList(pcgBagFields,"URNO",',',&igBagUrno,&ilCol,&ilPos);
   FindItemInList(pcgBagFields,"ALC3",',',&igBagAlc3,&ilCol,&ilPos);
   FindItemInList(pcgBagFields,"FLTN",',',&igBagFltn,&ilCol,&ilPos);
@@ -4484,7 +4495,7 @@ static int InitFieldIndex()
   FindItemInList(pcgBagFields,"B1EA",',',&igBagB1ea,&ilCol,&ilPos);
   //FindItemInList(pcgBagFields,"B2BA",',',&igBagB2ba,&ilCol,&ilPos);
   FindItemInList(pcgBagFields,"CSGN",',',&igBagCsgn,&ilCol,&ilPos);
-  
+
   if(ilMode == 1)
   {
   	dbg(DEBUG,"<InitFieldIndex> : igBagUrno<%d>",igBagUrno);
@@ -4497,7 +4508,7 @@ static int InitFieldIndex()
   	dbg(DEBUG,"<InitFieldIndex> : igBagB1ea<%d>",igBagB1ea);
   	//dbg(DEBUG,"<InitFieldIndex> : igBagB2ba<%d>",igBagB2ba);
   }
-  
+
   return ilRc;
 }
 
@@ -4517,26 +4528,26 @@ int PackCodeShare(AFTREC rpAftrec, char *pclXML)
 		int ilCount =0;
 		int ilRC =0;
 pclXML[0] = '\0';
-		
-		
+
+
 		if(strlen(rpAftrec.JFNO) == 0 || strncmp(rpAftrec.JFNO," ",1) == 0 || strncmp(rpAftrec.JCNT," ",1) == 0 || atoi(rpAftrec.JCNT) == 0)
 		{
 			return 1;
 		}
-		
+
 		ilJCNT = atoi(rpAftrec.JCNT);
 		pclPointer = rpAftrec.JFNO;
-		
+
 		//test
 		//
 		//ilJCNT = 7;
 		//strcpy(rpAftrec.JFNO,"AB 4071  AZ 3925  ME 6637  NZ 4255  OA 8055           VA 7455");
 		//pclPointer = rpAftrec.JFNO;
 		//
-		
+
 		dbg(DEBUG,"\n<%s> JCNT <%d>\n",pclPointer, ilJCNT);
 		//printf("<%s>",pclPointer);
-		
+
 		strcat(pclXML,"\t<codeshare>\n");
     for(ili=0; ili < ilJCNT;ili++)
   	{
@@ -4545,7 +4556,7 @@ pclXML[0] = '\0';
 	    memset(pclTmpFLNO,0,sizeof(pclTmpFLNO));
 	    memset(pclTmpflightNo,0,sizeof(pclTmpflightNo));
 	    memcpy( pclTmpflightNo, &pclPointer[ili*9], 9 );
-	
+
             if( pclPointer[2] == ' ' )
             {
 	        strncpy(pclTmpALC2,pclPointer,2);
@@ -4558,23 +4569,23 @@ pclXML[0] = '\0';
             }
 	    //pclPointer += 4;
 	    strncpy(pclTmpFLNO,&pclTmpflightNo[3],6 );
-	
+
 	    //if(strncmp(pclTmpFLNO," ",1) == 0) continue;
 	    //pclPointer += 9;//
-	    
+
 	    //  sprintf(pclTmpALC2Pack,"\n\t<ALC3>%s</ALC3>\n",(strlen(pclTmpALC3)==0 || pclTmpALC3[0] == ' ')? pclTmpALC2 : pclTmpALC3);//
 	      sprintf(pclTmpFLNOPack,"\t<FLNO>%s</FLNO>\n",pclTmpFLNO);
-	
+
 	      //dbg(DEBUG,"three letter is <%s>\n",pclTmp);
 	      sprintf(pclTmpflightNo,"\t<flightNo%d>%s%s\t</flightNo%d>\n",ilj+1,pclTmpALC2Pack,pclTmpFLNOPack,ilj+1);
 	      strcat(pclXML,pclTmpflightNo);
-	      
+
 	      ilj++;
 		dbg(DEBUG,"\n<ili><%d> XML <%s>\n",ili, pclXML);
   		}
   	strcat(pclXML,"\t</codeshare>\n");
   	dbg(DEBUG,"\n+++<%s>+++",pclXML);
-  	return 0;    
+  	return 0;
 }
 */
 int PackCodeShare(AFTREC rpAftrec, char *pclXML)
@@ -4592,7 +4603,7 @@ int PackCodeShare(AFTREC rpAftrec, char *pclXML)
 		char *pclPointer = "\0";
 		int ilCount =0;
 		int ilRC =0;
-			
+
 		//FYA v1.9 20131115
 		#ifdef FYA
 		int ilReturnValue = 0;
@@ -4608,50 +4619,50 @@ int PackCodeShare(AFTREC rpAftrec, char *pclXML)
     		char pclSqlData[1024] = "";
 		char pclSqlSelection[1024] = "";
 		#endif
-		//FYA v1.9 20131115	
-		
+		//FYA v1.9 20131115
+
 		if(strlen(rpAftrec.JFNO) == 0 || strncmp(rpAftrec.JFNO," ",1) == 0 || strncmp(rpAftrec.JCNT," ",1) == 0 || atoi(rpAftrec.JCNT) == 0)
-		{	
+		{
 			dbg(DEBUG,"JFNO or JCNT is NULL or space or zero");
 			return 1;
 		}
-		
+
 		ilJCNT = atoi(rpAftrec.JCNT);
 		pclPointer = rpAftrec.JFNO;
-		
+
 		//test
 		/*
 		ilJCNT = 7;
 		strcpy(rpAftrec.JFNO,"AMV4071  AZ 3925  ME 6637  NZ 4255  OA 8055           VA 7455");
 		pclPointer = rpAftrec.JFNO;
 		*/
-		
+
 		dbg(DEBUG,"pclPointer<%s>",pclPointer);
 		//printf("<%s>",pclPointer);
-		
+
 		strcat(pclXML,"\t<codeshare>\n");
     for(ili=0; ili < ilJCNT;ili++)
   	{
 	    memset(pclTmpALC2,0,sizeof(pclTmpALC2));
 	    memset(pclTmpFLNO,0,sizeof(pclTmpFLNO));
 	    memset(pclTmpflightNo,0,sizeof(pclTmpflightNo));
-	
+
 	    strncpy(pclTmpALC2,pclPointer,2);
 	    strncpy(pclTmp,pclPointer,3);
 	    dbg(DEBUG,"++++++++ALC2<%s>ALC3<%s>",pclTmpALC2,pclTmp);
-            
+
 	    //pclPointer += 4;
 	    strncpy(pclTmpFLNO,pclPointer+3,6);
-	
+
 		dbg(DEBUG,"calling TrimRight(pclTmpFLNO)");
 		TrimRight(pclTmpFLNO);
-	
+
 	    //if(strncmp(pclTmpFLNO," ",1) == 0) continue;
 	    pclPointer += 9;
-	    
+
 	    if(strncmp(pclTmpALC2," ",1) != 0 || strncmp(pclTmpFLNO," ",1) != 0 ||
 	       strncmp(pclTmp," ",1) != 0)
-      { 
+      {
 	dbg(DEBUG,"pclTmp last letter<%c>",pclTmp[strlen(pclTmp)-1]);
       	//ALC2->ALC3
 	if( pclTmp[strlen(pclTmp)-1] == ' ' )
@@ -4664,7 +4675,7 @@ int PackCodeShare(AFTREC rpAftrec, char *pclXML)
 	//FYA 2013/11/15 v1.9
 	dbg(TRACE,"**************The return value of syslibSearchDbData ilRC<%d> ilCount<%d>",ilRC,ilCount);
 	dbg(TRACE,"**************Getting ALC3 from basic data <%s>",pclTmpALC3);
-      	
+
 	if (ilCount > 1)
 	{
 
@@ -4680,34 +4691,34 @@ int PackCodeShare(AFTREC rpAftrec, char *pclXML)
 
 	sprintf(pclSqlSelection, "WHERE ALC2='%s'",pclTmpALC2);
 	sprintf( pclSqlBuf, "SELECT ALC2,ALC3,VAFR,VATO FROM ALTTAB %s", pclSqlSelection );
-	
+
 	dbg(TRACE,"^^^^^^^^^^^^pclSqlBuf<%s>",pclSqlBuf);
 
 	//////////////////
 	slSqlCursor = 0;
   	slSqlFunc = START;
 	while((ilReturnValue = sql_if(slSqlFunc,&slSqlCursor,pclSqlBuf,pclSqlData)) == DB_SUCCESS)
-	{ 
+	{
       		slSqlFunc = NEXT;
       		//TrimRight(pclSqlData);
 		get_fld(pclSqlData,FIELD_1,STR,20,pclAlc2);
 		get_fld(pclSqlData,FIELD_2,STR,20,pclAlc3);
                 get_fld(pclSqlData,FIELD_3,STR,20,pclVpfr);
                 get_fld(pclSqlData,FIELD_4,STR,20,pclVpto);
-	
+
 		TrimRight(pclAlc2);
 		TrimRight(pclAlc3);
 		TrimRight(pclVpfr);
-		TrimRight(pclVpto);		
-     		
+		TrimRight(pclVpto);
+
 		//dbg( TRACE, "<%s> SqlData <%s>", pclFunc, pclSqlData );
   		dbg( TRACE, "<%s> ALC2<%s> ALC3<%s>,VPFR <%s> VPTO <%s> Date<%s>", pclFunc, pclAlc2, pclAlc3, pclVpfr, pclVpto , pclNowUTCTime);
-  	
+
 		if (strlen(pclVpfr) != 0 && strlen(pclVpto) != 0)
 		{
 			dbg(TRACE,"<%s> VPFR<%s> & VPTO<%s> are not null",pclFunc, pclVpfr, pclVpto);
 			if(strcmp(pclVpfr,pclVpto) >= 0)
-			{	
+			{
 				dbg(TRACE,"<%s> pclVpfr[%s] > pclVpto[%s] -> Invalid", pclFunc, pclVpfr, pclVpto);
 				continue;
 			}
@@ -4720,7 +4731,7 @@ int PackCodeShare(AFTREC rpAftrec, char *pclXML)
 			 {
 				if(strcmp(pclNowUTCTime,pclVpto) <= 0)
 				{
-					dbg(TRACE,"<%s> Today[%s] < VPTO[%s] -> Valid", pclFunc, pclNowUTCTime, pclVpto);	
+					dbg(TRACE,"<%s> Today[%s] < VPTO[%s] -> Valid", pclFunc, pclNowUTCTime, pclVpto);
 					ilRC = RC_SUCCESS;
 					memset(pclTmpALC3,0,sizeof(pclTmpALC3));
 					strncpy(pclTmpALC3,pclAlc3,strlen(pclAlc3));
@@ -4733,7 +4744,7 @@ int PackCodeShare(AFTREC rpAftrec, char *pclXML)
 					continue;
 				}
 	       		 }
-			 else 
+			 else
 			 {
 				dbg(TRACE,"<%s> VPTO is null -> Valid", pclFunc, pclVpto);
 				ilRC = RC_SUCCESS;
@@ -4745,12 +4756,12 @@ int PackCodeShare(AFTREC rpAftrec, char *pclXML)
 		}
 	}
   	close_my_cursor(&slSqlCursor);
-	/////////////////	
+	/////////////////
 
 	/*ilReturnValue = RunSQL( pclSqlBuf, pclSqlData );
 	if( ilReturnValue != DB_SUCCESS )
 	{
-		
+
 		dbg(TRACE,"@@@@@@@Not Found\n");
 	}
 	else
@@ -4758,7 +4769,7 @@ int PackCodeShare(AFTREC rpAftrec, char *pclXML)
 		char pclAlc3[20] = "";
 		char pclVpfr[20] = "";
 		char pclVpto[20] = "";
-		
+
 		get_fld(pclSqlData,FIELD_1,STR,20,pclAlc3);
 		get_fld(pclSqlData,FIELD_2,STR,20,pclVpfr);
   		get_fld(pclSqlData,FIELD_3,STR,20,pclVpto);
@@ -4770,31 +4781,31 @@ int PackCodeShare(AFTREC rpAftrec, char *pclXML)
 	#endif
 
 	if( ilRC == 0 && strlen(pclTmpALC3) == 3 && pclTmpALC3[strlen(pclTmpALC3) - 1] != ' ' )
-	{	
+	{
 	      sprintf(pclTmpALC2Pack,"\n\t<ALC3>%s</ALC3>\n",pclTmpALC3);
 	    	dbg(DEBUG,"syslibSearchDbData succed, use ALC3-----ALC2<%s>ALC3<%s>",pclTmpALC2,pclTmpALC3);
-	}	
+	}
       	else
       	{
       		dbg(TRACE,"syslibSearchDbData fails or return ALC3 length is not three or ALC3 last leter is space, use ALC2");
 
 				//FYA 2013/11/15 v1.9
 				memset(pclTmpALC3,0,sizeof(pclTmpALC3));
-				//FYA 2013/11/15 v1.9		
+				//FYA 2013/11/15 v1.9
 				strncpy(pclTmpALC3,pclTmpALC2,strlen(pclTmpALC2));
-	      
+
 				sprintf(pclTmpALC2Pack,"\n\t<ALC3>%s</ALC3>\n",pclTmpALC3);
-	    	
+
 				dbg(DEBUG,"######ALC2<%s>ALC3<%s>",pclTmpALC2,pclTmpALC3);
       		//return 2;
       	}
-	  
-	
+
+
               sprintf(pclTmpFLNOPack,"\t<FLNO>%s</FLNO>\n",pclTmpFLNO);
 	      //dbg(DEBUG,"three letter is <%s>\n",pclTmp);
 	      sprintf(pclTmpflightNo,"\t<flightNo%d>%s%s\t</flightNo%d>\n",ilj+1,pclTmpALC2Pack,pclTmpFLNOPack,ilj+1);
 	      strcat(pclXML,pclTmpflightNo);
-	      
+
 	      ilj++;
 
 	}
@@ -4802,18 +4813,18 @@ int PackCodeShare(AFTREC rpAftrec, char *pclXML)
 	{//ALC3
 	      sprintf(pclTmpALC2Pack,"\n\t<ALC3>%s</ALC3>\n",pclTmp);
 	      sprintf(pclTmpFLNOPack,"\t<FLNO>%s</FLNO>\n",pclTmpFLNO);
-	
+
 	      //dbg(DEBUG,"three letter is <%s>\n",pclTmp);
 	      sprintf(pclTmpflightNo,"\t<flightNo%d>%s%s\t</flightNo%d>\n",ilj+1,pclTmpALC2Pack,pclTmpFLNOPack,ilj+1);
 	      strcat(pclXML,pclTmpflightNo);
-	      
+
 	      ilj++;
 	}
     }
-    }   
+    }
   	strcat(pclXML,"\t</codeshare>\n");
   	//dbg(DEBUG,"\n+++<%s>+++",pclXML);
-  	return 0;    
+  	return 0;
 }
 
 int TrimSpace( char *pcpInStr )
@@ -4858,10 +4869,10 @@ int TrimSpace( char *pcpInStr )
 static void TrimRight(char *s)
 {
     int i = 0;    /* search for last non-space character */
-    for (i = strlen(s) - 1; i >= 0 && isspace(s[i]); i--); /* trim off right spaces */    
+    for (i = strlen(s) - 1; i >= 0 && isspace(s[i]); i--); /* trim off right spaces */
     s[++i] = '\0';
 }
-int IS_EMPTY (char *pcpBuf) 
+int IS_EMPTY (char *pcpBuf)
 {
     return  (!pcpBuf || *pcpBuf==' ' || *pcpBuf=='\0') ? TRUE : FALSE;
 }
@@ -4883,17 +4894,17 @@ static int RunSQL( char *pcpSelection, char *pcpData )
         get_ora_err( ilRc, &pclErrBuff[0] );
         dbg( TRACE, "%s OraError! <%s>", pclFunc, &pclErrBuff[0] );
     }
-    return ilRc; 
+    return ilRc;
 }
 
-static char *GetKeyItem(char *pcpResultBuff, long *plpResultSize, 
+static char *GetKeyItem(char *pcpResultBuff, long *plpResultSize,
 char *pcpTextBuff, char *pcpKeyWord, char *pcpItemEnd, int bpCopyData)
 {
     long llDataSize    = 0L;
     char *pclDataBegin = NULL;
     char *pclDataEnd   = NULL;
     pclDataBegin = strstr(pcpTextBuff, pcpKeyWord);/* Search the keyword*/
-    
+
     if (pclDataBegin != NULL)
     {
     	/* Did we find it? Yes.*/
