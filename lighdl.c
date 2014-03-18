@@ -1,7 +1,7 @@
 #ifndef _DEF_mks_version
   #define _DEF_mks_version
   #include "ufisvers.h" /* sets UFIS_VERSION, must be done before mks_version */
-  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/lighdl.c 1.75f 3/17/2014 05:32:54 PM Exp  $";
+  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/lighdl.c 1.75h 3/17/2014 05:32:54 PM Exp  $";
 #endif /* _DEF_mks_version */
 
 /******************************************************************************/
@@ -996,6 +996,7 @@ static int HandleInternalData()
   TOWING   rlTowing[TOWING_FLT_NO];
 	SENT_MSG rlSentMsgTowing[TOWING_FLT_NO];
 	char pclDataSentTowing[1024] = "\0";
+	char pclDataSentCombined[4096] = "\0";
 
 	/*@fya 20140310*/
 	int ilNewTowingFlight = FALSE;
@@ -1013,9 +1014,14 @@ static int HandleInternalData()
 	char pclFval_OFB[512] = "\0";
 	char pclFval_ONB[512] = "\0";
 
+	char clTmpStr = 0x04;
+
 	memset(pclRecordURNO,0,sizeof(pclRecordURNO));
 	memset(pclDataSent,0,sizeof(pclDataSent));
+
 	memset(pclDataSentTowing,0,sizeof(pclDataSentTowing));
+	memset(pclDataSentCombined,0,sizeof(pclDataSentCombined));
+
 	memset(pclDataBuf,0,sizeof(pclDataBuf));
 	memset(pclSqlBuf,0,sizeof(pclSqlBuf));
 	memset(pclSqlData,0,sizeof(pclSqlData));
@@ -2208,16 +2214,11 @@ static int HandleInternalData()
 						BuildSentData(pclDataSentTowing,rlSentMsgTowing[ilCountT]);
 
                         strcat(pclDataSentTowing,"\n");
-						/*At this stage, the message struct is completed*/
-						strcpy(pcgCurSendData,pclDataSentTowing);
-                        /*strcpy(pcgSendMsgId,pclSelection);*/
-                        /*strcpy(pcgSendMsgId,pclUrnoSelection);*/
+                        strcat(pclDataSentTowing, clTmpStr);
 
 						dbg(TRACE,"<%s>Number<%d> pclDataSentTowing<%s>",pclFunc,ilCountT,pclDataSentTowing);
 
-						StoreSentData(pclDataSentTowing,pclUrnoNewData,"Normal",pclRecordURNO);
-
-                        strcpy(pcgSendMsgId,pclRecordURNO);
+						strcat(pclDataSentCombined, pclDataSentTowing);
 						/*
 						@fya 20140304
 						X-Towing flights msgs have been inserted into LIGTAB, waitting for NTI command
@@ -2225,52 +2226,44 @@ static int HandleInternalData()
 						*/
 
 						/*@fya 20140304*/
-
-
-
+                        /*
                         for (ilCount = 0; ilCount < igReSendMax; ilCount++)
                         {
                             if (igSock > 0)
-                          {
-                            /*
-                            @fya 20140304
-                            strcat(pclDataSent,"\n");
-                            */
+                            {
                                 ilRC = Send_data(igSock,pclDataSentTowing);
                                 dbg(DEBUG, "<%s>1-ilRC<%d>",pclFunc,ilRC);
 
-                              if (ilRC == RC_SUCCESS)
-                              {
-                              igSckWaitACK = TRUE;
-                              igSckTryACKCnt = 0;
+                                if (ilRC == RC_SUCCESS)
+                                {
+                                    igSckWaitACK = TRUE;
+                                    igSckTryACKCnt = 0;
 
-                              GetServerTimeStamp( "UTC", 1, 0, pcgSckWaitACKExpTime);
-                              AddSecondsToCEDATime(pcgSckWaitACKExpTime, igSckACKCWait, 1);
-                              break;
-                              }
-                            else if(ilRC == RC_FAIL)
-                              {
-                                dbg(DEBUG, "<%s>Send_data error",pclFunc);
-                                ilRC = Sockt_Reconnect();
-                                /*SendRST_Command();*/
-                              }
-                              else if(ilRC == RC_SENDTIMEOUT)
-                              {
-                                dbg(DEBUG,"<%s>Send_data timeout, Re send again",pclFunc);
-                              }
-                          }
-                          else
-                          {
-                            if ((igConnected == TRUE) || (igOldCnnt == TRUE))
-                            {
-                                ilRC = Sockt_Reconnect();
-                                /*SendRST_Command();*/
+                                    GetServerTimeStamp( "UTC", 1, 0, pcgSckWaitACKExpTime);
+                                    AddSecondsToCEDATime(pcgSckWaitACKExpTime, igSckACKCWait, 1);
+                                    break;
+                                }
+                                else if(ilRC == RC_FAIL)
+                                {
+                                    dbg(DEBUG, "<%s>Send_data error",pclFunc);
+                                    ilRC = Sockt_Reconnect();
+                                }
+                                else if(ilRC == RC_SENDTIMEOUT)
+                                {
+                                    dbg(DEBUG,"<%s>Send_data timeout, Re send again",pclFunc);
+                                }
                             }
                             else
-                                  ilRC = RC_FAIL;
-                          }
+                            {
+                                if ((igConnected == TRUE) || (igOldCnnt == TRUE))
+                                {
+                                    ilRC = Sockt_Reconnect();
+                                }
+                                else
+                                    ilRC = RC_FAIL;
+                            }
                         }
-
+                        */
                         /* fya 20140227 sending ack right after normal message */
                         /*
                         for (ilCount = 0; ilCount < igReSendMax; ilCount++)
@@ -2315,10 +2308,53 @@ static int HandleInternalData()
 							dbg(TRACE,"<%s>Send_data <%d>Times failed, drop msg",pclFunc, ilCount);
 							return RC_FAIL;
 						}
-                        */
-					}
+						*/
+					}/* End of for loop */
 
-                    /* For continuous towing records, only one ack is sent */
+                    strcpy(pcgCurSendData,pclDataSentCombined);
+                    /* For continuous towing records, only one combined msg & ack is sent */
+                    StoreSentData(pclDataSentCombined,pclUrnoNewData,"Normal",pclRecordURNO);
+                    strcpy(pcgSendMsgId,pclRecordURNO);
+
+                    for (ilCount = 0; ilCount < igReSendMax; ilCount++)
+                    {
+                        if (igSock > 0)
+                        {
+                            ilRC = Send_data_wo_separator(igSock,pclDataSentCombined);
+                            dbg(DEBUG, "<%s>1-ilRC<%d>",pclFunc,ilRC);
+
+                            if (ilRC == RC_SUCCESS)
+                            {
+                                igSckWaitACK = TRUE;
+                                igSckTryACKCnt = 0;
+
+                                GetServerTimeStamp( "UTC", 1, 0, pcgSckWaitACKExpTime);
+                                AddSecondsToCEDATime(pcgSckWaitACKExpTime, igSckACKCWait, 1);
+                                break;
+                            }
+                            else if(ilRC == RC_FAIL)
+                            {
+                                dbg(DEBUG, "<%s>Send_data error",pclFunc);
+                                ilRC = Sockt_Reconnect();
+                            }
+                            else if(ilRC == RC_SENDTIMEOUT)
+                            {
+                                dbg(DEBUG,"<%s>Send_data timeout, Re send again",pclFunc);
+                            }
+                        }
+                        else
+                        {
+                            if ((igConnected == TRUE) || (igOldCnnt == TRUE))
+                            {
+                                ilRC = Sockt_Reconnect();
+                            }
+                            else
+                            {
+                                 ilRC = RC_FAIL;
+                            }
+                        }
+                    }
+
                     for (ilCount = 0; ilCount < igReSendMax; ilCount++)
                     {
                         if (igSock > 0)
@@ -4184,6 +4220,78 @@ static int CheckValue(char *pcpEntry,char *pcpValue,int ipType)
 	  return ilRc;
 } /* end of CheckValue() */
 
+static int Send_data_wo_separator(int ipSock,char *pcpData)
+{
+	int ilRc = RC_SUCCESS;
+	int ilBytes = 0;
+	char pclCurrentTime[64];
+	char *pclP;
+	char *pclPend;
+	char pclStandName[16];
+	int ilStandNameLength = 0;
+	BOOL blKeepSuffix = FALSE;
+	int ilFound = 0;
+	static char	pclSendBuffer[BUFF];
+    /*char pclTmpStr[12] = "\0";*/
+
+	struct timeval rlTimeout;
+
+    rlTimeout.tv_sec = 2;  /* blocked for 5 seconds */
+    rlTimeout.tv_usec = 0;  /* blocked for 0 useconds */
+
+	ilBytes = strlen(pcpData);
+
+	memset(pclSendBuffer,0,sizeof(pclSendBuffer));
+	strcpy(pclSendBuffer,pcpData);
+
+    /* fya 20140221 */
+    /*
+	pclTmpStr[0] = 0x04;
+    pclTmpStr[1] = '\0';
+    strcat(pclSendBuffer, pclTmpStr);
+    */
+    ilBytes = strlen(pclSendBuffer);
+
+    if (strstr(pclSendBuffer,"heartbeat") == 0)
+        dbg(DEBUG,"Send_data: Mesg sent (%s)", pclSendBuffer );
+
+	if (ipSock > 0 && strlen(pclSendBuffer)!=0)
+	{
+		errno = 0;
+		alarm(WRITE_TIMEOUT);
+		ilRc = write(ipSock,pclSendBuffer,ilBytes);
+		alarm(0);
+
+		if (ilRc == -1)
+		{
+			if (bgAlarm == FALSE)
+			{
+				dbg(TRACE,"Send_data: Write failed: Socket <%d>! <%d>=<%s>",ipSock,errno,strerror(errno));
+				ilRc = RC_FAIL;
+			}
+      else
+      {
+         bgAlarm = FALSE;
+         ilRc = RC_SENDTIMEOUT;
+      }
+      /*CloseTCP();
+      igSock = 0;*/
+		}
+		else
+		{
+			dbg(DEBUG,"Send_data: wrote succeed",ilRc,ipSock);
+			ilRc = RC_SUCCESS;
+		}
+    }
+    else
+    {
+		dbg(TRACE,"Send_data: No connection! Can't send!");
+		ilRc = RC_FAIL;
+    }
+
+  return ilRc;
+} /* end of Send_data_wo_separator */
+
 /* **************************************************************** */
 /* The Send_data routine                                            */
 /* Sends telegrams to the GOS-system                                */
@@ -4770,7 +4878,7 @@ static int SendBatchFlights(void)
 		switch(ilRC)
 		{
 			case NO_END:
-				dbg(DEBUG,"<%s> The return value is NO_END",pclFunc);
+                dbg(DEBUG,"<%s> The return value is NO_END",pclFunc);
 				BuildEmptyData(pclDataSent,rlSentMsg.pclPosi);
 				break;
 			case START_FOUND:
@@ -4792,95 +4900,95 @@ static int SendBatchFlights(void)
 		StoreSentData(pclDataSent,pclUrno,"Batch",pclRecordURNO);
 
 		 /*@fya 20140304*/
-    strcat(pclDataSent,"\n");
+        strcat(pclDataSent,"\n");
 		/*At this stage, the message struct is completed*/
 		strcpy(pcgCurSendData,pclDataSent);
-    /*strcpy(pcgSendMsgId,pclSelection);*/
-    /*strcpy(pcgSendMsgId,pclUrnoSelection);*/
-    strcpy(pcgSendMsgId,pclRecordURNO);
+        /*strcpy(pcgSendMsgId,pclSelection);*/
+        /*strcpy(pcgSendMsgId,pclUrnoSelection);*/
+        strcpy(pcgSendMsgId,pclRecordURNO);
 
-    for (ilCount = 0; ilCount < igReSendMax; ilCount++)
-    {
-  		if (igSock > 0)
-      {
-      	/*
-      	@fya 20140304
-      	strcat(pclDataSent,"\n");
-      	*/
-    		ilRC = Send_data(igSock,pclDataSent);
-      	dbg(DEBUG, "<%s>1-ilRC<%d>",pclFunc,ilRC);
-
-	      if (ilRC == RC_SUCCESS)
-	      {
-          igSckWaitACK = TRUE;
-          igSckTryACKCnt = 0;
-
-          GetServerTimeStamp( "UTC", 1, 0, pcgSckWaitACKExpTime);
-          AddSecondsToCEDATime(pcgSckWaitACKExpTime, igSckACKCWait, 1);
-          break;
-	      }
-        else if(ilRC == RC_FAIL)
-	      {
-	      	dbg(DEBUG, "<%s>Send_data error",pclFunc);
-	        ilRC = Sockt_Reconnect();
-	        /*SendRST_Command();*/
-	      }
-	      else if(ilRC == RC_SENDTIMEOUT)
-	      {
-	      	dbg(DEBUG,"<%s>Send_data timeout, Re send again",pclFunc);
-	      }
-      }
-      else
-      {
-        if ((igConnected == TRUE) || (igOldCnnt == TRUE))
+        for (ilCount = 0; ilCount < igReSendMax; ilCount++)
         {
-       		ilRC = Sockt_Reconnect();
-        	/*SendRST_Command();*/
+            if (igSock > 0)
+            {
+                /*
+                @fya 20140304
+                strcat(pclDataSent,"\n");
+                */
+                ilRC = Send_data(igSock,pclDataSent);
+                dbg(DEBUG, "<%s>1-ilRC<%d>",pclFunc,ilRC);
+
+                if (ilRC == RC_SUCCESS)
+                {
+                    igSckWaitACK = TRUE;
+                    igSckTryACKCnt = 0;
+
+                    GetServerTimeStamp( "UTC", 1, 0, pcgSckWaitACKExpTime);
+                    AddSecondsToCEDATime(pcgSckWaitACKExpTime, igSckACKCWait, 1);
+                    break;
+                }
+                else if(ilRC == RC_FAIL)
+                {
+                    dbg(DEBUG, "<%s>Send_data error",pclFunc);
+                    ilRC = Sockt_Reconnect();
+                }
+                else if(ilRC == RC_SENDTIMEOUT)
+                {
+                    dbg(DEBUG,"<%s>Send_data timeout, Re send again",pclFunc);
+                }
+            }
+            else
+            {
+                if ((igConnected == TRUE) || (igOldCnnt == TRUE))
+                {
+                    ilRC = Sockt_Reconnect();
+                }
+                else
+                {
+                    ilRC = RC_FAIL;
+                }
+            }
         }
-        else
-        	  ilRC = RC_FAIL;
-      }
-    }
 
-    /* fya 20140227 sending ack right after normal message*/
-    for (ilCount = 0; ilCount < igReSendMax; ilCount++)
-    {
-  		if (igSock > 0)
-      {
-    		ilRC = SendAckMsg();
-      	dbg(DEBUG, "<%s>1-ilRC<%d>",pclFunc,ilRC);
-
-	      if (ilRC == RC_SUCCESS)
-	      {
-          igSckWaitACK = TRUE;
-          igSckTryACKCnt = 0;
-
-          GetServerTimeStamp( "UTC", 1, 0, pcgSckWaitACKExpTime);
-          AddSecondsToCEDATime(pcgSckWaitACKExpTime, igSckACKCWait, 1);
-          break;
-	      }
-        else if(ilRC == RC_FAIL)
-	      {
-	      	dbg(DEBUG, "<%s>Send_data error",pclFunc);
-	        ilRC = Sockt_Reconnect();
-	        /*SendRST_Command();*/
-	      }
-	      else if(ilRC == RC_SENDTIMEOUT)
-	      {
-	      	dbg(DEBUG,"<%s>Send_data timeout, Re send again",pclFunc);
-	      }
-      }
-      else
-      {
-        if ((igConnected == TRUE) || (igOldCnnt == TRUE))
+        /* fya 20140227 sending ack right after normal message*/
+        /*
+        for (ilCount = 0; ilCount < igReSendMax; ilCount++)
         {
-       		ilRC = Sockt_Reconnect();
-        	/*SendRST_Command();*/
+            if (igSock > 0)
+          {
+                ilRC = SendAckMsg();
+            dbg(DEBUG, "<%s>1-ilRC<%d>",pclFunc,ilRC);
+
+              if (ilRC == RC_SUCCESS)
+              {
+              igSckWaitACK = TRUE;
+              igSckTryACKCnt = 0;
+
+              GetServerTimeStamp( "UTC", 1, 0, pcgSckWaitACKExpTime);
+              AddSecondsToCEDATime(pcgSckWaitACKExpTime, igSckACKCWait, 1);
+              break;
+              }
+            else if(ilRC == RC_FAIL)
+              {
+                dbg(DEBUG, "<%s>Send_data error",pclFunc);
+                ilRC = Sockt_Reconnect();
+              }
+              else if(ilRC == RC_SENDTIMEOUT)
+              {
+                dbg(DEBUG,"<%s>Send_data timeout, Re send again",pclFunc);
+              }
+          }
+          else
+          {
+            if ((igConnected == TRUE) || (igOldCnnt == TRUE))
+            {
+                ilRC = Sockt_Reconnect();
+            }
+            else
+                  ilRC = RC_FAIL;
+          }
         }
-        else
-        	  ilRC = RC_FAIL;
-      }
-    }
+        */
 
 		if( ilCount >= igReSendMax)
 		{
@@ -4889,7 +4997,51 @@ static int SendBatchFlights(void)
 		}
 
 		memset(pclUrno,0,sizeof(pclUrno));
-	}
+	}/* End of for loop */
+
+	/* fya 20140227 sending ack right after normal message*/
+    for (ilCount = 0; ilCount < igReSendMax; ilCount++)
+    {
+        if (igSock > 0)
+        {
+            ilRC = SendAckMsg();
+            dbg(DEBUG, "<%s>1-ilRC<%d>",pclFunc,ilRC);
+
+            if (ilRC == RC_SUCCESS)
+            {
+                igSckWaitACK = TRUE;
+                igSckTryACKCnt = 0;
+
+                GetServerTimeStamp( "UTC", 1, 0, pcgSckWaitACKExpTime);
+                AddSecondsToCEDATime(pcgSckWaitACKExpTime, igSckACKCWait, 1);
+                break;
+            }
+            else if(ilRC == RC_FAIL)
+            {
+                dbg(DEBUG, "<%s>Send_data error",pclFunc);
+                ilRC = Sockt_Reconnect();
+            }
+            else if(ilRC == RC_SENDTIMEOUT)
+            {
+                dbg(DEBUG,"<%s>Send_data timeout, Re send again",pclFunc);
+            }
+        }
+        else
+        {
+            if ((igConnected == TRUE) || (igOldCnnt == TRUE))
+            {
+                ilRC = Sockt_Reconnect();
+            }
+            else
+                ilRC = RC_FAIL;
+        }
+    }
+
+    if( ilCount >= igReSendMax)
+    {
+        dbg(TRACE,"<%s>Send_data <%d>Times failed, drop msg",pclFunc, ilCount);
+        return RC_FAIL;
+    }
 }
 
 static int TrimSpace( char *pcpInStr )
