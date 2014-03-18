@@ -4254,7 +4254,7 @@ static int Send_data_wo_separator(int ipSock,char *pcpData)
     ilBytes = strlen(pclSendBuffer);
 
     if (strstr(pclSendBuffer,"heartbeat") == 0)
-        dbg(DEBUG,"Send_data: Mesg sent (%s)", pclSendBuffer );
+        dbg(DEBUG,"Send_data_wo_separator: Mesg sent (%s)", pclSendBuffer );
 
 	if (ipSock > 0 && strlen(pclSendBuffer)!=0)
 	{
@@ -4267,7 +4267,7 @@ static int Send_data_wo_separator(int ipSock,char *pcpData)
 		{
 			if (bgAlarm == FALSE)
 			{
-				dbg(TRACE,"Send_data: Write failed: Socket <%d>! <%d>=<%s>",ipSock,errno,strerror(errno));
+				dbg(TRACE,"Send_data_wo_separator: Write failed: Socket <%d>! <%d>=<%s>",ipSock,errno,strerror(errno));
 				ilRc = RC_FAIL;
 			}
       else
@@ -4280,13 +4280,13 @@ static int Send_data_wo_separator(int ipSock,char *pcpData)
 		}
 		else
 		{
-			dbg(DEBUG,"Send_data: wrote succeed",ilRc,ipSock);
+			dbg(DEBUG,"Send_data_wo_separator: wrote succeed",ilRc,ipSock);
 			ilRc = RC_SUCCESS;
 		}
     }
     else
     {
-		dbg(TRACE,"Send_data: No connection! Can't send!");
+		dbg(TRACE,"Send_data_wo_separator: No connection! Can't send!");
 		ilRc = RC_FAIL;
     }
 
