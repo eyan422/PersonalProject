@@ -2688,7 +2688,10 @@ static int HandleInternalData()
 
 
             /*@fya 20140304*/
-            strcat(pclDataT,"\n");
+
+            /*@fya 20140319*/
+            /*strcat(pclDataT,"\n");*/
+
             /*At this stage, the message struct is completed*/
             strcpy(pcgCurSendData,pclDataT);
             /*strcpy(pcgSendMsgId,pclSelection);*/
