@@ -1,7 +1,7 @@
 #ifndef _DEF_mks_version
   #define _DEF_mks_version
   #include "ufisvers.h" /* sets UFIS_VERSION, must be done before mks_version */
-  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/fileif.c 1.20 2005/09/26 16:02:59CEST jwe Exp jwe(2005/12/07 18:56:01CET) $";
+  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/fileif.c 1.20a 2014/03/19 16:02:59CEST fya Exp $";
 #endif /* _DEF_mks_version */
 /*****************************************************************************	*/
 /*                                                                            	*/
@@ -53,6 +53,7 @@
 /*			JWE 27 May 03 fixed bug to have continous linenumbers if they shall be printed inside the*/
 /*                    file as #DATALINENUMBER*/
 /*			JWE 08 FEB 05 PRF 6998 & PRF 6999 fixe                                                   */
+/*          FYA 19 APR 2014 UFIS-4846 */
 /******************************************************************************/
 /* This program is a CCS main program 						*/
 /*                                                                            */
@@ -95,10 +96,10 @@ static char		pcgTABEnd[iMIN];
 static char		pcgHomeAP[iMIN];
 static char		pcgTmpTabName[iMIN];
 static TFMain	rgTM;
-static int    igCurrDataLines = 0; 
-static int    igTotalLineCount = 0; 
-static int    igStartupMode = 0; 
-static int    igRuntimeMode = 0; 
+static int    igCurrDataLines = 0;
+static int    igTotalLineCount = 0;
+static int    igStartupMode = 0;
+static int    igRuntimeMode = 0;
 
 /******************************************************************************/
 /* External functions                                                         */
@@ -141,7 +142,7 @@ static int 	SendEvent(char *pcpCmd,char *pcpSelection,char *pcpFields,char *pcpD
 			char *pcpAddStruct,int ipAddLen,int ipModID,int ipPriority,
 			char *pcpTable,char *pcpType,char *pcpFile, char *pcptw_startvalue, int ipCmdNo);
 static 		FTPConfig prgFtp;			/* struct for dynamic configuration of FTPHDL */
-static char 	pcgProcessName[20];      	/* buffer for process name of htmhdl*/ 
+static char 	pcgProcessName[20];      	/* buffer for process name of htmhdl*/
 static int 	igModID_Ftphdl  = 0;		/* MOD-ID of Router  */
 /*******EO Changes *********/
 static int ReplaceStdTokens(int ipCmd,char *pcpLine,char *pcpDynData,char *pcpDateFormat,char *pcpTimeFormat,int ipLineNumber);
@@ -159,12 +160,12 @@ MAIN
 	int	ilRC = RC_SUCCESS;
 	int	ilCnt = 0;
 	char	pclFileName[512];
-	
+
 	/* set errno to zero */
 	errno = 0;
 
 	/* General initialization	*/
-	INITIALIZE;			
+	INITIALIZE;
 
 	/* for signal handling */
 	(void)SetSignals(HandleSignal);
@@ -172,9 +173,9 @@ MAIN
 
 	/* copy process-name to global buffer */
 	memset(pcgProcessName,0x00,sizeof(pcgProcessName));
-	strcpy(pcgProcessName, argv[0]);                            
+	strcpy(pcgProcessName, argv[0]);
 
-	dbg(TRACE,"<MAIN> <%s>",mks_version); 
+	dbg(TRACE,"<MAIN> <%s>",mks_version);
 	memset(&rgTM,0x00,sizeof(TFMain));
 
 	/* read tableend from SGS.TAB */
@@ -184,7 +185,7 @@ MAIN
 		dbg(TRACE,"<MAIN> cannot find entry \"TABEND\" in SGS.TAB");
 		Terminate(30);
 	}
-	dbg(DEBUG,"<MAIN> found TABEND: <%s>", pcgTABEnd); 
+	dbg(DEBUG,"<MAIN> found TABEND: <%s>", pcgTABEnd);
 
 	/* read HomeAirPort from SGS.TAB */
 	memset((void*)pcgHomeAP, 0x00, iMIN);
@@ -193,7 +194,7 @@ MAIN
 		dbg(TRACE,"<MAIN> cannot find entry \"HOMEAP\" in SGS.TAB");
 		Terminate(30);
 	}
-	dbg(DEBUG,"<MAIN> found HOME-AIRPORT: <%s>", pcgHomeAP); 
+	dbg(DEBUG,"<MAIN> found HOME-AIRPORT: <%s>", pcgHomeAP);
 
 	/* Attach to the CCS queues */
 	do
@@ -201,7 +202,7 @@ MAIN
 		ilRC = init_que();
 		if(ilRC != RC_SUCCESS)
 		{
-			sleep(6);		
+			sleep(6);
 			ilCnt++;
 		}
 	} while((ilCnt < 10) && (ilRC != RC_SUCCESS));
@@ -254,12 +255,12 @@ MAIN
 	{
 		dbg(DEBUG,"<MAIN> initializing ...");
 		if ((ilRC = init_fileif()) != RC_SUCCESS)
-		{		
+		{
 			dbg(TRACE,"<MAIN> init_fileif() returns: %d\n", ilRC);
 			Terminate(30);
-		}	
-	} 
-	else 
+		}
+	}
+	else
 	{
 		Terminate(30);
 	}
@@ -276,57 +277,57 @@ MAIN
 		ilRC = que(QUE_GETBIG,0,mod_id,PRIORITY_3,0,(char*)&prgItem);
 
 		/* set event pointer	*/
-		prgEvent = (EVENT *) prgItem->text;	
-				
+		prgEvent = (EVENT *) prgItem->text;
+
 		if (ilRC == RC_SUCCESS)
 		{
 			/* Acknowledge the item */
 			ilRC = que(QUE_ACK,0,mod_id,0,0,NULL);
-			if (ilRC != RC_SUCCESS) 
+			if (ilRC != RC_SUCCESS)
 			{
 				dbg(DEBUG,"<HandleQueues> calling HandleQueErr");
 				HandleQueErr(ilRC);
-			} 
-			
+			}
+
 			switch (prgEvent->command)
 			{
 				case	HSB_STANDBY:
 					ctrl_sta = prgEvent->command;
 					send_message(IPRIO_ASCII,HSB_REQUEST,0,0,NULL);
 					HandleQueues();
-					break;	
+					break;
 
 				case	HSB_COMING_UP:
 					ctrl_sta = prgEvent->command;
 					send_message(IPRIO_ASCII,HSB_REQUEST,0,0,NULL);
 					HandleQueues();
-					break;	
+					break;
 
 				case	HSB_ACTIVE:
 				case	HSB_STANDALONE:
 					ctrl_sta = prgEvent->command;
 					send_message(IPRIO_ASCII,HSB_REQUEST,0,0,NULL);
-					break;	
+					break;
 
 				case	HSB_ACT_TO_SBY:
 					ctrl_sta = prgEvent->command;
 					send_message(IPRIO_ASCII,HSB_REQUEST,0,0,NULL);
 					HandleQueues();
-					break;	
+					break;
 
 				case	HSB_DOWN:
 					ctrl_sta = prgEvent->command;
 					Terminate(0);
-					break;	
+					break;
 
 				case	SHUTDOWN:
 					Terminate(0);
 					break;
-						
+
 				case	RESET:
 					ilRC = Reset();
 					break;
-						
+
 				case	EVENT_DATA:
 					if ((ctrl_sta == HSB_STANDALONE) || (ctrl_sta == HSB_ACTIVE) || (ctrl_sta == HSB_ACT_TO_SBY))
 					{
@@ -339,7 +340,7 @@ MAIN
 						DebugPrintEvent(TRACE,prgEvent);
 					}
 					break;
-						
+
 				case TRACE_ON:
 					dbg_handle_debug(prgEvent->command);
 					break;
@@ -353,19 +354,19 @@ MAIN
 					DebugPrintItem(TRACE,prgItem);
 					DebugPrintEvent(TRACE,prgEvent);
 					break;
-			} 
-			
+			}
+
 			/* Handle error conditions */
 			if (ilRC != RC_SUCCESS)
 			{
 				HandleErr(ilRC);
 			}
-		} 
-		else 
+		}
+		else
 		{
 			dbg(DEBUG,"<HandleQueues> calling HandleQueErr");
 			HandleQueErr(ilRC);
-		} 
+		}
 	}
 }
 
@@ -450,10 +451,10 @@ static int init_fileif(void)
 	/* changes by mos 6 Apr 2000 */
 	while (init_db())
 	{
-		sleep(5);		
-	} 
+		sleep(5);
+	}
 	/* eof changes */
-	
+
 	/* get path */
 	if ((pclCfgPath = getenv("CFG_PATH")) == NULL)
 	{
@@ -488,11 +489,11 @@ static int init_fileif(void)
 			dbg(TRACE,"<init_fileif> Using Defaultvalue use_2400 = <NO>");
 			igUse2400 = 0;
 		}
-		
+
 		/* convert to uppercase */
 		StringUPR((UCHAR*)pclTmpBuf);
 		if (!strcmp(pclTmpBuf, "YES"))
-		{	
+		{
 			dbg(TRACE,"<init_fileif> setting use_2400-Flag to YES");
 			igUse2400 = 1;
 		}
@@ -506,7 +507,7 @@ static int init_fileif(void)
 			dbg(TRACE,"<init_fileif> setting use_2400-Flag to NO");
 			igUse2400 = 0;
 		}
-		
+
 		memset((void*)pclAllCommands, 0x00, iMAXIMUM);
 		if ((ilRC = iGetConfigEntry(pcgCfgFile, "MAIN", "commands",
 							CFG_STRING, pclAllCommands)) != RC_SUCCESS)
@@ -521,7 +522,7 @@ static int init_fileif(void)
 		/* get number of commands */
 		if ((rgTM.iNoCommands = GetNoOfElements(pclAllCommands, cCOMMA)) < 0)
 		{
-			dbg(TRACE,"<init_fileif> GetNoOfElements (commands) returns: %d", 
+			dbg(TRACE,"<init_fileif> GetNoOfElements (commands) returns: %d",
 																			rgTM.iNoCommands);
 			Terminate(30);
 		}
@@ -617,7 +618,7 @@ static int init_fileif(void)
 					/* convert to uppercase */
 					StringUPR((UCHAR*)pclTmpBuf);
 					if (!strcmp(pclTmpBuf, "YES"))
-					{	
+					{
 						dbg(TRACE,"<init_fileif> setting SendSqlRc-Flag");
 						rgTM.prHandleCmd[ilCmdNo].iSendSqlRc = 1;
 					}
@@ -634,7 +635,7 @@ static int init_fileif(void)
 				}
 
 				/* this is for (received) selections... */
-				/* should i use received selection (via QUE), otherwise selection 
+				/* should i use received selection (via QUE), otherwise selection
 				from configurationfile */
 				memset((void*)pclTmpBuf, 0x00, iMIN_BUF_SIZE);
 				if ((ilRC = iGetConfigEntry(pcgCfgFile, pclCurrentCommand, "use_received_selection", CFG_STRING, pclTmpBuf)) != RC_SUCCESS)
@@ -648,7 +649,7 @@ static int init_fileif(void)
 					/* convert to uppercase */
 					StringUPR((UCHAR*)pclTmpBuf);
 					if (!strcmp(pclTmpBuf, "YES"))
-					{	
+					{
 						dbg(TRACE,"<init_fileif> setting UseReceivedSelection-Flag");
 						rgTM.prHandleCmd[ilCmdNo].iUseReceivedSelection = 1;
 					}
@@ -693,7 +694,7 @@ static int init_fileif(void)
 					if ((ilRC = iGetConfigEntry(pcgCfgFile, pclCurrentCommand, "error_timestamp_format", CFG_STRING, rgTM.prHandleCmd[ilCmdNo].pcErrorTimeStampFormat)) != RC_SUCCESS)
 					{
 						/* filename without timestamp... */
-						memset((void*)rgTM.prHandleCmd[ilCmdNo].pcErrorTimeStampFormat, 0x00, iMIN);	
+						memset((void*)rgTM.prHandleCmd[ilCmdNo].pcErrorTimeStampFormat, 0x00, iMIN);
 					}
 				}
 
@@ -723,7 +724,7 @@ static int init_fileif(void)
 					/* convert to uppercase */
 					StringUPR((UCHAR*)pclTmpBuf);
 					if (!strcmp(pclTmpBuf, "YES"))
-					{	
+					{
 						dbg(TRACE,"<init_fileif> Original tw_start of event will be sent out!");
 						rgTM.prHandleCmd[ilCmdNo].rSendEventCmds.iAfcKeepOrgTwStart = 1;
 					}
@@ -752,7 +753,7 @@ static int init_fileif(void)
 					/* convert to uppercase */
 					StringUPR((UCHAR*)pclTmpBuf);
 					if (!strcmp(pclTmpBuf, "YES"))
-					{	
+					{
 						dbg(TRACE,"<init_fileif> Filename will be sent out!");
 						rgTM.prHandleCmd[ilCmdNo].rSendEventCmds.iAfcSendFilename = 1;
 					}
@@ -808,13 +809,13 @@ static int init_fileif(void)
 						{
 							rgTM.prHandleCmd[ilCmdNo].rSendEventCmds.iSendFileToQue = 0;
 						}
-	
-						dbg(TRACE,"<init_fileif> AFC_MOD_ID: <%d>, AFC_COMMAND: <%s>, AFC_FILE_TO_QUE: <%d>", rgTM.prHandleCmd[ilCmdNo].rSendEventCmds.iModID, rgTM.prHandleCmd[ilCmdNo].rSendEventCmds.pcCmd, rgTM.prHandleCmd[ilCmdNo].rSendEventCmds.iSendFileToQue); 
+
+						dbg(TRACE,"<init_fileif> AFC_MOD_ID: <%d>, AFC_COMMAND: <%s>, AFC_FILE_TO_QUE: <%d>", rgTM.prHandleCmd[ilCmdNo].rSendEventCmds.iModID, rgTM.prHandleCmd[ilCmdNo].rSendEventCmds.pcCmd, rgTM.prHandleCmd[ilCmdNo].rSendEventCmds.iSendFileToQue);
 					}
 				}
 
 				/* set old filename to NULL... */
-				memset((void*)rgTM.prHandleCmd[ilCmdNo].pcOldFileNameWithPath, 
+				memset((void*)rgTM.prHandleCmd[ilCmdNo].pcOldFileNameWithPath,
 																		0x00, iMIN_BUF_SIZE);
 				rgTM.prHandleCmd[ilCmdNo].lOldFileLength = -1;
 				rgTM.prHandleCmd[ilCmdNo].lFileLength = -1;
@@ -926,7 +927,7 @@ static int init_fileif(void)
 					{
 						dbg(TRACE,"<init_fileif> no file_seq_nr_len in section %s!", pclCurrentCommand);
 						strcpy(rgTM.prHandleCmd[ilCmdNo].pcSeqNrLen, "10");
-					} 
+					}
 					dbg(TRACE,"<init_fileif> file_seq_nr_len: <%s>", rgTM.prHandleCmd[ilCmdNo].pcSeqNrLen);
 				}
 
@@ -935,7 +936,7 @@ static int init_fileif(void)
 				{
 					dbg(TRACE,"<init_fileif> no std_linenumber_len in section %s! Use 10 digits per default!", pclCurrentCommand);
 					rgTM.prHandleCmd[ilCmdNo].iStdLineNrLen=10;
-				} 
+				}
 				dbg(TRACE,"<init_fileif> std_linenumber_len: <%d>", rgTM.prHandleCmd[ilCmdNo].iStdLineNrLen);
 
 				if ((ilRC = iGetConfigEntry(pcgCfgFile, pclCurrentCommand, "file_name", CFG_STRING, pclTmpBuf)) != RC_SUCCESS)
@@ -993,19 +994,19 @@ static int init_fileif(void)
 #endif
 						strcpy(rgTM.prHandleCmd[ilCmdNo].pcFtpPass, pclPtr);
 					}
-					
+
 					if ((ilRC = iGetConfigEntry(pcgCfgFile, pclCurrentCommand, "ftp_timeout", CFG_STRING, rgTM.prHandleCmd[ilCmdNo].pcftp_timeout)) != RC_SUCCESS)
 					{
 						/* set default for this */
             strcpy(rgTM.prHandleCmd[ilCmdNo].pcftp_timeout, "0");
-					}	
+					}
 					dbg(TRACE,"<init_fileif> ftp_timeout: <%s>", rgTM.prHandleCmd[ilCmdNo].pcftp_timeout);
-					
+
 					if ((ilRC = iGetConfigEntry(pcgCfgFile, pclCurrentCommand, "ftp_mode", CFG_STRING, rgTM.prHandleCmd[ilCmdNo].pcftp_mode)) != RC_SUCCESS)
 					{
 						/* set default for this */
        			strcpy(rgTM.prHandleCmd[ilCmdNo].pcftp_mode, "FTPHDL");
-					}	
+					}
 					dbg(TRACE,"<init_fileif> ftp_mode: <%s>", rgTM.prHandleCmd[ilCmdNo].pcftp_mode);
 
 					if ((ilRC = iGetConfigEntry(pcgCfgFile, pclCurrentCommand, "machine", CFG_STRING, rgTM.prHandleCmd[ilCmdNo].pcMachine)) != RC_SUCCESS)
@@ -1036,7 +1037,7 @@ static int init_fileif(void)
 						dbg(TRACE,"<init_fileif> missing remote_fileextension in section %s", pclCurrentCommand);
 					}
 					dbg(TRACE,"<init_fileif> remote_fileextension: <%s>", rgTM.prHandleCmd[ilCmdNo].pcRemoteFile_AppendExtension);
-                                       
+
 					if ((ilRC = iGetConfigEntry(pcgCfgFile, pclCurrentCommand, "remote_filename",
                           CFG_STRING, rgTM.prHandleCmd[ilCmdNo].pcFtpDestFileName)) != RC_SUCCESS)
           {
@@ -1060,7 +1061,7 @@ static int init_fileif(void)
 				{
 					dbg(TRACE,"<init_fileif> no numtab_key in section %s", pclCurrentCommand);
 					strcpy(rgTM.prHandleCmd[ilCmdNo].pcNumtab_Key, " ");
-				} 
+				}
 				dbg(TRACE,"<init_fileif> numtab_key: <%s>", rgTM.prHandleCmd[ilCmdNo].pcNumtab_Key);
 
 				if ((ilRC = iGetConfigEntry(pcgCfgFile, pclCurrentCommand, "numtab_startvalue",
@@ -1093,30 +1094,30 @@ static int init_fileif(void)
 				/* convert to uppercase */
 				StringUPR((UCHAR*) rgTM.prHandleCmd[ilCmdNo].pcNumtab_Automaticinsert);
 
-				if ((strlen(rgTM.prHandleCmd[ilCmdNo].pcNumtab_Key) > 1) 
+				if ((strlen(rgTM.prHandleCmd[ilCmdNo].pcNumtab_Key) > 1)
 					&& (strcmp(rgTM.prHandleCmd[ilCmdNo].pcNumtab_Automaticinsert,"YES") == 0)
 					&& (strlen(rgTM.prHandleCmd[ilCmdNo].pcNumtab_Startvalue)>0)
 					&& (strlen(rgTM.prHandleCmd[ilCmdNo].pcNumtab_Stopvalue)>0)
 					&& (strlen(rgTM.prHandleCmd[ilCmdNo].pcNumtab_Key)>0)) {
-																								
+
 					/* reset buffers */
 					memset(pclSqlBuf,0x00,iMIN_BUF_SIZE);
 					memset(pclDataArea,0x00,iMIN_BUF_SIZE);
-					memset(pclOraErrorMsg,0x00,iMAXIMUM);	
+					memset(pclOraErrorMsg,0x00,iMAXIMUM);
 
-					/* build sql statement for id of rotation flight */														
+					/* build sql statement for id of rotation flight */
 					sprintf(pclSqlBuf,"SELECT ACNU FROM NUMTAB WHERE KEYS = '%s'",rgTM.prHandleCmd[ilCmdNo].pcNumtab_Key);
-						
+
 					/* set type of sql call */
 					slSqlFunc = START;
 
 					/* run sql */
-					if ((ilRC = sql_if(slSqlFunc,&slCursor,pclSqlBuf,pclDataArea))!= DB_SUCCESS) 
+					if ((ilRC = sql_if(slSqlFunc,&slCursor,pclSqlBuf,pclDataArea))!= DB_SUCCESS)
 					{
 						if (ilRC != NOTFOUND)
-						{						
+						{
 							ilRC = RC_FAIL;
-							get_ora_err(ilRC,pclOraErrorMsg);	
+							get_ora_err(ilRC,pclOraErrorMsg);
 							dbg(TRACE,"<init_fileif> ORA-ERR <%s>  <%s>",pclOraErrorMsg, pclSqlBuf);
 							blinsert = FALSE;
 						} else {
@@ -1136,21 +1137,21 @@ static int init_fileif(void)
 						/* reset buffers */
 						memset(pclSqlBuf,0x00,iMIN_BUF_SIZE);
 						memset(pclDataArea,0x00,iMIN_BUF_SIZE);
-						memset(pclOraErrorMsg,0x00,iMAXIMUM);	
-	
+						memset(pclOraErrorMsg,0x00,iMAXIMUM);
+
 						dbg(TRACE,"<init_fileif> hopo <%s>",rgTM.prHandleCmd[ilCmdNo].pcHomeAirport);
 
-						/* build sql statement for id of rotation flight */								
+						/* build sql statement for id of rotation flight */
 						sprintf(pclSqlBuf,"INSERT INTO NUMTAB VALUES(%s,' ','%s','%s',%s,%s)",rgTM.prHandleCmd[ilCmdNo].pcNumtab_Startvalue,rgTM.prHandleCmd[ilCmdNo].pcHomeAirport,rgTM.prHandleCmd[ilCmdNo].pcNumtab_Key,rgTM.prHandleCmd[ilCmdNo].pcNumtab_Stopvalue, rgTM.prHandleCmd[ilCmdNo].pcNumtab_Startvalue);
-						
+
 						/* set type of sql call */
 						slSqlFunc = COMMIT | REL_CURSOR;
 
 						/* run sql */
-						if ((ilRC = sql_if(slSqlFunc,&slCursor,pclSqlBuf,pclDataArea))!= DB_SUCCESS) 
+						if ((ilRC = sql_if(slSqlFunc,&slCursor,pclSqlBuf,pclDataArea))!= DB_SUCCESS)
 						{
 							ilRC = RC_FAIL;
-							get_ora_err(ilRC,pclOraErrorMsg);	
+							get_ora_err(ilRC,pclOraErrorMsg);
 							dbg(TRACE,"<init_fileif> ORA-ERR=<%s> SQL=<%s>",pclOraErrorMsg, pclSqlBuf);
 						} /* if ((ilRC = sql_if */
 
@@ -1390,7 +1391,7 @@ static int init_fileif(void)
 				/* read data_separator or data_length. one is mandatory */
 				if (IsDynamic(rgTM.prHandleCmd[ilCmdNo].iWriteData))
 				{
-					/* read data_separator */	
+					/* read data_separator */
 					/* necessary entry for field separator... */
 					if ((ilRC = iGetConfigEntry(pcgCfgFile, pclCurrentCommand, "data_separator", CFG_STRING, rgTM.prHandleCmd[ilCmdNo].pcDataSeparator)) != RC_SUCCESS)
 					{
@@ -1429,7 +1430,7 @@ static int init_fileif(void)
 				}
 				while ((pclBlank=strchr(rgTM.prHandleCmd[ilCmdNo].pcDataLinePrefix,'~'))!=NULL)
 				{
-					*pclBlank=0x20;	
+					*pclBlank=0x20;
 				}
 				dbg(TRACE,"<init_fileif> data_line_prefix : <%s>",rgTM.prHandleCmd[ilCmdNo].pcDataLinePrefix);
 
@@ -1440,7 +1441,7 @@ static int init_fileif(void)
 				}
 				while ((pclBlank=strchr(rgTM.prHandleCmd[ilCmdNo].pcDataLinePostfix,'~'))!=NULL)
 				{
-					*pclBlank=0x20;	
+					*pclBlank=0x20;
 				}
 				dbg(TRACE,"<init_fileif> data_line_postfix: <%s>",rgTM.prHandleCmd[ilCmdNo].pcDataLinePostfix);
 
@@ -1479,9 +1480,9 @@ static int init_fileif(void)
 					else
 					{
 						if (IsCR(pclPtr))
-							rgTM.prHandleCmd[ilCmdNo].pcEndOfLine[i] = 0x0D;	
+							rgTM.prHandleCmd[ilCmdNo].pcEndOfLine[i] = 0x0D;
 						else if (IsLF(pclPtr))
-							rgTM.prHandleCmd[ilCmdNo].pcEndOfLine[i] = 0x0A;	
+							rgTM.prHandleCmd[ilCmdNo].pcEndOfLine[i] = 0x0A;
 						else
 						{
 							dbg(TRACE,"<init_fileif> unkown eol-character %s", pclPtr);
@@ -1493,7 +1494,7 @@ static int init_fileif(void)
 				/* entry for comment_sign... */
 				if ((ilRC = iGetConfigEntry(pcgCfgFile, pclCurrentCommand, "comment_sign", CFG_STRING, rgTM.prHandleCmd[ilCmdNo].pcCommentSign)) != RC_SUCCESS)
 				{
-					strcpy(rgTM.prHandleCmd[ilCmdNo].pcCommentSign, 
+					strcpy(rgTM.prHandleCmd[ilCmdNo].pcCommentSign,
 																		sDEFAULT_COMMENT);
 					dbg(TRACE,"<init_fileif> no comment_sign! Use default <%s>",rgTM.prHandleCmd[ilCmdNo].pcCommentSign);
 				}
@@ -1560,7 +1561,7 @@ static int init_fileif(void)
 				StringUPR((UCHAR*)pclAllTables);
 
 				/* calculate number of tables for this command... */
-				if ((rgTM.prHandleCmd[ilCmdNo].iNoOfTables = 
+				if ((rgTM.prHandleCmd[ilCmdNo].iNoOfTables =
 										GetNoOfElements(pclAllTables, cCOMMA)) < 0)
 				{
 					dbg(TRACE,"<init_fileif> GetNoOfElements (number of tables) returns: %d", rgTM.prHandleCmd[ilCmdNo].iNoOfTables);
@@ -1626,7 +1627,7 @@ static int init_fileif(void)
 
 							/* set internal counter */
 							rgTM.prHandleCmd[ilCmdNo].prTabDef[ilTableNo].iNoOfUtcToLocal = ilNoUtcToLocal;
-						
+
 							/* get memory for pointer to fields... */
 							if ((rgTM.prHandleCmd[ilCmdNo].prTabDef[ilTableNo].pcMapUtcToLocal = (char**)calloc(1,(size_t)(ilNoUtcToLocal*sizeof(char*)))) == NULL)
 							{
@@ -1643,23 +1644,23 @@ static int init_fileif(void)
 									dbg(TRACE,"<init_fileif> ### GetDataField (pclAllUtcToLocal) returns NULL");
 									Terminate(30);
 								}
-					
+
 								/* store n.th element */
 								if ((rgTM.prHandleCmd[ilCmdNo].prTabDef[ilTableNo].pcMapUtcToLocal[ilCurUtc] = strdup(pclS)) == NULL)
 								{
 									dbg(TRACE,"<init_fileif> ### strdup(UtcToLocal) returns NULL");
 									Terminate(30);
 								}
-							}	
+							}
 						}
 						dbg(TRACE,"<init_fileif> ### ------- UTC TO LOCAL -------------");
 						/*dbg(DEBUG,"<init_fileif> ### found %d entries", rgTM.prHandleCmd[ilCmdNo].prTabDef[ilTableNo].iNoOfUtcToLocal);*/
 						for (ilCurUtc=0; ilCurUtc<rgTM.prHandleCmd[ilCmdNo].prTabDef[ilTableNo].iNoOfUtcToLocal; ilCurUtc++)
 						{
 							dbg(TRACE,"<init_fileif> ### Field: <%s> will be in LOCAL-time!", rgTM.prHandleCmd[ilCmdNo].prTabDef[ilTableNo].pcMapUtcToLocal[ilCurUtc]);
-						}	
+						}
 						/*dbg(DEBUG,"<init_fileif> ###  ------  UTC TO LOCAL END -------");*/
-						
+
 						/* get entry for 3- or 4-letter-code VIA in VIAL */
 						if ((ilRC = iGetConfigEntry(pcgCfgFile, pclCurrentTable, "via", CFG_INT, (char*)&rgTM.prHandleCmd[ilCmdNo].prTabDef[ilTableNo].iVia34)) != RC_SUCCESS)
 						{
@@ -1689,7 +1690,7 @@ static int init_fileif(void)
 						{
 							/* convert to uppercase */
 							StringUPR((UCHAR*)pclAllSyslib);
-					
+
 							/* calculate number of syslib strings */
 							if ((rgTM.prHandleCmd[ilCmdNo].prTabDef[ilTableNo].iNoSyslib = GetNoOfElements(pclAllSyslib, (char)'"')) < 0)
 							{
@@ -1808,7 +1809,7 @@ static int init_fileif(void)
 							/* set flag */
 							rgTM.prHandleCmd[ilCmdNo].prTabDef[ilTableNo].iUseSelection = 1;
 
-						/* compare here with flag "use_received_selection"..., 
+						/* compare here with flag "use_received_selection"...,
 						cannot work with both... */
 						if (rgTM.prHandleCmd[ilCmdNo].iUseReceivedSelection && rgTM.prHandleCmd[ilCmdNo].prTabDef[ilTableNo].iUseSelection)
 						{
@@ -1849,7 +1850,7 @@ static int init_fileif(void)
 							rgTM.prHandleCmd[ilCmdNo].prTabDef[ilTableNo].pcFields = NULL;
 							Terminate(30);
 						}
-						
+
 						/* set flag for via's... */
 						rgTM.prHandleCmd[ilCmdNo].prTabDef[ilTableNo].iViaInFieldList = 0;
 						rgTM.prHandleCmd[ilCmdNo].prTabDef[ilTableNo].iAddVialVian = 1;
@@ -1864,7 +1865,7 @@ static int init_fileif(void)
 							/*------------------------------------------------------*/
 							/*------------------------------------------------------*/
 							/*------------------------------------------------------*/
-							if ((pclPtr = GetDataField(pclAllFields, 
+							if ((pclPtr = GetDataField(pclAllFields,
 																	ilFieldNo, cCOMMA)) == NULL)
 							{
 								dbg(TRACE,"<init_fileif> ### Cannot read field number %d", i);
@@ -1893,7 +1894,7 @@ static int init_fileif(void)
 										pclS = pclPtr;
 										while (*pclS)
 										{
-											if (*pclS == ';') 
+											if (*pclS == ';')
 												*pclS = ',';
 											pclS++;
 										}
@@ -1926,7 +1927,7 @@ static int init_fileif(void)
 								}
 
 								/* is this field constant? */
-								if (!strncmp(pclPtr, "CONSTANT_", 9) && 
+								if (!strncmp(pclPtr, "CONSTANT_", 9) &&
 									 ilCurConst < 10)
 								{
 									/* yes thats a constant */
@@ -1991,7 +1992,7 @@ static int init_fileif(void)
 										dbg(TRACE,"<init_fileif> ### GetDataField (Start Pos) returns NULL");
 										Terminate(30);
 									}
-				
+
 									/* store start pos in structure... */
 									rgTM.prHandleCmd[ilCmdNo].prTabDef[ilTableNo].prSubStr[ilCurSubStr].iStartPos = atoi(pclS);
 
@@ -2001,14 +2002,14 @@ static int init_fileif(void)
 										dbg(TRACE,"<init_fileif> ### GetDataField (number of bytes) returns NULL");
 										Terminate(30);
 									}
-				
+
 									/* store start pos in structure... */
 									rgTM.prHandleCmd[ilCmdNo].prTabDef[ilTableNo].prSubStr[ilCurSubStr].iBytes = atoi(pclS);
 
 									/* set used flag... */
 									rgTM.prHandleCmd[ilCmdNo].prTabDef[ilTableNo].prSubStr[ilCurSubStr].iUseSubStr = 1;
 								}
-							}							
+							}
 						}
 
 						if (debug_level == DEBUG)
@@ -2019,7 +2020,7 @@ static int init_fileif(void)
 											if (rgTM.prHandleCmd[ilCmdNo].prTabDef[ilTableNo].prSubStr[ilCurSubStr].iUseSubStr == 1)
 											{
 												dbg(DEBUG,"<init_fileif> ### SUBSTR(%s,%d,%d)", rgTM.prHandleCmd[ilCmdNo].prTabDef[ilTableNo].pcFields[ilCurSubStr], rgTM.prHandleCmd[ilCmdNo].prTabDef[ilTableNo].prSubStr[ilCurSubStr].iStartPos, rgTM.prHandleCmd[ilCmdNo].prTabDef[ilTableNo].prSubStr[ilCurSubStr].iBytes);
-											} 
+											}
 										}
 						}
 
@@ -2114,7 +2115,7 @@ static int init_fileif(void)
 								/* to array */
 								for (i=0; i<rgTM.prHandleCmd[ilCmdNo].prTabDef[ilTableNo].iDataLengthCounter; i++)
 								{
-									if ((pclPtr = 
+									if ((pclPtr =
 											GetDataField(pclDataCounter, i, cSEPARATOR)) == NULL)
 									{
 										dbg(TRACE,"<init_fileif> ### cannot read data field no %d", i);
@@ -2181,7 +2182,7 @@ static int init_fileif(void)
 									}
 
 									/* store length of fields... */
-									rgTM.prHandleCmd[ilCmdNo].prTabDef[ilTableNo].prAssign[ilAssignNo].iDBFieldSize = strlen(rgTM.prHandleCmd[ilCmdNo].prTabDef[ilTableNo].prAssign[ilAssignNo].pcDBField); 
+									rgTM.prHandleCmd[ilCmdNo].prTabDef[ilTableNo].prAssign[ilAssignNo].iDBFieldSize = strlen(rgTM.prHandleCmd[ilCmdNo].prTabDef[ilTableNo].prAssign[ilAssignNo].pcDBField);
 
 									rgTM.prHandleCmd[ilCmdNo].prTabDef[ilTableNo].prAssign[ilAssignNo].iIFFieldSize = strlen(rgTM.prHandleCmd[ilCmdNo].prTabDef[ilTableNo].prAssign[ilAssignNo].pcIFField);
 								}
@@ -2275,7 +2276,7 @@ static int init_fileif(void)
 
 							for (ilIgnoreFieldNo=0; ilIgnoreFieldNo<rgTM.prHandleCmd[ilCmdNo].prTabDef[ilTableNo].iNoOfIgnore; ilIgnoreFieldNo++)
 							{
-								if ((pclPtr = GetDataField(pclAllIgnore, 
+								if ((pclPtr = GetDataField(pclAllIgnore,
 														ilIgnoreFieldNo, cCOMMA)) == NULL)
 								{
 									dbg(TRACE,"<init_fileif> ### Cannot read ignore field number %d", i);
@@ -2326,7 +2327,7 @@ static int init_fileif(void)
 							/* set counter to 0 */
 							rgTM.prHandleCmd[ilCmdNo].prTabDef[ilTableNo].piNoMapData[ilFieldNo] = 0;
 
-							/* read all data for this */ 
+							/* read all data for this */
 							memset((void*)pclMappingData, 0x00, iMIN_BUF_SIZE);
 							if ((ilRC = iGetConfigEntry(pcgCfgFile, pclCurrentTable, pclMapKeyWord, CFG_STRING, pclMappingData)) == RC_SUCCESS)
 							{
@@ -2424,7 +2425,7 @@ static int Reset(void)
 	int	k;
 	int	l;
 	int	ilRC = RC_SUCCESS;
-	
+
 	dbg(TRACE,"<Reset> now resetting");
 
 	/* to inform status-handler about startup time */
@@ -2442,7 +2443,7 @@ static int Reset(void)
 		free(prgItem);
 		prgItem = NULL;
 	}
-	
+
 	for (i=0; i<rgTM.iNoCommands; i++)
 	{
 		for (j=0; j<rgTM.prHandleCmd[i].iNoOfTables; j++)
@@ -2574,14 +2575,14 @@ static int Reset(void)
 		if (rgTM.prHandleCmd[i].pcOldFileContent != NULL)
 		{
 			free((void*)rgTM.prHandleCmd[i].pcOldFileContent);
-			rgTM.prHandleCmd[i].pcOldFileContent = NULL;	
-			rgTM.prHandleCmd[i].lOldFileLength = -1;	
+			rgTM.prHandleCmd[i].pcOldFileContent = NULL;
+			rgTM.prHandleCmd[i].lOldFileLength = -1;
 		}
 		if (rgTM.prHandleCmd[i].pcFileContent != NULL)
 		{
 			free((void*)rgTM.prHandleCmd[i].pcFileContent);
-			rgTM.prHandleCmd[i].pcFileContent = NULL;	
-			rgTM.prHandleCmd[i].lFileLength = -1;	
+			rgTM.prHandleCmd[i].pcFileContent = NULL;
+			rgTM.prHandleCmd[i].lFileLength = -1;
 		}
 	}
 	if (rgTM.prHandleCmd != NULL)
@@ -2613,12 +2614,12 @@ static void Terminate(UINT	ipSleepTime)
 	int	ilRC;
 
 	dbg(TRACE,"<Terminate> now terminating...");
-	
+
 	/* changes by mos 6 Apr 2000 */
 	ilRC = logoff();  /* disconnect from oracle */
   	dbg(TRACE,"terminate: oracle     ... logged off.");
 	/* eof changes */
-	
+
 	/* ignore all signals */
 	(void) UnsetSignals();
 
@@ -2643,7 +2644,7 @@ static void Terminate(UINT	ipSleepTime)
 
 	/* close logfile */
 	CLEANUP;
-	
+
 	/* good bye */
 	exit(0);
 }
@@ -2668,7 +2669,7 @@ static void HandleSignal(int ipSig)
 		default:
 			exit(0);
 			break;
-	} 
+	}
 	return;
 }
 
@@ -2688,7 +2689,7 @@ static void HandleErr(int ipErr)
 /******************************************************************************/
 static void HandleQueErr(int pipErr)
 {
-	switch(pipErr) 
+	switch(pipErr)
 	{
 	case	QUE_E_FUNC	:	/* Unknown function */
 		dbg(TRACE,"<%d> : unknown function",pipErr);
@@ -2769,11 +2770,11 @@ static void HandleQueErr(int pipErr)
 
 	/* put message and reset errno */
 	dbg(TRACE,"<HandleQueErr> Errno: <%s>", strerror(errno));
-   errno = 0;      
+   errno = 0;
 
 	/* platz dooo */
 	return;
-} 
+}
 
 
 /******************************************************************************/
@@ -2781,9 +2782,9 @@ static void HandleQueErr(int pipErr)
 /******************************************************************************/
 static void HandleQueues(void)
 {
-	int	ilRC = RC_SUCCESS;		
+	int	ilRC = RC_SUCCESS;
 	int	ilBreakOut = FALSE;
-	
+
 	do
 	{
 		/* get item... */
@@ -2796,55 +2797,55 @@ static void HandleQueues(void)
 		{
 			/* Acknowledge the item */
 			ilRC = que(QUE_ACK,0,mod_id,0,0,NULL);
-			if( ilRC != RC_SUCCESS ) 
+			if( ilRC != RC_SUCCESS )
 			{
 				dbg(DEBUG,"<HandleQueues> calling HandleQueErr");
 				HandleQueErr(ilRC);
-			} 
-		
+			}
+
 			switch (prgEvent->command)
 			{
 				case	HSB_STANDBY:
 					ctrl_sta = prgEvent->command;
 					send_message(IPRIO_ASCII,HSB_REQUEST,0,0,NULL);
-					break;	
-		
+					break;
+
 				case	HSB_COMING_UP:
 					ctrl_sta = prgEvent->command;
 					send_message(IPRIO_ASCII,HSB_REQUEST,0,0,NULL);
-					break;	
-		
+					break;
+
 				case	HSB_ACTIVE:
 				case	HSB_STANDALONE:
 					ctrl_sta = prgEvent->command;
 					send_message(IPRIO_ASCII,HSB_REQUEST,0,0,NULL);
 					ilBreakOut = TRUE;
-					break;	
+					break;
 
 				case	HSB_ACT_TO_SBY:
 					ctrl_sta = prgEvent->command;
 					send_message(IPRIO_ASCII,HSB_REQUEST,0,0,NULL);
-					break;	
-		
+					break;
+
 				case	HSB_DOWN:
 					ctrl_sta = prgEvent->command;
 					Terminate(0);
-					break;	
-		
+					break;
+
 				case	SHUTDOWN:
 					Terminate(0);
 					break;
-							
+
 				case	RESET:
 					ilRC = Reset();
 					break;
-							
+
 				case	EVENT_DATA:
 					dbg(DEBUG,"<HandleQueues> wrong hsb status <%d>",ctrl_sta);
 					DebugPrintItem(TRACE,prgItem);
 					DebugPrintEvent(TRACE,prgEvent);
 					break;
-						
+
 				case TRACE_ON:
 					dbg_handle_debug(prgEvent->command);
 					break;
@@ -2858,23 +2859,23 @@ static void HandleQueues(void)
 					DebugPrintItem(TRACE,prgItem);
 					DebugPrintEvent(TRACE,prgEvent);
 					break;
-			} 
+			}
 			if(ilRC != RC_SUCCESS)
 			{
 				HandleErr(ilRC);
-			} 
-		} 
-		else 
+			}
+		}
+		else
 		{
 			dbg(DEBUG,"<HandleQueues> calling HandleQueErr");
 			HandleQueErr(ilRC);
-		} 
+		}
 	} while (ilBreakOut == FALSE);
-		
+
 	/* ciao */
 	return;
-} 
-	
+}
+
 /******************************************************************************/
 /* The handle data routine                                                    */
 /******************************************************************************/
@@ -2895,7 +2896,7 @@ static int HandleData(void)
 	int			ilTimeDiff;
 	int			ilAssignNo;
 	int			ilConditionNo;
-	int			ilSecondRecord;	
+	int			ilSecondRecord;
 	int			ilAllSecRecords;
 	char			pclUtcTime[15];
 	char			pclLocalTime[15];
@@ -2958,8 +2959,8 @@ static int HandleData(void)
 		/* must set pointer to commandblock-structure... */
 		prlCmdblk = (CMDBLK*)((char*)prlBCHead->data +
 									 strlen((char*)prlBCHead->data) + 1);
-	
-	
+
+
 		/* Changes by MOS 3. July 2000 for ftphdl implementation*/
 		prlCmdblkreply = (CMDBLK  *) ((char *)prlBCHead->data);
 		/* ***** EO Changes ****/
@@ -2974,16 +2975,16 @@ static int HandleData(void)
 	        if (strcmp(prlCmdblkreply->command,"FTP") == 0)
         	{
 			/* SUCCESS from FTPHDL */
-			if (strstr(prlCmdblkreply->data,"RC_SUCCESS")!=NULL) {			 
+			if (strstr(prlCmdblkreply->data,"RC_SUCCESS")!=NULL) {
 				GetDataItem(pclNumtabkey, prlCmdblkreply->tw_start, 1, cCOMMA, "", " \0");
 				GetDataItem(pclFtpreplyacnu, prlCmdblkreply->tw_start, 2, cCOMMA, "", " \0");
 				GetDataItem(pclNumtabStopValue, prlCmdblkreply->tw_start, 3, cCOMMA, "", " \0");
-				
+
 				if (strlen(pclNumtabkey) > 1) 	{
 				/* reply id equals acnu?? */
 				GetNextNumbers(pclNumtabkey, pcldummy, 1,"NO_AUTO_INCREASE");
-				GetDataItem(pclNumtabacnu, pcldummy, 1, cCOMMA, "", " \0");				
-				
+				GetDataItem(pclNumtabacnu, pcldummy, 1, cCOMMA, "", " \0");
+
 				if (strstr(pclFtpreplyacnu,pclNumtabacnu)!=NULL) {
          	       			dbg(DEBUG,"FILEIF HandleData: ftp reply fits: <%s>",pclFtpreplyacnu);
 					/* increase number in numtab,check for maximum number */
@@ -2997,21 +2998,21 @@ static int HandleData(void)
 						} else {
 							dbg(DEBUG,"FILEIF HandleData:SUCCESS with key <%s> and no <%s> and reply <%s>",pclNumtabkey,pcldummy,pclFtpreplyacnu);
 						}
-						
+
 					}
 				} else {
 					dbg(TRACE,"<HandleData> different ACNU-ID! FTPHDL=(%s) -- ACNU-ID=(%s)",pclFtpreplyacnu,pclNumtabacnu);
 				} /*ids equal??*/
-				
+
 				}
 			} else {
 				dbg(TRACE,"<HandleData> <%s> FTPDHL not successful for key and file extension %s."
 					,prlCmdblkreply->command,prlCmdblkreply->data);
-				
+
 			}
 			return RC_SUCCESS;
    	}
-	
+
 		/* check both numbers */
 		if (ilCmdNo < 0 || ilTabNo < 0)
 		{
@@ -3022,19 +3023,19 @@ static int HandleData(void)
 		/* send answer to client... */
 		if (rgTM.prHandleCmd[ilCmdNo].iSendSqlRc)
 		{
-			ilRC = tools_send_sql_rc(rgTM.prHandleCmd[ilCmdNo].iSqlRCOriginator, 
+			ilRC = tools_send_sql_rc(rgTM.prHandleCmd[ilCmdNo].iSqlRCOriginator,
 											 prlCmdblk->command,
 											 prlCmdblk->obj_name,
 											 prlCmdblk->data,
 											 pclFields,
 											 prlBCHead->data, prlBCHead->rc);
 		}
-		
+
 		/* incr. data counter */
 		rgTM.prHandleCmd[ilCmdNo].iDataCounter++;
 
 		/* check number of tables */
-		if (rgTM.prHandleCmd[ilCmdNo].iDataCounter == 
+		if (rgTM.prHandleCmd[ilCmdNo].iDataCounter ==
 			 rgTM.prHandleCmd[ilCmdNo].iNoOfTables)
 		{
 			/* set counter to zero */
@@ -3079,8 +3080,8 @@ static int HandleData(void)
 			/* if we use selection, add length of string */
 			if (rgTM.prHandleCmd[ilCmdNo].prTabDef[ilTabNo].iUseSelection || rgTM.prHandleCmd[ilCmdNo].iUseReceivedSelection)
 			{
-				/* if we use selection add 10 * 14 bytes for timestamps, thats the 
-				maximum we can handle... 
+				/* if we use selection add 10 * 14 bytes for timestamps, thats the
+				maximum we can handle...
 				*/
 				ilLen += strlen(rgTM.prHandleCmd[ilCmdNo].prTabDef[ilTabNo].pcSelection) + (10*14);
 			}
@@ -3141,7 +3142,7 @@ static int HandleData(void)
 			else
 			{
 				memset(rgTM.prHandleCmd[ilCmdNo].rSendEventCmds.pcOrgTwStart,0x00,iMIN_BUF_SIZE);
-				if (rgTM.prHandleCmd[ilCmdNo].rSendEventCmds.iAfcKeepOrgTwStart==1) 
+				if (rgTM.prHandleCmd[ilCmdNo].rSendEventCmds.iAfcKeepOrgTwStart==1)
 				{
 					if ((ilRC_OrgVal = SeparateIt(prlCmdblk->tw_start, prlCmdblk->tw_start
 																,rgTM.prHandleCmd[ilCmdNo].rSendEventCmds.pcOrgTwStart,'#')) != RC_SUCCESS)
@@ -3181,7 +3182,7 @@ static int HandleData(void)
 				prlOutCmdblk = (CMDBLK*)((char*)prlOutBCHead->data);
 				strcpy(prlOutCmdblk->command,rgTM.prHandleCmd[ilCmdNo].prTabDef[ilTabNo].pcSndCmd);
 				strcpy(prlOutCmdblk->obj_name,rgTM.prHandleCmd[ilCmdNo].prTabDef[ilTabNo].pcTabName);
-				if (rgTM.prHandleCmd[ilCmdNo].rSendEventCmds.iAfcKeepOrgTwStart==1) 
+				if (rgTM.prHandleCmd[ilCmdNo].rSendEventCmds.iAfcKeepOrgTwStart==1)
 				{
 					sprintf(prlOutCmdblk->tw_start, "%d,%d#%s", ilCmdNo, ilTabNo,rgTM.prHandleCmd[ilCmdNo].rSendEventCmds.pcOrgTwStart);
 				}
@@ -3201,16 +3202,16 @@ static int HandleData(void)
 
 					/* count strings between... */
 					ilTimeCnt = 0;
-					
+
 					/* store to temporary select buffer... */
 					strcpy(pclSelectBuf, rgTM.prHandleCmd[ilCmdNo].prTabDef[ilTabNo].pcSelection);
 
-	
+
 					/* for all strings between... */
 					while ((ilRC = GetAllBetween(rgTM.prHandleCmd[ilCmdNo].prTabDef[ilTabNo].pcSelection, '\'', ilTimeCnt, pclTmpKeyWord)) == 0)
 					{
 						/* is this minute, day or month? */
-						if (strstr(pclTmpKeyWord, "minute") != NULL || 
+						if (strstr(pclTmpKeyWord, "minute") != NULL ||
 							 strstr(pclTmpKeyWord, "MINUTE") != NULL)
 						{
 							/* this is minute */
@@ -3218,7 +3219,7 @@ static int HandleData(void)
 						}
 						else
 						{
-							if (strstr(pclTmpKeyWord, "day") != NULL || 
+							if (strstr(pclTmpKeyWord, "day") != NULL ||
 								 strstr(pclTmpKeyWord, "DAY") != NULL)
 							{
 								/* this is day */
@@ -3226,7 +3227,7 @@ static int HandleData(void)
 							}
 							else
 							{
-								if (strstr(pclTmpKeyWord, "month") != NULL || 
+								if (strstr(pclTmpKeyWord, "month") != NULL ||
 									 strstr(pclTmpKeyWord, "MONTH") != NULL)
 								{
 									/* this is month */
@@ -3249,7 +3250,7 @@ static int HandleData(void)
 								dbg(TRACE,"<HandleData> can't find key word <%s> in CFG-File", pclTmpKeyWord);
 								Terminate(0);
 							}
-						
+
 							/* set start/end-flag for AddToTime... */
 							if (strstr(pclTmpKeyWord,"start") != NULL)
 							{
@@ -3259,7 +3260,7 @@ static int HandleData(void)
 							{
 								ilFlg = iEND;
 							}
-							else 
+							else
 							{
 								dbg(DEBUG,"<HandleData> missing start/end sign in key word <%s>, use default (start)", pclTmpKeyWord);
 								ilFlg = iSTART;
@@ -3283,7 +3284,7 @@ static int HandleData(void)
 									strcpy(pclLocalTime, pclUtcTime);
 								}
 							}
-							
+
 							/* search keyword and replace with timestamp... */
 							if ((ilRC = SearchStringAndReplace(pclSelectBuf, pclTmpKeyWord, pclLocalTime)) < 0)
 							{
@@ -3300,7 +3301,7 @@ static int HandleData(void)
 					dbg(DEBUG,"<HandleData> Selection: <%s>", prlOutCmdblk->data);
 
 					/* copy fields after selection... */
-					strcpy(prlOutCmdblk->data+strlen(pclSelectBuf)+1, pclFieldBuf); 
+					strcpy(prlOutCmdblk->data+strlen(pclSelectBuf)+1, pclFieldBuf);
 				}
 				else if (rgTM.prHandleCmd[ilCmdNo].iUseReceivedSelection)
 				{
@@ -3342,7 +3343,7 @@ static int HandleData(void)
 						/* copy selection to cmdblk member... */
 						strcpy(prlOutCmdblk->data,	pclSelectBuf);
 						/* copy fields after selection... */
-						strcpy(prlOutCmdblk->data+strlen(pclSelectBuf)+1, pclFieldBuf); 
+						strcpy(prlOutCmdblk->data+strlen(pclSelectBuf)+1, pclFieldBuf);
 					}
 					else
 					{
@@ -3354,14 +3355,14 @@ static int HandleData(void)
 						/* copy selection to cmdblk member... */
 						strcpy(prlOutCmdblk->data,	pclSelection);
 						/* copy fields after selection... */
-						strcpy(prlOutCmdblk->data+strlen(pclSelection)+1, pclFieldBuf); 
+						strcpy(prlOutCmdblk->data+strlen(pclSelection)+1, pclFieldBuf);
 					}
 					dbg(DEBUG,"<HandleData> Selection: <%s>", prlOutCmdblk->data);
 				}
 				else
 				{
 					/* fields without selection */
-					strcpy(prlOutCmdblk->data+1, pclFieldBuf); 
+					strcpy(prlOutCmdblk->data+1, pclFieldBuf);
 				}
 
 				/* ADDED BY BERNI */
@@ -3406,7 +3407,7 @@ static int HandleData(void)
 		dbg(DEBUG,"<HandleData> reset data counter for command <%d>", ilCmdNo);
 		rgTM.prHandleCmd[ilCmdNo].iDataFromTable = 0;
 		rgTM.prHandleCmd[ilCmdNo].iDataCounter = 0;
-		
+
 		dbg(DEBUG,"<HandleData> ------------- END <%s> ------------", prlCmdblk->command);
 		/* successfull return */
 		return RC_SUCCESS;
@@ -3441,7 +3442,7 @@ static int HandleData(void)
 		dbg(DEBUG,"<HandleData> Answer   : CMDNO: <%d>, TABNO: <%d>", ilCmdNo, ilTabNo);
 
 		memset(rgTM.prHandleCmd[ilCmdNo].rSendEventCmds.pcOrgTwStart,0x00,iMIN_BUF_SIZE);
-		if (rgTM.prHandleCmd[ilCmdNo].rSendEventCmds.iAfcKeepOrgTwStart==1) 
+		if (rgTM.prHandleCmd[ilCmdNo].rSendEventCmds.iAfcKeepOrgTwStart==1)
 		{
 			if ((ilRC_OrgVal = SeparateIt(prlCmdblk->tw_start, prlCmdblk->tw_start
 														,rgTM.prHandleCmd[ilCmdNo].rSendEventCmds.pcOrgTwStart,'#')) == RC_SUCCESS)
@@ -3544,8 +3545,8 @@ static int HandleData(void)
 						}
 						else
 						{
-							/* field length of db-field is equal or 
-								greater than if-field 
+							/* field length of db-field is equal or
+								greater than if-field
 							*/
 							strcpy(rgTM.prHandleCmd[ilCmdNo].prTabDef[ilTabNo].pcFields[i], rgTM.prHandleCmd[ilCmdNo].prTabDef[ilTabNo].prAssign[ilAssignNo].pcIFField);
 						}
@@ -3598,7 +3599,7 @@ dbg(TRACE,"HandleData: Data <%s>\n Fields <%s>",
 				dbg(DEBUG,"<HandleData> OpenFile returns: %d", ilRC);
 				return ilRC;
 			}
-		
+
 			/* over all lines */
 			if (ilTabNo==0)
 				rgTM.prHandleCmd[ilCmdNo].iLineNumberSav = 0;
@@ -3649,8 +3650,8 @@ dbg(TRACE,"HandleData: Data <%s>\n Fields <%s>",
 						if (ilCurLine+ilAllSecRecords < rgTM.prHandleCmd[ilCmdNo].prTabDef[ilTabNo].iLines-2)
 							ilSecondRecord = 1;
 						else
-							ilSecondRecord = 0;	
-					}	
+							ilSecondRecord = 0;
+					}
 					else
 						ilSecondRecord = 1;
 
@@ -3693,8 +3694,8 @@ dbg(TRACE,"HandleData: Data <%s>\n Fields <%s>",
 				{
 					if (!strcmp(rgTM.prHandleCmd[ilCmdNo].prTabDef[ilTabNo].prAssign[ilAssignNo].pcIFField, rgTM.prHandleCmd[ilCmdNo].prTabDef[ilTabNo].pcFields[i]))
 					{
-						/* length of db-field must be! equal or 
-							greater than if-field 
+						/* length of db-field must be! equal or
+							greater than if-field
 						*/
 						strcpy(rgTM.prHandleCmd[ilCmdNo].prTabDef[ilTabNo].pcFields[i], rgTM.prHandleCmd[ilCmdNo].prTabDef[ilTabNo].prAssign[ilAssignNo].pcDBField);
 					}
@@ -3708,7 +3709,7 @@ dbg(TRACE,"HandleData: Data <%s>\n Fields <%s>",
 			dbg(DEBUG,"<HandleData> ============= END <ANSWER> ============");
 
 			/* check number of tables */
-			if (rgTM.prHandleCmd[ilCmdNo].iDataCounter == 
+			if (rgTM.prHandleCmd[ilCmdNo].iDataCounter ==
 				 rgTM.prHandleCmd[ilCmdNo].iNoOfTables)
 			{
 				/* set counter to zero */
@@ -3775,20 +3776,20 @@ static int OpenFile(int ipCmdNo, int ipTabNo)
 	if (!rgTM.prHandleCmd[ipCmdNo].iOpenDataFile)
 	{
 		/* clear buffer */
-		memset((void*)rgTM.prHandleCmd[ipCmdNo].pcTmpFileName, 
+		memset((void*)rgTM.prHandleCmd[ipCmdNo].pcTmpFileName,
 													0x00, iMIN_BUF_SIZE);
-		memset((void*)rgTM.prHandleCmd[ipCmdNo].pcTmpFileNameWithPath, 
+		memset((void*)rgTM.prHandleCmd[ipCmdNo].pcTmpFileNameWithPath,
 													0x00, iMIN_BUF_SIZE);
-		
+
 		/* produce tmp-filename */
 		strcpy(rgTM.prHandleCmd[ipCmdNo].pcTmpFileNameWithPath,rgTM.prHandleCmd[ipCmdNo].pcFilePath);
 		if (rgTM.prHandleCmd[ipCmdNo].pcTmpFileNameWithPath[strlen(rgTM.prHandleCmd[ipCmdNo].pcTmpFileNameWithPath)-1] != '/')
 		{
 			strcat(rgTM.prHandleCmd[ipCmdNo].pcTmpFileNameWithPath, "/");
 		}
-		strcat(rgTM.prHandleCmd[ipCmdNo].pcTmpFileNameWithPath, 
+		strcat(rgTM.prHandleCmd[ipCmdNo].pcTmpFileNameWithPath,
 				 rgTM.prHandleCmd[ipCmdNo].pcTmpFile);
-		strcpy(rgTM.prHandleCmd[ipCmdNo].pcTmpFileName, 
+		strcpy(rgTM.prHandleCmd[ipCmdNo].pcTmpFileName,
 				 rgTM.prHandleCmd[ipCmdNo].pcTmpFile);
 
 		/* produce final-filename */
@@ -3797,9 +3798,9 @@ static int OpenFile(int ipCmdNo, int ipTabNo)
 		{
 			strcat(rgTM.prHandleCmd[ipCmdNo].pcFileNameWithPath, "/");
 		}
-		strcat(rgTM.prHandleCmd[ipCmdNo].pcFileNameWithPath, 
+		strcat(rgTM.prHandleCmd[ipCmdNo].pcFileNameWithPath,
 				 rgTM.prHandleCmd[ipCmdNo].pcFile);
-		strcpy(rgTM.prHandleCmd[ipCmdNo].pcFileName, 
+		strcpy(rgTM.prHandleCmd[ipCmdNo].pcFileName,
 				 rgTM.prHandleCmd[ipCmdNo].pcFile);
 
 		/* should i use a timestamp in filename? */
@@ -3811,7 +3812,7 @@ static int OpenFile(int ipCmdNo, int ipTabNo)
 			{
 				/* -1440 entspricht 1 Tag (24 Std. * 60 Min.) */
 				pclCurrentTime = GetPartOfTimeStamp(AddToCurrentUtcTime(iMINUTES, -1440, iSTART), rgTM.prHandleCmd[ipCmdNo].pcTimeStampFormat);
-			}	
+			}
 			else
 			{
 				if (rgTM.prHandleCmd[ipCmdNo].iUseFileTimestampBase == 1)
@@ -3845,13 +3846,13 @@ static int OpenFile(int ipCmdNo, int ipTabNo)
 		/***************************************/
 		/* extension is necessary in all cases */
 		/***************************************/
-		strcat(rgTM.prHandleCmd[ipCmdNo].pcTmpFileName, 
+		strcat(rgTM.prHandleCmd[ipCmdNo].pcTmpFileName,
 				 rgTM.prHandleCmd[ipCmdNo].pcFileExtension);
-		strcat(rgTM.prHandleCmd[ipCmdNo].pcTmpFileNameWithPath, 
+		strcat(rgTM.prHandleCmd[ipCmdNo].pcTmpFileNameWithPath,
 				 rgTM.prHandleCmd[ipCmdNo].pcFileExtension);
-		strcat(rgTM.prHandleCmd[ipCmdNo].pcFileName, 
+		strcat(rgTM.prHandleCmd[ipCmdNo].pcFileName,
 				 rgTM.prHandleCmd[ipCmdNo].pcFileExtension);
-		strcat(rgTM.prHandleCmd[ipCmdNo].pcFileNameWithPath, 
+		strcat(rgTM.prHandleCmd[ipCmdNo].pcFileNameWithPath,
 				 rgTM.prHandleCmd[ipCmdNo].pcFileExtension);
 		dbg(DEBUG,"<OpenFile> file-name <%s>",rgTM.prHandleCmd[ipCmdNo].pcTmpFileName);
 
@@ -3880,7 +3881,7 @@ static int OpenFile(int ipCmdNo, int ipTabNo)
 				/* get old file contents */
 				/*******
 				Hier muss! ich pcOldFileNameWithPath benutzen. Dies wird noetig falls
-				ein Zeitstempel im Filenamen vorkommt (der eraendert sich ja 
+				ein Zeitstempel im Filenamen vorkommt (der eraendert sich ja
 				bekanntlich). Somit bekomme ich immer (bis auf das erste mal) das
 				letzte File...
 				*******/
@@ -3948,17 +3949,17 @@ static int OpenFile(int ipCmdNo, int ipTabNo)
 		}
 
 		/* open this file */
-		dbg(DEBUG,"<OpenFile> OpenFile <%s>", 
+		dbg(DEBUG,"<OpenFile> OpenFile <%s>",
 					rgTM.prHandleCmd[ipCmdNo].pcTmpFileNameWithPath);
 		if ((rgTM.prHandleCmd[ipCmdNo].pFh = fopen((const char*)rgTM.prHandleCmd[ipCmdNo].pcTmpFileNameWithPath,"w")) == NULL)
 		{
-			dbg(DEBUG,"<OpenFile> cannot open file %s", 	
+			dbg(DEBUG,"<OpenFile> cannot open file %s",
 									rgTM.prHandleCmd[ipCmdNo].pcTmpFileNameWithPath);
 			return iOPEN_FAIL;
 		}
 
 		/* store filename */
-		strcpy(rgTM.prHandleCmd[ipCmdNo].pcOldFileNameWithPath, 
+		strcpy(rgTM.prHandleCmd[ipCmdNo].pcOldFileNameWithPath,
 				 rgTM.prHandleCmd[ipCmdNo].pcTmpFileNameWithPath);
 
 		/* set flag */
@@ -3979,9 +3980,9 @@ static int OpenFile(int ipCmdNo, int ipTabNo)
 			ReplaceStdTokens(ipCmdNo,rgTM.prHandleCmd[ipCmdNo].pcStartOfFile,pclTmpDat,
 											rgTM.prHandleCmd[ipCmdNo].pcDynDateFormat,rgTM.prHandleCmd[ipCmdNo].pcDynTimeFormat,-1);
 
-			dbg(DEBUG,"<OpenFile> SOF=<%s>",rgTM.prHandleCmd[ipCmdNo].pcStartOfFile); 	
+			dbg(DEBUG,"<OpenFile> SOF=<%s>",rgTM.prHandleCmd[ipCmdNo].pcStartOfFile);
 			/* must write SOF-Sign */
-			fprintf(rgTM.prHandleCmd[ipCmdNo].pFh, "%s%s", 
+			fprintf(rgTM.prHandleCmd[ipCmdNo].pFh, "%s%s",
 					rgTM.prHandleCmd[ipCmdNo].pcStartOfFile,
 					rgTM.prHandleCmd[ipCmdNo].pcEndOfLine);
 		}
@@ -4031,7 +4032,7 @@ static int OpenFile(int ipCmdNo, int ipTabNo)
 	}
 
 	/* everything looks good */
-	return RC_SUCCESS;	
+	return RC_SUCCESS;
 }
 
 /******************************************************************************/
@@ -4097,7 +4098,7 @@ static int WriteDataToFile(int ipCmdNo, int ipTabNo, int *pipSecondRecord,
 	char			*pclS 		= NULL;
 	char			*pclPtr 		= NULL;
 	char			*pclTmpPtr	= NULL;
-	
+
 	/* init something */
 	ilCurConst = 0;
 	pclTmpPtr = pcpData;
@@ -4105,7 +4106,7 @@ static int WriteDataToFile(int ipCmdNo, int ipTabNo, int *pipSecondRecord,
 	dbg(DEBUG,"<WDtF> ***** END/START *****");
 	dbg(DEBUG,"<WDtF> Fields <%s>",pcpFields);
 	dbg(DEBUG,"<WDtF> Data   <%s>",pcpData);
-	
+
 	/* use VIA? then get info about it */
 	if (rgTM.prHandleCmd[ipCmdNo].prTabDef[ipTabNo].iViaInFieldList)
 	{
@@ -4150,9 +4151,9 @@ static int WriteDataToFile(int ipCmdNo, int ipTabNo, int *pipSecondRecord,
 		memset((void*)pclDataBuffer, 0x00, iMAXIMUM);
 
 		/* over all fields */
-		for (ilFieldNo=0, ilLengthNo=0; 
-			  ilFieldNo<rgTM.prHandleCmd[ipCmdNo].prTabDef[ipTabNo].iNoFields; 
-			  ilFieldNo++,ilLengthNo++) 
+		for (ilFieldNo=0, ilLengthNo=0;
+			  ilFieldNo<rgTM.prHandleCmd[ipCmdNo].prTabDef[ipTabNo].iNoFields;
+			  ilFieldNo++,ilLengthNo++)
 		{
 			/*dbg(DEBUG,"<WDtF> FIELD: <%s> -- START --",rgTM.prHandleCmd[ipCmdNo].prTabDef[ipTabNo].pcFields[ilFieldNo]);*/
 			*pclFieldDataBuffer=0x00;
@@ -4188,9 +4189,9 @@ static int WriteDataToFile(int ipCmdNo, int ipTabNo, int *pipSecondRecord,
 						}
 					}
 					if (strlen(pclMappedFieldName) > 0)
-						strcat(pclDataBuffer,pclMappedFieldName);	
+						strcat(pclDataBuffer,pclMappedFieldName);
 					else
-						strcat(pclDataBuffer, rgTM.prHandleCmd[ipCmdNo].prTabDef[ipTabNo].pcFields[ilFieldNo]);	
+						strcat(pclDataBuffer, rgTM.prHandleCmd[ipCmdNo].prTabDef[ipTabNo].pcFields[ilFieldNo]);
 
 					/* set data separator */
 					strcat(pclDataBuffer, rgTM.prHandleCmd[ipCmdNo].pcDataSeparator);
@@ -4237,9 +4238,9 @@ static int WriteDataToFile(int ipCmdNo, int ipTabNo, int *pipSecondRecord,
 					ilLen1 = strlen(pclFieldDataBuffer);
 					/*ilLen2 = rgTM.prHandleCmd[ipCmdNo].prTabDef[ipTabNo].piDataLength[ilLengthNo++];*/
 					ilLen2 = rgTM.prHandleCmd[ipCmdNo].prTabDef[ipTabNo].piDataLength[ilLengthNo];
-					
+
 					/* without max. length */
-					strncat(pclDataBuffer, pclFieldDataBuffer, FMIN(ilLen1, ilLen2));	
+					strncat(pclDataBuffer, pclFieldDataBuffer, FMIN(ilLen1, ilLen2));
 
 					/* set data separator */
 					strcat(pclDataBuffer, rgTM.prHandleCmd[ipCmdNo].pcDataSeparator);
@@ -4248,11 +4249,11 @@ static int WriteDataToFile(int ipCmdNo, int ipTabNo, int *pipSecondRecord,
 				{
 					/* copy data to data buffer */
 					strcat(pclDataBuffer, pclFieldDataBuffer);
-					
+
 					/* set data separator */
 					strcat(pclDataBuffer, rgTM.prHandleCmd[ipCmdNo].pcDataSeparator);
 				}
-				
+
 				/* continue to next field */
 				continue;
 			}
@@ -4359,8 +4360,8 @@ static int WriteDataToFile(int ipCmdNo, int ipTabNo, int *pipSecondRecord,
 						{
 							/* set local buffer */
 							strcpy(pclLocalTimeBuffer, pclFieldDataBuffer);
-							
-							
+
+
 							/* call mapping function */
 							if ((ilRC = UtcToLocal(pclLocalTimeBuffer)) != RC_SUCCESS)
 							{
@@ -4376,7 +4377,7 @@ static int WriteDataToFile(int ipCmdNo, int ipTabNo, int *pipSecondRecord,
 				}
 
 				/* 7. *******************************************/
-				/* timestamp formatting */           
+				/* timestamp formatting */
 				/************************************************/
 				if (rgTM.prHandleCmd[ipCmdNo].prTabDef[ipTabNo].pcFieldTimestampFormat[ilFieldNo] != NULL)
 				{
@@ -4391,22 +4392,22 @@ static int WriteDataToFile(int ipCmdNo, int ipTabNo, int *pipSecondRecord,
 				}
 
 				/* 8. *******************************************/
-				/* SUBSTR */           
+				/* SUBSTR */
 				/************************************************/
 				if (rgTM.prHandleCmd[ipCmdNo].prTabDef[ipTabNo].prSubStr[ilFieldNo].iUseSubStr)
 				{
 					if (strlen(pclFieldDataBuffer))
 					{
-						memmove((void*)pclFieldDataBuffer, (const void*)&pclFieldDataBuffer[rgTM.prHandleCmd[ipCmdNo].prTabDef[ipTabNo].prSubStr[ilFieldNo].iStartPos-1], (size_t)rgTM.prHandleCmd[ipCmdNo].prTabDef[ipTabNo].prSubStr[ilFieldNo].iBytes); 
-						pclFieldDataBuffer[rgTM.prHandleCmd[ipCmdNo].prTabDef[ipTabNo].prSubStr[ilFieldNo].iBytes] = 0x00; 
+						memmove((void*)pclFieldDataBuffer, (const void*)&pclFieldDataBuffer[rgTM.prHandleCmd[ipCmdNo].prTabDef[ipTabNo].prSubStr[ilFieldNo].iStartPos-1], (size_t)rgTM.prHandleCmd[ipCmdNo].prTabDef[ipTabNo].prSubStr[ilFieldNo].iBytes);
+						pclFieldDataBuffer[rgTM.prHandleCmd[ipCmdNo].prTabDef[ipTabNo].prSubStr[ilFieldNo].iBytes] = 0x00;
 					}
 				}
 
 				/*****************************************************************************
-					 HAJ: fuer EFA-Flug und NDR muss hier was hardcoded rein!!. 
+					 HAJ: fuer EFA-Flug und NDR muss hier was hardcoded rein!!.
 					 Sehr unschoen aber ich weiﬂ nicht wie ich's sonst machen soll...
 				*****************************************************************************/
-				if (!strncmp(rgTM.prHandleCmd[ipCmdNo].pcCommand, "EFA", 3) 
+				if (!strncmp(rgTM.prHandleCmd[ipCmdNo].pcCommand, "EFA", 3)
 				||  !strcmp(rgTM.prHandleCmd[ipCmdNo].pcCommand, "NDR"))
 				{
 					/* this is for EFA1, EFA2, NDR... */
@@ -4433,16 +4434,16 @@ static int WriteDataToFile(int ipCmdNo, int ipTabNo, int *pipSecondRecord,
 
 				/*****************************************************************************
 						HAJ: Murks zweiter Teil: 	Jetzt soll fuer Laerm das Feld MTOW ohne Punkt aber
-													plus NULL hinterdran!? Das wird jetzt hardcoded an 
+													plus NULL hinterdran!? Das wird jetzt hardcoded an
 													den Kommandos LRM1 und LRM2 festgemacht...
 						Und Murks dritter Teil: Verkehrsart (TTYP) soll jetzt rechtsbuendig MIT
 														Vornullen ausgegeben werden!!
-													
-						NEU: 23.01.98 <-> bei LRM sollen alle Airportcodes im 3-letter plus 
+
+						NEU: 23.01.98 <-> bei LRM sollen alle Airportcodes im 3-letter plus
 								space dargestellt werden, wenn kein 3-letter code vorhanden ist
-								dann soll des 4-letter-code genommen werden... 
+								dann soll des 4-letter-code genommen werden...
 				*****************************************************************************/
-				if (!strncmp(rgTM.prHandleCmd[ipCmdNo].pcCommand, "LRM", 3)) 
+				if (!strncmp(rgTM.prHandleCmd[ipCmdNo].pcCommand, "LRM", 3))
 				{
 					/* ---------------------------------------------- */
 					/* ---------------------------------------------- */
@@ -4518,11 +4519,11 @@ static int WriteDataToFile(int ipCmdNo, int ipTabNo, int *pipSecondRecord,
 				}
 				/*****************************************************************************
 						HAJ: Murks vierter Teil: bei EFA und LRM soll das Feld 'FLNO' jetzt mit
-													8 Stellen ausgegeben werden. 
-									FLNO jetzt: 1,2,3,4,5,6,7,8,9. Character 8 ist momentan IMMER 
-									ein Blank. Dieser wird geloescht... 
+													8 Stellen ausgegeben werden.
+									FLNO jetzt: 1,2,3,4,5,6,7,8,9. Character 8 ist momentan IMMER
+									ein Blank. Dieser wird geloescht...
 				*****************************************************************************/
-				if (!strncmp(rgTM.prHandleCmd[ipCmdNo].pcCommand, "EFA", 3) 
+				if (!strncmp(rgTM.prHandleCmd[ipCmdNo].pcCommand, "EFA", 3)
 				||  !strncmp(rgTM.prHandleCmd[ipCmdNo].pcCommand, "LRM", 3))
 				{
 					/* this is for LRM1, LRM2, LFA1... */
@@ -4708,7 +4709,7 @@ static int WriteDataToFile(int ipCmdNo, int ipTabNo, int *pipSecondRecord,
 							    if (!strcmp(rgTM.prHandleCmd[ipCmdNo].prTabDef[ipTabNo].prDataMap[ilFieldNo][ilCurMapNo].pcOrgData,"OTHER_DATA")) {
 							      dbg(DEBUG,"<WDtF><FIX> %3d.Field <%s> -- MAP <OTHER_DATA> => %s"
 								  ,ilFieldNo,rgTM.prHandleCmd[ipCmdNo].prTabDef[ipTabNo].pcFields[ilFieldNo],
-								  rgTM.prHandleCmd[ipCmdNo].prTabDef[ipTabNo].prDataMap[ilFieldNo][ilCurMapNo].pcNewData);  
+								  rgTM.prHandleCmd[ipCmdNo].prTabDef[ipTabNo].prDataMap[ilFieldNo][ilCurMapNo].pcNewData);
 							      strcpy(pclFieldDataBuffer,rgTM.prHandleCmd[ipCmdNo].prTabDef[ipTabNo].prDataMap[ilFieldNo][ilCurMapNo].pcNewData);
 							      ilFoundData = iFOUND;
 							    }
@@ -4722,12 +4723,12 @@ static int WriteDataToFile(int ipCmdNo, int ipTabNo, int *pipSecondRecord,
 					ilLen1 = strlen(pclFieldDataBuffer);
 					/*ilLen2 = rgTM.prHandleCmd[ipCmdNo].prTabDef[ipTabNo].piDataLength[ilLengthNo++];*/
 					ilLen2 = rgTM.prHandleCmd[ipCmdNo].prTabDef[ipTabNo].piDataLength[ilLengthNo];
-					
+
 					/* without max. length */
 					dbg(DEBUG,"<WDtF><DYN> %3d.Field <%s>=<%s> len<%d>\tcfg-len<%d>",
 						ilFieldNo,rgTM.prHandleCmd[ipCmdNo].prTabDef[ipTabNo].pcFields[ilFieldNo],pclFieldDataBuffer,ilLen1,ilLen2);
 
-					strncat(pclDataBuffer, pclFieldDataBuffer, FMIN(ilLen1, ilLen2));	
+					strncat(pclDataBuffer, pclFieldDataBuffer, FMIN(ilLen1, ilLen2));
 
 					/* set data separator */
 					strcat(pclDataBuffer, rgTM.prHandleCmd[ipCmdNo].pcDataSeparator);
@@ -4794,7 +4795,7 @@ static int WriteDataToFile(int ipCmdNo, int ipTabNo, int *pipSecondRecord,
 							    if (!strcmp(rgTM.prHandleCmd[ipCmdNo].prTabDef[ipTabNo].prDataMap[ilFieldNo][ilCurMapNo].pcOrgData,"OTHER_DATA")) {
 							      dbg(DEBUG,"<WDtF><FIX> %3d.Field <%s> -- MAP <OTHER_DATA> => %s"
 								  ,ilFieldNo,rgTM.prHandleCmd[ipCmdNo].prTabDef[ipTabNo].pcFields[ilFieldNo],
-								  rgTM.prHandleCmd[ipCmdNo].prTabDef[ipTabNo].prDataMap[ilFieldNo][ilCurMapNo].pcNewData);  
+								  rgTM.prHandleCmd[ipCmdNo].prTabDef[ipTabNo].prDataMap[ilFieldNo][ilCurMapNo].pcNewData);
 							      strcpy(pclFieldDataBuffer,rgTM.prHandleCmd[ipCmdNo].prTabDef[ipTabNo].prDataMap[ilFieldNo][ilCurMapNo].pcNewData);
 							      ilFoundData = iFOUND;
 							    }
@@ -4808,7 +4809,7 @@ static int WriteDataToFile(int ipCmdNo, int ipTabNo, int *pipSecondRecord,
 					dbg(DEBUG,"<WDtF><DYN> %3d.Field <%s>=<%s> len<%d>",
 					    ilFieldNo,rgTM.prHandleCmd[ipCmdNo].prTabDef[ipTabNo].pcFields[ilFieldNo],pclFieldDataBuffer,strlen(pclFieldDataBuffer));
 					strcat(pclDataBuffer, pclFieldDataBuffer);
-					
+
 					/* set data separator */
 					strcat(pclDataBuffer, rgTM.prHandleCmd[ipCmdNo].pcDataSeparator);
 				}
@@ -4827,7 +4828,7 @@ static int WriteDataToFile(int ipCmdNo, int ipTabNo, int *pipSecondRecord,
 		if (strlen(rgTM.prHandleCmd[ipCmdNo].pcDataLinePrefix)>0)
 		{
 			strcat(pclLineBuffer,rgTM.prHandleCmd[ipCmdNo].pcDataLinePrefix);
-		}	
+		}
 
 		strcat(pclLineBuffer,pclDataBuffer);
 
@@ -4849,13 +4850,13 @@ static int WriteDataToFile(int ipCmdNo, int ipTabNo, int *pipSecondRecord,
 		/* this is at fix positions, data area must be initialized with blanks */
 		memset((void*)pclDataBuffer, iBLANK, iMAXIMUM);
 		pclDataBuffer[iMAXIMUM-1]=0x00;
-		
+
 		/*dbg(DEBUG,"*************** USE FIX-mode for data (blanks padded)! ****************************");	*/
 		/* for all fields */
 		ilTmpPos=0;
-		for (ilFieldNo=0, ilLengthNo=0, ilCurrentPos=0; 
-			  ilFieldNo<rgTM.prHandleCmd[ipCmdNo].prTabDef[ipTabNo].iNoFields; 
-			  ilFieldNo++,ilLengthNo++) 
+		for (ilFieldNo=0, ilLengthNo=0, ilCurrentPos=0;
+			  ilFieldNo<rgTM.prHandleCmd[ipCmdNo].prTabDef[ipTabNo].iNoFields;
+			  ilFieldNo++,ilLengthNo++)
 		{
 			/*dbg(DEBUG," START handle field <%s> -->",rgTM.prHandleCmd[ipCmdNo].prTabDef[ipTabNo].pcFields[ilFieldNo]);*/
 			/* must we ignore this field... */
@@ -4873,7 +4874,7 @@ static int WriteDataToFile(int ipCmdNo, int ipTabNo, int *pipSecondRecord,
 					break;
 				}
 			}
-			
+
 			/* 2. ***************************/
 			/* must write Fieldname */
 			/********************************/
@@ -4928,16 +4929,16 @@ static int WriteDataToFile(int ipCmdNo, int ipTabNo, int *pipSecondRecord,
 							memset((void*)pclFieldDataBuffer, 0x00, iMAXIMUM);
 						}
 					}
-					
+
 				}
 				else
 				{
 					/* ------------------------------------------------------- */
 					if (!strncmp(rgTM.prHandleCmd[ipCmdNo].pcCommand, "LZD", 3) ||
-						 !strncmp(rgTM.prHandleCmd[ipCmdNo].pcCommand, "KZD", 3)) 
+						 !strncmp(rgTM.prHandleCmd[ipCmdNo].pcCommand, "KZD", 3))
 					{
-						/* 
-						13.09.99 fuer ARE. Fuer LZD,KZD muss jetzt in Abhaengigkeit 
+						/*
+						13.09.99 fuer ARE. Fuer LZD,KZD muss jetzt in Abhaengigkeit
 						von SBPF eine Zeit gesetzt bzw. auf 0000 gesetzt werden...
 						Tja, ein Jahr spaeter!!!
 						*/
@@ -4957,7 +4958,7 @@ static int WriteDataToFile(int ipCmdNo, int ipTabNo, int *pipSecondRecord,
                   else
                     /* write SBLA-data to 2nd position...(unbezahlt) */
                     ilSBLA = 0;
-/*********/   
+/*********/
 								}
 							}
 
@@ -4972,7 +4973,7 @@ static int WriteDataToFile(int ipCmdNo, int ipTabNo, int *pipSecondRecord,
                 {
                   dbg(TRACE,"FIELD SBLA IS NULL >=> NOT PAID ");
                   strcpy(pclSBLA, "");
-									ilSBLA = -1;	
+									ilSBLA = -1;
                 }
 							}
 						}
@@ -5023,7 +5024,7 @@ static int WriteDataToFile(int ipCmdNo, int ipTabNo, int *pipSecondRecord,
 				{
 					/* only if data is smaller than max length */
 					if (ilLen1 < ilLen2)
-						ilTmpPos = ilCurrentPos + ilLen2 - ilLen1;	
+						ilTmpPos = ilCurrentPos + ilLen2 - ilLen1;
 					else
 						ilTmpPos = ilCurrentPos;
 
@@ -5035,10 +5036,10 @@ static int WriteDataToFile(int ipCmdNo, int ipTabNo, int *pipSecondRecord,
 					/* copy to my data aera */
 					memmove((pclDataBuffer+ilCurrentPos), pclFieldDataBuffer, FMIN(ilLen1,ilLen2));
 				}
-				
+
 				/* set new position */
 				ilCurrentPos += rgTM.prHandleCmd[ipCmdNo].prTabDef[ipTabNo].piDataLength[ilLengthNo];
-					
+
 				/* continue, and next field... */
 				continue;
 			}
@@ -5051,7 +5052,7 @@ static int WriteDataToFile(int ipCmdNo, int ipTabNo, int *pipSecondRecord,
 				/* set new position */
 				/*ilCurrentPos += rgTM.prHandleCmd[ipCmdNo].prTabDef[ipTabNo].piDataLength[ilLengthNo++];*/
 				ilCurrentPos += rgTM.prHandleCmd[ipCmdNo].prTabDef[ipTabNo].piDataLength[ilLengthNo];
-					
+
 				/* next field, next try */
 				continue;
 			}
@@ -5109,7 +5110,7 @@ static int WriteDataToFile(int ipCmdNo, int ipTabNo, int *pipSecondRecord,
 					dbg(TRACE,"<WDtF> cannot copy field (pcpData) %d", ilFieldNo);
 					Terminate(0);
 				}
-	
+
 				/* delete all right and left blanks */
 				while (pclFieldDataBuffer[strlen(pclFieldDataBuffer)-1] == ' ')
 					pclFieldDataBuffer[strlen(pclFieldDataBuffer)-1] = 0x00;
@@ -5140,7 +5141,7 @@ static int WriteDataToFile(int ipCmdNo, int ipTabNo, int *pipSecondRecord,
 						if (strlen(pclFieldDataBuffer) == 14)
 						{
 							/* set local buffer */
-							strcpy(pclLocalTimeBuffer, pclFieldDataBuffer);							
+							strcpy(pclLocalTimeBuffer, pclFieldDataBuffer);
 
 							/* call mapping function */
 							if ((ilRC = UtcToLocal(pclLocalTimeBuffer)) != RC_SUCCESS)
@@ -5178,16 +5179,16 @@ static int WriteDataToFile(int ipCmdNo, int ipTabNo, int *pipSecondRecord,
 				{
 					if (strlen(pclFieldDataBuffer))
 					{
-						memmove((void*)pclFieldDataBuffer, (const void*)&pclFieldDataBuffer[rgTM.prHandleCmd[ipCmdNo].prTabDef[ipTabNo].prSubStr[ilFieldNo].iStartPos-1], (size_t)rgTM.prHandleCmd[ipCmdNo].prTabDef[ipTabNo].prSubStr[ilFieldNo].iBytes); 
-						pclFieldDataBuffer[rgTM.prHandleCmd[ipCmdNo].prTabDef[ipTabNo].prSubStr[ilFieldNo].iBytes] = 0x00; 
+						memmove((void*)pclFieldDataBuffer, (const void*)&pclFieldDataBuffer[rgTM.prHandleCmd[ipCmdNo].prTabDef[ipTabNo].prSubStr[ilFieldNo].iStartPos-1], (size_t)rgTM.prHandleCmd[ipCmdNo].prTabDef[ipTabNo].prSubStr[ilFieldNo].iBytes);
+						pclFieldDataBuffer[rgTM.prHandleCmd[ipCmdNo].prTabDef[ipTabNo].prSubStr[ilFieldNo].iBytes] = 0x00;
 					}
 				}
 
 				/*****************************************************************************
-					 HAJ: fuer EFA-Flug und NDR muss hier was hardcoded rein!!. 
+					 HAJ: fuer EFA-Flug und NDR muss hier was hardcoded rein!!.
 					 Sehr unschoen aber ich weiﬂ nicht wie ich's sonst machen soll...
 				*****************************************************************************/
-				if (!strncmp(rgTM.prHandleCmd[ipCmdNo].pcCommand, "EFA", 3) 
+				if (!strncmp(rgTM.prHandleCmd[ipCmdNo].pcCommand, "EFA", 3)
 				||  !strcmp(rgTM.prHandleCmd[ipCmdNo].pcCommand, "NDR"))
 				{
 					/* this is for EFA1, EFA2, NDR... */
@@ -5213,16 +5214,16 @@ static int WriteDataToFile(int ipCmdNo, int ipTabNo, int *pipSecondRecord,
 				}
 				/*****************************************************************************
 						HAJ: Murks zweiter Teil: 	Jetzt soll fuer Laerm das Feld MTOW ohne Punkt aber
-													plus NULL hinterdran!? Das wird jetzt hardcoded an 
+													plus NULL hinterdran!? Das wird jetzt hardcoded an
 													den Kommandos LRM1 und LRM2 festgemacht...
 						Und Murks dritter Teil: Verkehrsart (TTYP) soll jetzt rechtsbuendig MIT
 														Vornullen ausgegeben werden!!
-													
-						NEU: 23.01.98 <-> bei LRM sollen alle Airportcodes im 3-letter plus 
+
+						NEU: 23.01.98 <-> bei LRM sollen alle Airportcodes im 3-letter plus
 								space dargestellt werden, wenn kein 3-letter code vorhanden ist
-								dann soll des 4-letter-code genommen werden... 
+								dann soll des 4-letter-code genommen werden...
 				*****************************************************************************/
-				if (!strncmp(rgTM.prHandleCmd[ipCmdNo].pcCommand, "LRM", 3)) 
+				if (!strncmp(rgTM.prHandleCmd[ipCmdNo].pcCommand, "LRM", 3))
 				{
 					/* ---------------------------------------------- */
 					/* ---------------------------------------------- */
@@ -5296,11 +5297,11 @@ static int WriteDataToFile(int ipCmdNo, int ipTabNo, int *pipSecondRecord,
 				}
 				/*****************************************************************************
 						HAJ: Murks vierter Teil: bei EFA und LRM soll das Feld 'FLNO' jetzt mit
-													8 Stellen ausgegeben werden. 
-									FLNO jetzt: 1,2,3,4,5,6,7,8,9. Character 8 ist momentan IMMER 
-									ein Blank. Dieser wird geloescht... 
+													8 Stellen ausgegeben werden.
+									FLNO jetzt: 1,2,3,4,5,6,7,8,9. Character 8 ist momentan IMMER
+									ein Blank. Dieser wird geloescht...
 				*****************************************************************************/
-				if (!strncmp(rgTM.prHandleCmd[ipCmdNo].pcCommand, "EFA", 3) 
+				if (!strncmp(rgTM.prHandleCmd[ipCmdNo].pcCommand, "EFA", 3)
 				||  !strncmp(rgTM.prHandleCmd[ipCmdNo].pcCommand, "LRM", 3))
 				{
 					/* this is for LRM1, LRM2, LFA1... */
@@ -5331,15 +5332,15 @@ static int WriteDataToFile(int ipCmdNo, int ipTabNo, int *pipSecondRecord,
 								/* IF (ONLY)SCHICHTENDE CHANGE FROM 0000 to 2400 */
 							if (ilFieldNo == 5)
 								{
-								/* this is ZEIT-BIS... */ 
+								/* this is ZEIT-BIS... */
 									if (!strcmp(pclFieldDataBuffer, "0000"))
 								{
 										strcpy(pclFieldDataBuffer, "2400");
-									}                                   
+									}
 							}
 					}
 					/***************/
- 
+
 					if (ilFieldNo == 4)
 					{
 						/* this is ZEIT-VON... */
@@ -5468,7 +5469,7 @@ static int WriteDataToFile(int ipCmdNo, int ipTabNo, int *pipSecondRecord,
 				/************************************************/
 				if (rgTM.prHandleCmd[ipCmdNo].prTabDef[ipTabNo].piNoMapData[ilFieldNo] > 0)
 				{
-					for (ilCurMapNo=0, ilFoundData=iNOT_FOUND; 
+					for (ilCurMapNo=0, ilFoundData=iNOT_FOUND;
 							 ilCurMapNo<rgTM.prHandleCmd[ipCmdNo].prTabDef[ipTabNo].piNoMapData[ilFieldNo] && ilFoundData == iNOT_FOUND;
 							 ilCurMapNo++)
 					{
@@ -5524,7 +5525,7 @@ static int WriteDataToFile(int ipCmdNo, int ipTabNo, int *pipSecondRecord,
 						    if (!strcmp(rgTM.prHandleCmd[ipCmdNo].prTabDef[ipTabNo].prDataMap[ilFieldNo][ilCurMapNo].pcOrgData,"OTHER_DATA")) {
 						      dbg(DEBUG,"<WDtF><FIX> %3d.Field <%s> -- MAP <OTHER_DATA> => %s"
 							  ,ilFieldNo,rgTM.prHandleCmd[ipCmdNo].prTabDef[ipTabNo].pcFields[ilFieldNo],
-							  rgTM.prHandleCmd[ipCmdNo].prTabDef[ipTabNo].prDataMap[ilFieldNo][ilCurMapNo].pcNewData);  
+							  rgTM.prHandleCmd[ipCmdNo].prTabDef[ipTabNo].prDataMap[ilFieldNo][ilCurMapNo].pcNewData);
 						      strcpy(pclFieldDataBuffer,rgTM.prHandleCmd[ipCmdNo].prTabDef[ipTabNo].prDataMap[ilFieldNo][ilCurMapNo].pcNewData);
 						      ilFoundData = iFOUND;
 						    }
@@ -5542,7 +5543,7 @@ static int WriteDataToFile(int ipCmdNo, int ipTabNo, int *pipSecondRecord,
 				{
 					/* only if data is smaller than max length */
 					if (ilLen1 < ilLen2)
-						ilTmpPos = ilCurrentPos + ilLen2 - ilLen1;	
+						ilTmpPos = ilCurrentPos + ilLen2 - ilLen1;
 					else
 						ilTmpPos = ilCurrentPos;
 
@@ -5556,13 +5557,13 @@ static int WriteDataToFile(int ipCmdNo, int ipTabNo, int *pipSecondRecord,
 			/*------------------------------------------------------------*/
       /* Nicht schoen, aber funktioniert */
 			/* Abwesenheiten in Hannover Zeit-von ,Zeit-bis = blank wenn 0000 */
-			if (!strncmp(rgTM.prHandleCmd[ipCmdNo].pcCommand, "ABW", 3)) 
+			if (!strncmp(rgTM.prHandleCmd[ipCmdNo].pcCommand, "ABW", 3))
 			{
   			  dbg(TRACE," Command <%s> FieldDataBuffer <%s> FieldNo <%d>",
 					rgTM.prHandleCmd[ipCmdNo].pcCommand,pclFieldDataBuffer,ilFieldNo);
   			  dbg(TRACE,"Test: Command <%s>",rgTM.prHandleCmd[ipCmdNo].pcCommand);
 
-					if ((ilFieldNo == 5) || (ilFieldNo == 6)) 
+					if ((ilFieldNo == 5) || (ilFieldNo == 6))
 			    {
 			    	/* this is ZEIT-VON... or ZEIT-BIS... +/
 					   if ((ilRC = GetIndex(pcpFields, "CTYP", cCOMMA)) >= 0)
@@ -5588,7 +5589,7 @@ static int WriteDataToFile(int ipCmdNo, int ipTabNo, int *pipSecondRecord,
 
 					memmove((pclDataBuffer+ilCurrentPos), pclFieldDataBuffer, FMIN(ilLen1,ilLen2));
 				}
-				
+
 				/* set new position */
 				/*ilCurrentPos += rgTM.prHandleCmd[ipCmdNo].prTabDef[ipTabNo].piDataLength[ilLengthNo++];*/
 				ilCurrentPos += rgTM.prHandleCmd[ipCmdNo].prTabDef[ipTabNo].piDataLength[ilLengthNo];
@@ -5661,7 +5662,7 @@ static int WriteDataToFile(int ipCmdNo, int ipTabNo, int *pipSecondRecord,
        {
          strcpy(pclPenoData, "");
        }
-     } 
+     }
 
      /* descision wether data is send to HR depending on field TOHR in table STF for Mitarbeiter record */
 	   if (!strcmp(rgTM.prHandleCmd[ipCmdNo].pcTableExtension, "TAB"))
@@ -5672,7 +5673,7 @@ static int WriteDataToFile(int ipCmdNo, int ipTabNo, int *pipSecondRecord,
 		   ilRC = syslibSearchDbData("STFTAB",
                                     pclSyslibFields,
                                     pclSyslibFieldData,
-                                    "TOHR", 
+                                    "TOHR",
                                     pclSyslibResultBuf, &ilCnt, "");
        if (ilRC != RC_SUCCESS)
        {
@@ -5684,7 +5685,7 @@ static int WriteDataToFile(int ipCmdNo, int ipTabNo, int *pipSecondRecord,
        {
           if (!(strcmp(pclSyslibResultBuf, "J")) || !(strcmp(pclSyslibResultBuf, "j")))
           {
-             ilSendToHR = TRUE; 
+             ilSendToHR = TRUE;
           }
           else
           {
@@ -5702,7 +5703,7 @@ static int WriteDataToFile(int ipCmdNo, int ipTabNo, int *pipSecondRecord,
                                     pclSyslibFields,
                                     pclSyslibFieldData,
                                     "TOHR",
-                                    pclSyslibResultBuf, &ilCnt, ""); 
+                                    pclSyslibResultBuf, &ilCnt, "");
           if (ilRC != RC_SUCCESS)
           {
              dbg(TRACE,"syslibSearchDbData in STFTAB for TOHR with PENO <%s> failed (%d)",
@@ -5717,7 +5718,7 @@ static int WriteDataToFile(int ipCmdNo, int ipTabNo, int *pipSecondRecord,
              }
              else
              {
-                ilSendToHR = FALSE; 
+                ilSendToHR = FALSE;
                 dbg(TRACE,"NO SEND TO HR FOR PERSNO: <%s>", pclPenoData);
              }
           }
@@ -5741,7 +5742,7 @@ static int WriteDataToFile(int ipCmdNo, int ipTabNo, int *pipSecondRecord,
         }
         if ((ilRC = GetIndex(pcpFields, "AVFA", cCOMMA)) >= 0)
         {
-          pclS = GetDataField(pcpData, ilRC, cCOMMA); 
+          pclS = GetDataField(pcpData, ilRC, cCOMMA);
 					if (strlen(pclS) > 0)
           {
             strncpy(pclDay, pclS, 8);
@@ -5752,7 +5753,7 @@ static int WriteDataToFile(int ipCmdNo, int ipTabNo, int *pipSecondRecord,
             strcpy(pclDay, "");
           }
         }
-        /* 
+        /*
            Descision wether data is send to HR depending on field FREE in Table ODA.
            Get right record in ODA by SDAC field that is same like SFCA for PENO in DSR table.
         */
@@ -5760,7 +5761,7 @@ static int WriteDataToFile(int ipCmdNo, int ipTabNo, int *pipSecondRecord,
         {
           /* Suche in DSRTAB SFCA WHERE PENO = PENO SDAY = pclDay && HOPO = HOPO */
           sprintf(pclSyslibFields, "PENO,HOPO,SDAY");
-          sprintf(pclSyslibFieldData, "%s,%s,%s", 
+          sprintf(pclSyslibFieldData, "%s,%s,%s",
                                       pclPenoData,
                                       rgTM.prHandleCmd[ipCmdNo].pcHomeAirport,
                                       pclDay);
@@ -5772,7 +5773,7 @@ static int WriteDataToFile(int ipCmdNo, int ipTabNo, int *pipSecondRecord,
           if (ilRC != RC_SUCCESS)
           {
              dbg(TRACE,"syslibSearchDbData in DSRTAB for SFCA with PENO <%s> and HOPO <%s> at SDAY <%s> failed (%d)",
-                                        pclPenoData, 
+                                        pclPenoData,
                                         rgTM.prHandleCmd[ipCmdNo].pcHomeAirport,
                                         pclDay, ilRC);
              ilSendToHR = TRUE;
@@ -5792,14 +5793,14 @@ static int WriteDataToFile(int ipCmdNo, int ipTabNo, int *pipSecondRecord,
              {
                 dbg(TRACE,"syslibSearchDbData in ODATAB for FREE with SDAC,HOPO <%s> failed (%d)",
                            pclSyslibFieldData, ilRC);
-                ilSendToHR = FALSE; 
+                ilSendToHR = FALSE;
              }
              else
              {
                 if (!(strcmp(pclSyslibResultBuf, "X")) || !(strcmp(pclSyslibResultBuf, "x")))
                 {
                    ilSendToHR = FALSE;
-                   dbg(DEBUG,"NO SEND TO HR FOR SDAC,HOPO: <%s>", pclSyslibFieldData);   
+                   dbg(DEBUG,"NO SEND TO HR FOR SDAC,HOPO: <%s>", pclSyslibFieldData);
                 }
                 else
                 {
@@ -5836,17 +5837,17 @@ static int WriteDataToFile(int ipCmdNo, int ipTabNo, int *pipSecondRecord,
                                        "FREE",
                                        pclSyslibResultBuf, &ilCnt, "");
                 if (ilRC != RC_SUCCESS)
-                {                    
+                {
                    dbg(TRACE,"syslibSearchDbData in ODA for FREE with SDAC = <%s> failed (%d)",
-                              pclSyslibFieldData, ilRC);       
-                   ilSendToHR = FALSE;                             
+                              pclSyslibFieldData, ilRC);
+                   ilSendToHR = FALSE;
                 }
                 else
                 {
                    if (!(strcmp(pclSyslibResultBuf, "X")) || !(strcmp(pclSyslibResultBuf, "x")))
                    {
                       ilSendToHR = FALSE;
-                      dbg(DEBUG,"NO SEND TO HR FOR SDAC: <%s>", pclSyslibFieldData);   
+                      dbg(DEBUG,"NO SEND TO HR FOR SDAC: <%s>", pclSyslibFieldData);
                    }
                    else
                    {
@@ -5859,7 +5860,7 @@ static int WriteDataToFile(int ipCmdNo, int ipTabNo, int *pipSecondRecord,
      } /* if ABW  */
 
 
-  } /* if KZD,LZD,ABW */ 
+  } /* if KZD,LZD,ABW */
 	/*************************/
 
 	/* write line to file */
@@ -5884,7 +5885,7 @@ static int WriteDataToFile(int ipCmdNo, int ipTabNo, int *pipSecondRecord,
 		{
 			if (ilNoOfVias > 0 && strlen(pclVial))
 			{
-				for (i=0, ilRC=0, pclS=pclVial; i<ilNoOfVias; i++, pclS+=120) 
+				for (i=0, ilRC=0, pclS=pclVial; i<ilNoOfVias; i++, pclS+=120)
 				{
 					/* only for via1... */
 					if (*pclS == '1')
@@ -6033,13 +6034,13 @@ static int SendFileToMachine(int ipCmdNo, int ipTabNo)
         rgTM.prHandleCmd[ipCmdNo].pcDynDateFormat,rgTM.prHandleCmd[ipCmdNo].pcDynTimeFormat,-1);
 
 			/* must write EOF-Sign */
-			fprintf(rgTM.prHandleCmd[ipCmdNo].pFh, "%s%s", 
+			fprintf(rgTM.prHandleCmd[ipCmdNo].pFh, "%s%s",
 					rgTM.prHandleCmd[ipCmdNo].pcEndOfFile,
 					rgTM.prHandleCmd[ipCmdNo].pcEndOfLine);
 		}
 
 		/* close datafile (if it is open) */
-		dbg(DEBUG,"<SFtM> CloseFile  <%s>", 
+		dbg(DEBUG,"<SFtM> CloseFile  <%s>",
 					rgTM.prHandleCmd[ipCmdNo].pcTmpFileNameWithPath);
 		fclose(rgTM.prHandleCmd[ipCmdNo].pFh);
 
@@ -6086,7 +6087,7 @@ static int SendFileToMachine(int ipCmdNo, int ipTabNo)
 					dbg(DEBUG,"<SFtM> ready reading new data file");
 
 				/* compare content of both files (old and new) */
-				if (rgTM.prHandleCmd[ipCmdNo].lOldFileLength == 
+				if (rgTM.prHandleCmd[ipCmdNo].lOldFileLength ==
 				    rgTM.prHandleCmd[ipCmdNo].lFileLength)
 				{
 					ilRC = memcmp((const void*)rgTM.prHandleCmd[ipCmdNo].pcOldFileContent, (const void*)rgTM.prHandleCmd[ipCmdNo].pcFileContent, (size_t)rgTM.prHandleCmd[ipCmdNo].lFileLength);
@@ -6118,7 +6119,7 @@ static int SendFileToMachine(int ipCmdNo, int ipTabNo)
 		/*Changes by mos 28 June 2000 for FTPHDL implementation *****/
 		/****************FTP System Call**************** */
 		if (((igModID_Ftphdl = tool_get_q_id("ftphdl")) == RC_NOT_FOUND) ||
-								((igModID_Ftphdl = tool_get_q_id("ftphdl")) == RC_FAIL)  || 
+								((igModID_Ftphdl = tool_get_q_id("ftphdl")) == RC_FAIL)  ||
 								(strcmp(rgTM.prHandleCmd[ipCmdNo].pcftp_mode,"SYSTEM")== 0))	{
 		/********EO changes **************/
 
@@ -6141,7 +6142,7 @@ static int SendFileToMachine(int ipCmdNo, int ipTabNo)
 					fprintf(fh, "cd %s\n", rgTM.prHandleCmd[ipCmdNo].pcMachinePath);
 
 					/* write it */
-					fprintf(fh, "put %s %s\n", 
+					fprintf(fh, "put %s %s\n",
 										rgTM.prHandleCmd[ipCmdNo].pcFileNameWithPath,
 										rgTM.prHandleCmd[ipCmdNo].pcFileName);
 
@@ -6152,7 +6153,7 @@ static int SendFileToMachine(int ipCmdNo, int ipTabNo)
 					/* close file */
 					fclose(fh);
 				}
-				
+
 				/* clear memory from logfile... */
 				memset((void*)pclTmpFile, 0x00, iMIN_BUF_SIZE);
 				if ((pclTmpPath = getenv("TMP_PATH")) == NULL)
@@ -6180,8 +6181,8 @@ static int SendFileToMachine(int ipCmdNo, int ipTabNo)
 				{
 					case 0:
 						errno = 0;
-						ilRC = execlp(rgTM.prHandleCmd[ipCmdNo].pcShell, 
-										  rgTM.prHandleCmd[ipCmdNo].pcShell, 
+						ilRC = execlp(rgTM.prHandleCmd[ipCmdNo].pcShell,
+										  rgTM.prHandleCmd[ipCmdNo].pcShell,
 										  pclTmpBuf, NULL);
 						exit(0);
 						break;
@@ -6228,27 +6229,27 @@ static int SendFileToMachine(int ipCmdNo, int ipTabNo)
 				{
 					dbg(TRACE,"<SFtM> cannot remove control file <%s> (%d)", sDEFAULT_CTRLFILE,ilRC);
 				}
-			} /*il (ilRC)*/	
+			} /*il (ilRC)*/
  	                else
         	        {
                 	                dbg(DEBUG,"<SFtM> file is equal...");
                         }
- 
+
 			/*Changes by mos 28 June 2000 for FTPHDL implementation *****/
 			} /* if ((ilRC = tool_get_q_id(ftphdl)  == 0)*/
 			else
 			{
 				/******* Changes by MOS 01 Nov 1999 for FTPHDL implementation *****/
-				
+
 				/* Save numtabkey value */
 				memset(pclNumtabkey,0x00,iMIN_BUF_SIZE);
 				strcpy(pclNumtabkey,rgTM.prHandleCmd[ipCmdNo].pcNumtab_Key);
-				
+
 				/*****************************************************************************************/
 				/* Filling of the FTPConfig-structure for the dynamic configuration of the ftphdl-process*/
 				/*****************************************************************************************/
 				memset(&prgFtp,0x00,sizeof(FTPConfig));
- 
+
 				prgFtp.iFtpRC 			= FTP_SUCCESS; /* Returncode of FTP-transmission */
 				strcpy(prgFtp.pcCmd,"FTP");
 				strcpy(prgFtp.pcHostName,rgTM.prHandleCmd[ipCmdNo].pcMachine);
@@ -6290,7 +6291,7 @@ static int SendFileToMachine(int ipCmdNo, int ipTabNo)
 
 				/* if numtab_key is specified, then create extension, if not use configured one */
 				if (strlen(rgTM.prHandleCmd[ipCmdNo].pcNumtab_Key)> 1) {
-					memset(pclNumtabvalue,0x00,iMIN_BUF_SIZE);					
+					memset(pclNumtabvalue,0x00,iMIN_BUF_SIZE);
 					GetNextNumbers(pclNumtabkey, pclNumtabvalue, 1,"NO_AUTO_INCREASE");
 					GetDataItem(pclNumtabacnu, pclNumtabvalue, 1, cCOMMA, "", " \0");
 					if (strlen(pclNumtabacnu)<=0) {
@@ -6299,12 +6300,12 @@ static int SendFileToMachine(int ipCmdNo, int ipTabNo)
 					}
 					sprintf(prgFtp.pcRemoteFileName,"%s%04d",rgTM.prHandleCmd[ipCmdNo].pcFtpDestFileName,atoi(pclNumtabacnu));
 					if (strlen(rgTM.prHandleCmd[ipCmdNo].pcFtpRenameDestFile)> 1) {
-						
+
 						sprintf(prgFtp.pcRenameRemoteFile,"%s%04d",rgTM.prHandleCmd[ipCmdNo].pcFtpRenameDestFile,atoi(pclNumtabacnu));
-						if (strlen(prgFtp.pcHostName) > 1) {						
+						if (strlen(prgFtp.pcHostName) > 1) {
 							strcpy(prgFtp.pcRemoteFileName,prgFtp.pcLocalFileName);
 						} else {
-							sprintf(prgFtp.pcRemoteFileName,"%s%04d",rgTM.prHandleCmd[ipCmdNo].pcFtpDestFileName,atoi(pclNumtabacnu));						
+							sprintf(prgFtp.pcRemoteFileName,"%s%04d",rgTM.prHandleCmd[ipCmdNo].pcFtpDestFileName,atoi(pclNumtabacnu));
 						}
 					} else {
 						sprintf(prgFtp.pcRemoteFileName,"%s%04d",rgTM.prHandleCmd[ipCmdNo].pcFtpDestFileName,atoi(pclNumtabacnu));
@@ -6312,11 +6313,11 @@ static int SendFileToMachine(int ipCmdNo, int ipTabNo)
 				}
 				else
 				{
-					if (strlen(rgTM.prHandleCmd[ipCmdNo].pcRemoteFile_AppendExtension)>0) {					
+					if (strlen(rgTM.prHandleCmd[ipCmdNo].pcRemoteFile_AppendExtension)>0) {
 						sprintf(prgFtp.pcRemoteFileName,"%s%s",rgTM.prHandleCmd[ipCmdNo].pcFtpDestFileName,rgTM.prHandleCmd[ipCmdNo].pcRemoteFile_AppendExtension);
 						if (strlen(rgTM.prHandleCmd[ipCmdNo].pcFtpRenameDestFile)> 1) {
 							sprintf(prgFtp.pcRenameRemoteFile,"%s%s",rgTM.prHandleCmd[ipCmdNo].pcFtpDestFileName,rgTM.prHandleCmd[ipCmdNo].pcRemoteFile_AppendExtension);
-						}	
+						}
 					} else {
 						strcpy(prgFtp.pcRemoteFileName,rgTM.prHandleCmd[ipCmdNo].pcFtpDestFileName);
 						if (strlen(rgTM.prHandleCmd[ipCmdNo].pcFtpRenameDestFile)> 1) {
@@ -6324,17 +6325,17 @@ static int SendFileToMachine(int ipCmdNo, int ipTabNo)
 						}
 					}
 				}
-				
+
 				if (strlen(rgTM.prHandleCmd[ipCmdNo].pcFtpRenameDestFile)> 1) {
 					dbg(TRACE,"SENDFILETOMACHINE filename <%s> from command <%s> to mod-id <%d>",prgFtp.pcRenameRemoteFile,rgTM.prHandleCmd[ipCmdNo].pcCommand,igModID_Ftphdl);
 				} else {
 					dbg(TRACE,"SENDFILETOMACHINE filename <%s> from command <%s> to mod-id <%d>",prgFtp.pcRemoteFileName,rgTM.prHandleCmd[ipCmdNo].pcCommand,igModID_Ftphdl);
 				}
-				prgFtp.iSendAnswer 		= 1; /* yes=1 no=0 */ 
+				prgFtp.iSendAnswer 		= 1; /* yes=1 no=0 */
 				prgFtp.cStructureCode 		= CEDA_FILE;
 				prgFtp.cTransferMode 		= CEDA_STREAM;
 				prgFtp.iStoreType 		= CEDA_CREATE;
-				prgFtp.data[0] 			= 0x00;	
+				prgFtp.data[0] 			= 0x00;
 			if ((ilRC = SendEvent("FTP"," "," ","DYN",(char*)&prgFtp,
 					sizeof(FTPConfig),igModID_Ftphdl, PRIORITY_3,"FIDS",pclNumtabkey,pclNumtabacnu,rgTM.prHandleCmd[ipCmdNo].pcNumtab_Stopvalue,ipCmdNo))	!= RC_SUCCESS)
 				{
@@ -6348,7 +6349,7 @@ static int SendFileToMachine(int ipCmdNo, int ipTabNo)
 		so the file is always closed here!
 		*/
 		/* should i send command after creating file? */
-		if (rgTM.prHandleCmd[ipCmdNo].iUseSEC) 
+		if (rgTM.prHandleCmd[ipCmdNo].iUseSEC)
 		{
 			/* build fieldlist for sending */
 			memset((void*)pclFieldBuf, 0x00, iMAXIMUM);
@@ -6369,14 +6370,14 @@ static int SendFileToMachine(int ipCmdNo, int ipTabNo)
 				}
 
 				/* calculate length of event */
-				ilLen = sizeof(EVENT) + sizeof(BC_HEAD) + 
+				ilLen = sizeof(EVENT) + sizeof(BC_HEAD) +
 							  sizeof(CMDBLK) + strlen(pclFieldBuf) + lFileLength + 5;
 			}
 			else
 			{
 				/* length of OutEvent... */
-				ilLen = sizeof(EVENT)       + sizeof(BC_HEAD) + 
-						sizeof(CMDBLK)      + strlen(rgTM.prHandleCmd[ipCmdNo].pcFileNameWithPath) + 
+				ilLen = sizeof(EVENT)       + sizeof(BC_HEAD) +
+						sizeof(CMDBLK)      + strlen(rgTM.prHandleCmd[ipCmdNo].pcFileNameWithPath) +
 						strlen(pclFieldBuf) + 5;
 			}
 
@@ -6408,11 +6409,11 @@ static int SendFileToMachine(int ipCmdNo, int ipTabNo)
 
 				/* Cmdblk-Structure... */
 				prlOutCmdblk = (CMDBLK*)((char*)prlOutBCHead->data);
-				strcpy(prlOutCmdblk->command, 
+				strcpy(prlOutCmdblk->command,
 					 rgTM.prHandleCmd[ipCmdNo].rSendEventCmds.pcCmd);
 				prlOutCmdblk->obj_name[0] = 0x00;
 
-				if (rgTM.prHandleCmd[ipCmdNo].rSendEventCmds.iAfcKeepOrgTwStart==1) 
+				if (rgTM.prHandleCmd[ipCmdNo].rSendEventCmds.iAfcKeepOrgTwStart==1)
 				{
 					sprintf(prlOutCmdblk->tw_start, "%s",rgTM.prHandleCmd[ipCmdNo].rSendEventCmds.pcOrgTwStart);
 				}
@@ -6427,14 +6428,14 @@ static int SendFileToMachine(int ipCmdNo, int ipTabNo)
 
 				/* selection */
 				pclOutSelection = (char*)prlOutCmdblk->data;
-				
+
 				if(rgTM.prHandleCmd[ipCmdNo].rSendEventCmds.iAfcSendFilename == 1)
 				{
 					strcpy(pclOutSelection,rgTM.prHandleCmd[ipCmdNo].pcFileNameWithPath);
 				}
 
 				/* fields */
-				pclOutFields = (char*)prlOutCmdblk->data + 
+				pclOutFields = (char*)prlOutCmdblk->data +
 												strlen(pclOutSelection) + 1;
 				strcpy(pclOutFields, pclFieldBuf);
 
@@ -6442,8 +6443,8 @@ static int SendFileToMachine(int ipCmdNo, int ipTabNo)
 				pclOutData = (char*)prlOutCmdblk->data +
 									strlen(pclOutSelection) + strlen(pclOutFields) + 2;
 
-				/* copy to pointer */ 
-				if (rgTM.prHandleCmd[ipCmdNo].rSendEventCmds.iSendFileToQue && 
+				/* copy to pointer */
+				if (rgTM.prHandleCmd[ipCmdNo].rSendEventCmds.iSendFileToQue &&
 					 pclFileContents != NULL)
 				{
 					memcpy((void*)pclOutData, (const void*)pclFileContents, (size_t)lFileLength);
@@ -6453,7 +6454,7 @@ static int SendFileToMachine(int ipCmdNo, int ipTabNo)
 				}
 
 
-				/* write to Que */				
+				/* write to Que */
 				if (rgTM.prHandleCmd[ipCmdNo].rSendEventCmds.iModID > 0) {
 					dbg(TRACE,"<SFtM> write event to QUE: %d for command <%s>", rgTM.prHandleCmd[ipCmdNo].rSendEventCmds.iModID,rgTM.prHandleCmd[ipCmdNo].rSendEventCmds.pcCmd);
 					if ((ilRC = que(QUE_PUT, rgTM.prHandleCmd[ipCmdNo].rSendEventCmds.iModID, mod_id, PRIORITY_3, ilLen, (char*)prlOutEvent)) != RC_SUCCESS)
@@ -6470,7 +6471,7 @@ static int SendFileToMachine(int ipCmdNo, int ipTabNo)
 				}
 			}
 		}/* should i send command after creating file? */
-	}/* first check file, exist it? */	
+	}/* first check file, exist it? */
 
 	/* bye bye */
 	return RC_SUCCESS;
@@ -6516,7 +6517,7 @@ static int SendEvent(char *pcpCmd,char *pcpSelection,char *pcpFields, char *pcpD
 		prlOutEvent->originator		= (short)mod_id;
 		prlOutEvent->retry_count	= 0;
 		prlOutEvent->data_offset	= sizeof(EVENT);
-		prlOutEvent->data_length	= ilLen - sizeof(EVENT); 
+		prlOutEvent->data_length	= ilLen - sizeof(EVENT);
 
 		/* BC_HEAD-Structure... */
 		prlOutBCHead 			= (BC_HEAD*)((char*)prlOutEvent+sizeof(EVENT));
@@ -6529,13 +6530,13 @@ static int SendEvent(char *pcpCmd,char *pcpSelection,char *pcpFields, char *pcpD
 		strcpy(prlOutCmdblk->command,pcpCmd);
 		strcpy(prlOutCmdblk->obj_name,pcpTable);
 		strcat(prlOutCmdblk->obj_name,rgTM.prHandleCmd[ipCmdNo].pcTableExtension);
-		
+
 		/* setting tw_start entries */
 		sprintf(prlOutCmdblk->tw_start,"%s,%s,%s",pcpType,pcpFile,pcptw_startvalue);
-		
+
 		/* setting tw_end entries */
 		sprintf(prlOutCmdblk->tw_end,"%s,%s,%s,TRUE",rgTM.prHandleCmd[ipCmdNo].pcHomeAirport,rgTM.prHandleCmd[ipCmdNo].pcTableExtension,pcgProcessName);
-		
+
 		/* setting selection inside event */
 		strcpy(prlOutCmdblk->data,pcpSelection);
 
@@ -6551,11 +6552,11 @@ static int SendEvent(char *pcpCmd,char *pcpSelection,char *pcpFields, char *pcpD
 		{
 			memcpy((prlOutCmdblk->data +
 						(strlen(pcpSelection)+1) +
-						(strlen(pcpFields)+1)) + 
+						(strlen(pcpFields)+1)) +
 						(strlen(pcpData)+1),pcpAddStruct,ipAddLen);
 		}
 
-		/*DebugPrintEvent(DEBUG,prlOutEvent);*/ 
+		/*DebugPrintEvent(DEBUG,prlOutEvent);*/
 		/*snapit((char*)prlOutEvent,ilLen,outp);*/
 
 		dbg(DEBUG,"SendEvent: <%d> --> <%d>",mod_id,ipModID);
@@ -6566,7 +6567,7 @@ static int SendEvent(char *pcpCmd,char *pcpSelection,char *pcpFields, char *pcpD
 			dbg(TRACE,"SendEvent: QUE_PUT to <%d> returns: <%d>",ipModID,ilRC);
 		}
 		/* free memory */
-	  free((void*)prlOutEvent); 
+	  free((void*)prlOutEvent);
 	}
 	return ilRC;
 }
@@ -6645,7 +6646,7 @@ static int GetFileContents(char *Ppath, long *Psize, char **PPret)
   {
     dbg(TRACE,"GetFileContents: stat for %s failed: %s", Ppath,
 	    strerror(errno));
-    
+
     rc = RC_FAIL;
   }
 
@@ -6656,7 +6657,7 @@ static int GetFileContents(char *Ppath, long *Psize, char **PPret)
     if (Pbuffer == NULL)
     {
       dbg(TRACE,"GetFileContents: calloc failed: %s:", strerror(errno));
-      
+
       rc = RC_FAIL;
     }
   }
@@ -6681,10 +6682,10 @@ static int GetFileContents(char *Ppath, long *Psize, char **PPret)
     } /* fi */
     else if (rc < *Psize)
     {
-      dbg(TRACE,"GetFileContents: read %d bytes instead of %ld ", 
+      dbg(TRACE,"GetFileContents: read %d bytes instead of %ld ",
 	      rc, *Psize);
       rc = RC_FAIL;
-    } 
+    }
     else
     {
       rc = RC_SUCCESS;
@@ -6702,8 +6703,8 @@ static int GetFileContents(char *Ppath, long *Psize, char **PPret)
   {
     *PPret = NULL;
 	 *Psize = 0;
-    dbg(TRACE,"GetFileContents: read %d bytes & returns %ld",*Psize,rc); 
-    free((void*)Pbuffer); 
+    dbg(TRACE,"GetFileContents: read %d bytes & returns %ld",*Psize,rc);
+    free((void*)Pbuffer);
   }
 
   return rc;
@@ -6794,7 +6795,7 @@ static int ReplaceStdTokens(int ipCmd,char *pcpLine,char *pcpDynData,char *pcpDa
 	char pclTmpBuf[iMAX_BUF_SIZE];
 	char pclTmpBuf2[iMAX_BUF_SIZE];
 
-	do 
+	do
 	{
 		memset(pclDynData,0x00,iMAX_BUF_SIZE);
 		memset(pclToken,0x00,iMAX_BUF_SIZE);
@@ -6893,22 +6894,22 @@ static int FormatDate(char *pcpOldDate,char *pcpFormat,char *pcpNewDate)
 	char pclValidLetters[] = "YMDHIS";
 	char pclRightFormat[20];
 	char *pclTmpDate = NULL;
-	
+
 	TrimRight(pcpOldDate);
 	memset(pclOldDate,0x00,sizeof(pclOldDate));
 	memset(pclRightFormat,0x00,sizeof(pclRightFormat));
 	*pcpNewDate = 0x00;
-	
+
 	if (strlen(pcpOldDate) > 14)
 	{
-		return RC_FAIL;	
+		return RC_FAIL;
 	}else
 	{
 		strcpy(pclOldDate,pcpOldDate);
 		TrimRight(pclOldDate);
 	}
 
-	/* adding '0' until the length of the date is 14byte */ 
+	/* adding '0' until the length of the date is 14byte */
 	if (strlen(pclOldDate) < 14)
 	{
 		while(strlen(pclOldDate) < 14)
@@ -6917,7 +6918,7 @@ static int FormatDate(char *pcpOldDate,char *pcpFormat,char *pcpNewDate)
 			pclOldDate[strlen(pclOldDate)+1] = 0x00;
 		}
 	}
-	
+
 	/* removing all unallowed letters from pcpFormat-string */
 	ilCfgChar=0;
 	while(ilCfgChar < (int)strlen(pcpFormat))
@@ -6930,11 +6931,11 @@ static int FormatDate(char *pcpOldDate,char *pcpFormat,char *pcpNewDate)
 		ilCfgChar++;
 	}
 
-	/* now formatting CEDA-time format from pclOldDate to right format */	
+	/* now formatting CEDA-time format from pclOldDate to right format */
 	if ((pclTmpDate =
 			GetPartOfTimeStamp(pclOldDate,pclRightFormat)) != NULL)
 	{
-		/* now changing the layout like it is in the cfg-file */	
+		/* now changing the layout like it is in the cfg-file */
 		ilCfgChar = 0;
 		ilRightChar = 0;
 		ilDateChar = 0;
@@ -6960,7 +6961,7 @@ static int FormatDate(char *pcpOldDate,char *pcpFormat,char *pcpNewDate)
 		ilRc = RC_FAIL;
 	}
 	/* dbg(DEBUG,"FormatDate: Old=<%s> New=<%s>",pclOldDate,pcpNewDate);*/
-	return ilRc;	
+	return ilRc;
 }
 /* ******************************************************************** */
 /* The GetLogFileMode() routine                                         */
@@ -6973,7 +6974,7 @@ static void GetLogFileMode(int *ipModeLevel, char *pcpLine, char *pcpDefault)
 	memset(pclTmp,0x00,32);
 	ilRc = iGetConfigEntry(pcgCfgFile, "MAIN", pcpLine,CFG_STRING, pclTmp);
 	dbg(TRACE,"<GLFM>: <%s>=<%s>",pcpLine,pclTmp);
-							
+
   if (strcmp(pclTmp,"TRACE")==0)
   {
      *ipModeLevel = TRACE;
@@ -6985,7 +6986,7 @@ static void GetLogFileMode(int *ipModeLevel, char *pcpLine, char *pcpDefault)
   else
   {
      *ipModeLevel = 0;
-  } 
+  }
 } /* end GetLogFileMode */
 static void GetSeqNumber(char *pcpSeq,char *pcpKey,char *pcpSeqLen,char *pcpResetDay,char* pcpStartValue)
 {
@@ -7005,7 +7006,7 @@ static void GetSeqNumber(char *pcpSeq,char *pcpKey,char *pcpSeqLen,char *pcpRese
 	memset(pclMonthOfReset,0x00,iMIN_BUF_SIZE);
 	memset(pclSqlBuf,0x00,iMIN_BUF_SIZE);
 	memset(pclDataArea,0x00,iMIN_BUF_SIZE);
-	memset(pclOraErrorMsg,0x00,iMAXIMUM);	
+	memset(pclOraErrorMsg,0x00,iMAXIMUM);
 
 	sprintf(pclSqlBuf,"SELECT ACNU,FLAG FROM NUMTAB WHERE KEYS = '%s'",pcpKey);
 	slSqlFunc = START;
@@ -7013,7 +7014,7 @@ static void GetSeqNumber(char *pcpSeq,char *pcpKey,char *pcpSeqLen,char *pcpRese
 	dbg(DEBUG,"<GetSeqNumber> SQL: <%s>",pclSqlBuf);
 	GetServerTimeStamp("LOC",1,0,pclDateTimeStamp);
 
-	if ((ilRC = sql_if(slSqlFunc,&slCursor,pclSqlBuf,pclDataArea))== RC_SUCCESS) 
+	if ((ilRC = sql_if(slSqlFunc,&slCursor,pclSqlBuf,pclDataArea))== RC_SUCCESS)
 	{
 			commit_work();
 			close_my_cursor(&slCursor);
@@ -7043,12 +7044,12 @@ static void GetSeqNumber(char *pcpSeq,char *pcpKey,char *pcpSeqLen,char *pcpRese
 			dbg(DEBUG,"<GetSeqNumber> SQL =<%s>",pclSqlBuf);
 			slSqlFunc=START;
 			slCursor=0;
-			if ((ilRC = sql_if(slSqlFunc,&slCursor,pclSqlBuf,pclDataArea))!= RC_SUCCESS) 
+			if ((ilRC = sql_if(slSqlFunc,&slCursor,pclSqlBuf,pclDataArea))!= RC_SUCCESS)
 			{
 				if (ilRC != NOTFOUND)
-				{						
+				{
 					ilRC = RC_FAIL;
-					get_ora_err(ilRC,pclOraErrorMsg);	
+					get_ora_err(ilRC,pclOraErrorMsg);
 					dbg(TRACE,"<GetSeqNumber> ORA-ERR <%s>=<%s>",pclOraErrorMsg, pclSqlBuf);
 				}
 			}
@@ -7063,9 +7064,9 @@ static void GetSeqNumber(char *pcpSeq,char *pcpKey,char *pcpSeqLen,char *pcpRese
 	else
 	{
 		if (ilRC != NOTFOUND)
-		{						
+		{
 			ilRC = RC_FAIL;
-			get_ora_err(ilRC,pclOraErrorMsg);	
+			get_ora_err(ilRC,pclOraErrorMsg);
 			dbg(TRACE,"<GetSeqNumber> ORA-ERR <%s>=<%s>",pclOraErrorMsg, pclSqlBuf);
 		}
 		commit_work();
