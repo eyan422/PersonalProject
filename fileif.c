@@ -3604,6 +3604,7 @@ dbg(TRACE,"HandleData: Data <%s>\n Fields <%s>",
 			if (ilTabNo==0)
 				rgTM.prHandleCmd[ilCmdNo].iLineNumberSav = 0;
 
+            /*fya 20140319*/
 			for (ilCurLine=0, ilAllSecRecords=0; ilCurLine<ilLines; ilCurLine++,rgTM.prHandleCmd[ilCmdNo].iLineNumberSav++)
 			{
 				if (rgTM.prHandleCmd[ilCmdNo].prTabDef[ilTabNo].iLines)
@@ -4840,6 +4841,8 @@ static int WriteDataToFile(int ipCmdNo, int ipTabNo, int *pipSecondRecord,
 
 		/* write end of line characters */
 		/*strncat(pclDataBuffer, rgTM.prHandleCmd[ipCmdNo].pcEndOfLine, rgTM.prHandleCmd[ipCmdNo].iNoEOLCharacters);*/
+
+		/*fya 20140319*/
 		ReplaceStdTokens(ipCmdNo,pclLineBuffer,0x00,
 				rgTM.prHandleCmd[ipCmdNo].pcDynDateFormat,rgTM.prHandleCmd[ipCmdNo].pcDynTimeFormat,ipRecordNr);
 		strncat(pclLineBuffer, rgTM.prHandleCmd[ipCmdNo].pcEndOfLine, rgTM.prHandleCmd[ipCmdNo].iNoEOLCharacters);
@@ -5613,7 +5616,7 @@ static int WriteDataToFile(int ipCmdNo, int ipTabNo, int *pipSecondRecord,
 		{
 			strncat(pclLineBuffer,rgTM.prHandleCmd[ipCmdNo].pcDataLinePostfix,ilLen4);
 		}
-
+        /*fya 20140319*/
 		ReplaceStdTokens(ipCmdNo,pclLineBuffer,0x00,
 				rgTM.prHandleCmd[ipCmdNo].pcDynDateFormat,rgTM.prHandleCmd[ipCmdNo].pcDynTimeFormat,ipRecordNr);
 
