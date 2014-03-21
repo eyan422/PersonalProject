@@ -1,7 +1,7 @@
 #ifndef _DEF_mks_version
   #define _DEF_mks_version
   #include "ufisvers.h" /* sets UFIS_VERSION, must be done before mks_version */
-  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/lighdl.c 1.76a 3/17/2014 05:32:54 PM Exp  $";
+  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/lighdl.c 1.76d 3/17/2014 05:32:54 PM Exp  $";
 #endif /* _DEF_mks_version */
 
 /******************************************************************************/
@@ -1306,7 +1306,7 @@ static int HandleInternalData()
 				    		get_fld(pclSqlData,FIELD_1,STR,20,pclUrno); TrimSpace(pclUrno);
 								get_fld(pclSqlData,FIELD_2,STR,20,pclAdid); TrimSpace(pclAdid);
 								get_fld(pclSqlData,FIELD_3,STR,20,pclRkey); TrimSpace(pclRkey);
-								get_fld(pclSqlData,FIELD_4,STR,20,pclRegn); TrimSpace(pclRegn);
+								get_fld(pclSqlData,FIELD_4,STR,20,pclRegn); /*TrimSpace(pclRegn);*/
 								get_fld(pclSqlData,FIELD_5,STR,20,pclStoa); TrimSpace(pclStoa);
 								get_fld(pclSqlData,FIELD_6,STR,20,pclStod); TrimSpace(pclStod);
 								get_fld(pclSqlData,FIELD_7,STR,20,pclEtai); TrimSpace(pclEtai);
@@ -1395,7 +1395,7 @@ static int HandleInternalData()
 											get_fld(pclSqlData,FIELD_1,STR,20,pclUrno); TrimSpace(pclUrno);
 											get_fld(pclSqlData,FIELD_2,STR,20,pclAdid); TrimSpace(pclAdid);
 											get_fld(pclSqlData,FIELD_3,STR,20,pclRkey); TrimSpace(pclRkey);
-											get_fld(pclSqlData,FIELD_4,STR,20,pclRegn); TrimSpace(pclRegn);
+											get_fld(pclSqlData,FIELD_4,STR,20,pclRegn); /*TrimSpace(pclRegn);*/
 											get_fld(pclSqlData,FIELD_5,STR,20,pclStoa); TrimSpace(pclStoa);
 											get_fld(pclSqlData,FIELD_6,STR,20,pclStod); TrimSpace(pclStod);
 											get_fld(pclSqlData,FIELD_7,STR,20,pclEtai); TrimSpace(pclEtai);
@@ -1662,7 +1662,7 @@ static int HandleInternalData()
                                     get_fld(pclSqlData,FIELD_1,STR,20,pclUrno); TrimSpace(pclUrno);
                                     get_fld(pclSqlData,FIELD_2,STR,20,pclAdid); TrimSpace(pclAdid);
                                     get_fld(pclSqlData,FIELD_3,STR,20,pclRkey); TrimSpace(pclRkey);
-                                    get_fld(pclSqlData,FIELD_4,STR,20,pclRegn); TrimSpace(pclRegn);
+                                    get_fld(pclSqlData,FIELD_4,STR,20,pclRegn); /*TrimSpace(pclRegn);*/
                                     get_fld(pclSqlData,FIELD_5,STR,20,pclStoa); TrimSpace(pclStoa);
                                     get_fld(pclSqlData,FIELD_6,STR,20,pclStod); TrimSpace(pclStod);
                                     get_fld(pclSqlData,FIELD_7,STR,20,pclEtai); TrimSpace(pclEtai);
@@ -1758,7 +1758,7 @@ static int HandleInternalData()
                                                 get_fld(pclSqlData,FIELD_1,STR,20,pclUrno); TrimSpace(pclUrno);
                                                 get_fld(pclSqlData,FIELD_2,STR,20,pclAdid); TrimSpace(pclAdid);
                                                 get_fld(pclSqlData,FIELD_3,STR,20,pclRkey); TrimSpace(pclRkey);
-                                                get_fld(pclSqlData,FIELD_4,STR,20,pclRegn); TrimSpace(pclRegn);
+                                                get_fld(pclSqlData,FIELD_4,STR,20,pclRegn); /*TrimSpace(pclRegn);*/
                                                 get_fld(pclSqlData,FIELD_5,STR,20,pclStoa); TrimSpace(pclStoa);
                                                 get_fld(pclSqlData,FIELD_6,STR,20,pclStod); TrimSpace(pclStod);
                                                 get_fld(pclSqlData,FIELD_7,STR,20,pclEtai); TrimSpace(pclEtai);
@@ -1991,7 +1991,7 @@ static int HandleInternalData()
 					 	get_fld(pclSqlData,FIELD_1,STR,20,pclUrno); TrimSpace(pclUrno);
 						get_fld(pclSqlData,FIELD_2,STR,20,pclAdid); TrimSpace(pclAdid);
 						get_fld(pclSqlData,FIELD_3,STR,20,pclRkey); TrimSpace(pclRkey);
-						get_fld(pclSqlData,FIELD_4,STR,20,pclRegn); TrimSpace(pclRegn);
+						get_fld(pclSqlData,FIELD_4,STR,20,pclRegn); /*TrimSpace(pclRegn);*/
 
 						get_fld(pclSqlData,FIELD_5,STR,20,pclStoa); TrimSpace(pclStoa);
 						get_fld(pclSqlData,FIELD_6,STR,20,pclStod); TrimSpace(pclStod);
@@ -5356,6 +5356,8 @@ static int GetSeqFlight(SENT_MSG *rpSentMsg,char *pcpADFlag)
             }
 
             strncpy(pclOfbl,pclFval_OFB,strlen(pclFval_OFB));
+
+            TrimSpace(pclOfbl);
             strncpy(rpSentMsg->pclOfbl,pclOfbl,strlen(pclOfbl));
 		}
 
@@ -5461,6 +5463,9 @@ static int GetSeqFlight(SENT_MSG *rpSentMsg,char *pcpADFlag)
             }
 
             strncpy(pclOnbl,pclFval_ONB,strlen(pclFval_ONB));
+
+            TrimSpace(pclOnbl);
+
             strncpy(rpSentMsg->pclOnbl,pclOnbl,strlen(pclOnbl));
         }
 
@@ -5490,12 +5495,12 @@ static int UpdBuildWhereClause(SENT_MSG *rpSentMsg, char *pcpWhere, char *pcpADF
     if (strncmp(pcpADFlag,"D",1) == 0)
     {
         /*Seeking for related sequential departure flight*/
-        sprintf(pclWhere,"(REGN = '%s' and RKEY = '%s') AND (TIFD > %s) AND FTYP NOT IN ('X','N') ORDER BY TIFD desc", rpSentMsg->pclRegn, rpSentMsg->pclRkey,rpSentMsg->pclTifa);
+        sprintf(pclWhere,"(REGN = '%s' AND RKEY = '%s') AND (TIFD > %s) AND FTYP NOT IN ('X','N') ORDER BY TIFD desc", rpSentMsg->pclRegn, rpSentMsg->pclRkey,rpSentMsg->pclTifa);
     }
     else if (strncmp(pcpADFlag,"A",1) == 0)
     {
         /*Seeking for related sequential arrival flight*/
-        sprintf(pclWhere,"(REGN = '%s' and RKEY = '%s') AND (TIFA < %s) AND FTYP NOT IN ('X','N') ORDER BY TIFA desc", rpSentMsg->pclRegn, rpSentMsg->pclRkey,rpSentMsg->pclTifd);
+        sprintf(pclWhere,"(REGN = '%s' AND RKEY = '%s') AND (TIFA < %s) AND FTYP NOT IN ('X','N') ORDER BY TIFA desc", rpSentMsg->pclRegn, rpSentMsg->pclRkey,rpSentMsg->pclTifd);
     }
 
     strcpy(pcpWhere,pclWhere);
@@ -6473,7 +6478,7 @@ static int function_PST_USAGE(SENT_MSG *rpSentMsg, char *pcpParkstand, int ipCon
 				get_fld(pclSqlData,FIELD_1,STR,20,pclUrno); TrimSpace(pclUrno);
 				get_fld(pclSqlData,FIELD_2,STR,20,pclAdid); TrimSpace(pclAdid);
 				get_fld(pclSqlData,FIELD_3,STR,20,pclRkey); TrimSpace(pclRkey);
-				get_fld(pclSqlData,FIELD_4,STR,20,pclRegn); TrimSpace(pclRegn);
+				get_fld(pclSqlData,FIELD_4,STR,20,pclRegn); /*TrimSpace(pclRegn);*/
 				get_fld(pclSqlData,FIELD_5,STR,20,pclStoa); TrimSpace(pclStoa);
 				get_fld(pclSqlData,FIELD_6,STR,20,pclStod); TrimSpace(pclStod);
 				get_fld(pclSqlData,FIELD_7,STR,20,pclTifa); TrimSpace(pclTifa);
@@ -6514,6 +6519,11 @@ static int function_PST_USAGE(SENT_MSG *rpSentMsg, char *pcpParkstand, int ipCon
                 strcpy(rpSentMsg->pclStod,pclStod);
                 strcpy(rpSentMsg->pclEtdi,pclEtdi);
                 strcpy(rpSentMsg->pclOfbl,pclOfbl);
+
+                strcpy(rpSentMsg->pclTifa,pclTifa);
+                strcpy(rpSentMsg->pclTifd,pclTifd);
+				strcpy(rpSentMsg->pclRkey,pclRkey);
+				strcpy(rpSentMsg->pclRegn,pclRegn);
 
                 GetSeqFlight(rpSentMsg,"A");
 
