@@ -1,7 +1,8 @@
+
 #ifndef _DEF_mks_version
   #define _DEF_mks_version
   #include "ufisvers.h" /* sets UFIS_VERSION, must be done before mks_version */
-  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/lighdl.c 1.76d 3/17/2014 05:32:54 PM Exp  $";
+  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/lighdl.c 1.78 3/17/2014 05:32:54 PM Exp  $";
 #endif /* _DEF_mks_version */
 
 /******************************************************************************/
@@ -297,6 +298,7 @@ static void FindNextAllocDepBuildWhereClause(char *pcpWhere,char *pcpParkstand,c
 static void FindNextAllocDepBuildFullQuery(char *pcpSqlBuf,char *pcpWhere);
 static void FindNextAllocArrBuildFullQuery(char *pcpSqlBuf,char *pcpWhere);
 static void FindNextAllocArrBuildWhereClause(char *pcpWhere,char *pcpParkstand,char *pcpFormalTifd, char *pcpNextTifd);
+static int FindNextAllocation(char *pcpParkingStand, char *pcpTime, SENT_MSG *rpSentMsg);
 /******************************************************************************/
 /*                                                                            */
 /* The MAIN program                                                           */
@@ -1098,8 +1100,102 @@ static int HandleInternalData()
 
 		if (strcmp(cmdblk->command,"DFR") == 0)
 		{
-			dbg(TRACE,"<%s> The command is DFR, do nothing",pclFunc);
+			dbg(TRACE,"<%s> The command is DFR, do something",pclFunc);
+
+            /*
+            X1-Check the ADID
+            X2-Find the PSTA and PSTD
+            3-Get the next allocation for towing and normal flight
+            */
+
+            ilItemNo = get_item_no(pclFields, "ADID", 5) + 1;
+			if (ilItemNo <= 0)
+			{
+				dbg(TRACE,"<%s> ADID is not included in the field list, can not proceed",pclFunc);
+                return RC_FAIL;
+			}
+			get_real_item(pclAdidNewData, pclNewData, ilItemNo);
+			get_real_item(pclAdidOldData, pclOldData, ilItemNo);
+			dbg(DEBUG,"<%s>The New ADID is <%s>", pclFunc, pclAdidNewData);
+			dbg(DEBUG,"<%s>The Old ADID is <%s>", pclFunc, pclAdidOldData);
+
+			TrimSpace(pclAdidNewData);
+			if (strlen(pclAdidNewData) == 0)
+			{
+				dbg(TRACE,"<%s>New ADID is null, can not proceed",pclFunc);
+				return RC_FAIL;
+			}
+
+			ilItemNo = get_item_no(pclFields, "PSTA", 5) + 1;
+            if( ilItemNo <= 0)
+            {
+                dbg(TRACE,"<%s> PSTA is not included in the field list, can not proceed",pclFunc);
+                return RC_FAIL;
+            }
+            get_real_item(pclPstaNewData, pclNewData, ilItemNo);
+            get_real_item(pclPstaOldData, pclOldData, ilItemNo);
+            dbg(DEBUG,"<%s> New PSTA<%s>",pclFunc,pclPstaNewData);
+            dbg(DEBUG,"<%s> Old PSTA<%s>",pclFunc,pclPstaOldData);
+
+            ilItemNo = get_item_no(pclFields, "PSTD", 5) + 1;
+            if( ilItemNo <= 0)
+            {
+                dbg(TRACE,"<%s> PSTD is not included in the field list, can not proceed",pclFunc);
+                return RC_FAIL;
+            }
+            get_real_item(pclPstdNewData, pclNewData, ilItemNo);
+            get_real_item(pclPstdOldData, pclOldData, ilItemNo);
+            dbg(DEBUG,"<%s> New PSTD<%s>",pclFunc,pclPstdNewData);
+            dbg(DEBUG,"<%s> Old PSTD<%s>",pclFunc,pclPstdOldData);
+
+            ilItemNo = get_item_no(pclFields, "TIFA", 5) + 1;
+            if( ilItemNo <= 0)
+            {
+                dbg(TRACE,"<%s> TIFA is not included in the field list, can not proceed",pclFunc);
+                    return RC_FAIL;
+            }
+            get_real_item(pclTifaNewData, pclNewData, ilItemNo);
+            get_real_item(pclTifaOldData, pclOldData, ilItemNo);
+            dbg(DEBUG,"<%s> New TIFA<%s>",pclFunc,pclTifaNewData);
+            dbg(DEBUG,"<%s> Old TIFA<%s>",pclFunc,pclTifaOldData);
+
+            ilItemNo = get_item_no(pclFields, "TIFD", 5) + 1;
+            if( ilItemNo <= 0)
+            {
+                dbg(TRACE,"<%s> TIFD is not included in the field list, can not proceed",pclFunc);
+                    return RC_FAIL;
+            }
+            get_real_item(pclTifdNewData, pclNewData, ilItemNo);
+            get_real_item(pclTifdOldData, pclOldData, ilItemNo);
+            dbg(DEBUG,"<%s> New TIFD<%s>",pclFunc,pclTifdNewData);
+            dbg(DEBUG,"<%s> Old TIFD<%s>",pclFunc,pclTifdOldData);
+
+            if ( strncmp(pclAdidNewData,"B",1) == 0 )
+            {/*Towing flight*/
+
+                for(ilCountP = 0; ilCountP < 2; ilCountP++)
+                {
+                    if(ilCountP == 0)
+                    {
+                        FindNextAllocation(pclPstaNewData, pclTifaNewData, &rlSentMsg);
+                    }
+                    else
+                    {
+                        FindNextAllocation(pclPstdNewData, pclTifdNewData, &rlSentMsg);
+                    }
+                }
+
+            }
+            else  if ( strncmp(pclAdidNewData,"A",1) == 0 || strncmp(pclAdidNewData,"D",1) )
+            {
+                /*
+                Normal arrival and departure flight
+                Find the next allocation
+                */
+                FindNextAllocation(pclPstdNewData, pclTifdNewData, &rlSentMsg);
+            }
 			return RC_SUCCESS;
+
 		}/*@fya 20140310 For new towing record*/
 		else if (strcmp(cmdblk->command,"IFR") == 0)
 		{
@@ -1112,12 +1208,12 @@ static int HandleInternalData()
 				if (ilItemNo <= 0)
 				{
 					dbg(TRACE, "<%s> No URNO Found in the field list, can't do anything", pclFunc);
-		      return RC_FAIL;
+                    return RC_FAIL;
 				}
 
 				get_real_item(pclUrnoNewData, pclNewData, ilItemNo);
-    		get_real_item(pclUrnoOldData, pclOldData, ilItemNo);
-    		dbg(DEBUG,"<%s>The New URNO is <%s>", pclFunc, pclUrnoNewData);
+                get_real_item(pclUrnoOldData, pclOldData, ilItemNo);
+                dbg(DEBUG,"<%s>The New URNO is <%s>", pclFunc, pclUrnoNewData);
 				dbg(DEBUG,"<%s>The Old URNO is <%s>", pclFunc, pclUrnoOldData);
 
 				if ( atoi(pclUrnoNewData) != 0 && atoi(pclUrnoOldData) == 0)
@@ -1154,14 +1250,14 @@ static int HandleInternalData()
 			if (ilItemNo <= 0)
 			{
 				dbg(TRACE, "<%s> No URNO Found in the field list, can't do anything", pclFunc);
-	      return RC_FAIL;
+                return RC_FAIL;
 			}
 			/*
 			1) Getting URNO -> Getting the URNO from selection statement
 			*/
-    	get_real_item(pclUrnoNewData, pclNewData, ilItemNo);
-    	get_real_item(pclUrnoOldData, pclOldData, ilItemNo);
-    	dbg(DEBUG,"<%s>The New URNO is <%s>", pclFunc, pclUrnoNewData);
+            get_real_item(pclUrnoNewData, pclNewData, ilItemNo);
+            get_real_item(pclUrnoOldData, pclOldData, ilItemNo);
+            dbg(DEBUG,"<%s>The New URNO is <%s>", pclFunc, pclUrnoNewData);
 			dbg(DEBUG,"<%s>The Old URNO is <%s>", pclFunc, pclUrnoOldData);
 
 			/*
@@ -1171,7 +1267,7 @@ static int HandleInternalData()
 			if (ilItemNo <= 0)
 			{
 				dbg(TRACE,"<%s> ADID is not included in the field list, can not proceed",pclFunc);
-	    	return RC_FAIL;
+                return RC_FAIL;
 			}
 			get_real_item(pclAdidNewData, pclNewData, ilItemNo);
 			get_real_item(pclAdidOldData, pclOldData, ilItemNo);
@@ -1192,7 +1288,7 @@ static int HandleInternalData()
 			if (ilItemNo <= 0)
 			{
 				dbg(TRACE,"<%s> AIRB is not included in the field list, can not proceed",pclFunc);
-	    	return RC_FAIL;
+                return RC_FAIL;
 			}
 			get_real_item(pclAirbNewData, pclNewData, ilItemNo);
 			get_real_item(pclAirbOldData, pclOldData, ilItemNo);
@@ -1203,10 +1299,10 @@ static int HandleInternalData()
 			4)Getting OFBL
 			*/
 			ilItemNo =  get_item_no(pclFields, "OFBL", 5) + 1;
-    	if (ilItemNo <= 0)
+            if (ilItemNo <= 0)
 			{
 				dbg(TRACE,"<%s> OFBL is not included in the field list, can not proceed",pclFunc);
-	    	return RC_FAIL;
+                return RC_FAIL;
 			}
 			get_real_item(pclOfblNewData, pclNewData, ilItemNo);
 			get_real_item(pclOfblOldData, pclOldData, ilItemNo);
@@ -1234,41 +1330,41 @@ static int HandleInternalData()
 
 						ilItemNo = get_item_no(pclFields, "PSTD", 5) + 1;
 						if( ilItemNo <= 0)
-		    		{
-		    			dbg(TRACE,"<%s> PSTD is not included in the field list, can not proceed",pclFunc);
+                        {
+                            dbg(TRACE,"<%s> PSTD is not included in the field list, can not proceed",pclFunc);
 							return RC_FAIL;
-		    		}
-		    		get_real_item(pclPstdNewData, pclNewData, ilItemNo);
-		    		get_real_item(pclPstdOldData, pclOldData, ilItemNo);
-		    		dbg(DEBUG,"<%s> New PSTD<%s>",pclFunc,pclPstdNewData);
-		    		dbg(DEBUG,"<%s> Old PSTD<%s>",pclFunc,pclPstdOldData);
+                        }
+                        get_real_item(pclPstdNewData, pclNewData, ilItemNo);
+                        get_real_item(pclPstdOldData, pclOldData, ilItemNo);
+                        dbg(DEBUG,"<%s> New PSTD<%s>",pclFunc,pclPstdNewData);
+                        dbg(DEBUG,"<%s> Old PSTD<%s>",pclFunc,pclPstdOldData);
 
 						ilItemNo = get_item_no(pclFields, "TIFD", 5) + 1;
 						if( ilItemNo <= 0)
-		    		{
-		    			dbg(TRACE,"<%s> TIFD is not included in the field list, can not proceed",pclFunc);
-							return RC_FAIL;
-		    		}
-		    		get_real_item(pclTifdNewData, pclNewData, ilItemNo);
-		    		get_real_item(pclTifdOldData, pclOldData, ilItemNo);
-		    		dbg(DEBUG,"<%s> New TIFD<%s>",pclFunc,pclTifdNewData);
-		    		dbg(DEBUG,"<%s> Old TIFD<%s>",pclFunc,pclTifdOldData);
+                        {
+                            dbg(TRACE,"<%s> TIFD is not included in the field list, can not proceed",pclFunc);
+                                return RC_FAIL;
+                        }
+                        get_real_item(pclTifdNewData, pclNewData, ilItemNo);
+                        get_real_item(pclTifdOldData, pclOldData, ilItemNo);
+                        dbg(DEBUG,"<%s> New TIFD<%s>",pclFunc,pclTifdNewData);
+                        dbg(DEBUG,"<%s> Old TIFD<%s>",pclFunc,pclTifdOldData);
 
-		    		/*
-		    		Start Searching for the Next Scheduled Allocation in the same parking stand -> Departure Flight without AIRB
+                        /*
+                        Start Searching for the Next Scheduled Allocation in the same parking stand -> Departure Flight without AIRB
 
-		 				The reason of firstly finding the departure flight without AIRB for the next allocation is that if searching the arrival flight for the next allocation first, then the related departure flight may also has AIRB.
-		    		*/
-		    		memset(pclWhere,0,sizeof(pclWhere));
-		    		memset(pclSqlBuf,0,sizeof(pclSqlBuf));
-		    		memset(pclSqlData,0,sizeof(pclSqlData));
-		    		FindNextAllocDepBuildWhereClause(pclWhere,pclPstdNewData,pclTifdNewData);
-		    		FindNextAllocDepBuildFullQuery(pclSqlBuf,pclWhere);
+                            The reason of firstly finding the departure flight without AIRB for the next allocation is that if searching the arrival flight for the next allocation first, then the related departure flight may also has AIRB.
+                        */
+                        memset(pclWhere,0,sizeof(pclWhere));
+                        memset(pclSqlBuf,0,sizeof(pclSqlBuf));
+                        memset(pclSqlData,0,sizeof(pclSqlData));
+                        FindNextAllocDepBuildWhereClause(pclWhere,pclPstdNewData,pclTifdNewData);
+                        FindNextAllocDepBuildFullQuery(pclSqlBuf,pclWhere);
 
-		    		/*
-		    		URNO,ADID,RKEY,REGN,STOA,STOD,TIFA,TIFD,PSTA,PSTD,ETAI,ETDI,ONBL,OFBL,TMOA,AIRB
-		    		*/
-		    		memset(pclUrno,0,sizeof(pclUrno));
+                        /*
+                        URNO,ADID,RKEY,REGN,STOA,STOD,TIFA,TIFD,PSTA,PSTD,ETAI,ETDI,ONBL,OFBL,TMOA,AIRB
+                        */
+                        memset(pclUrno,0,sizeof(pclUrno));
 						memset(pclAdid,0,sizeof(pclAdid));
 						memset(pclRkey,0,sizeof(pclRkey));
 						memset(pclRegn,0,sizeof(pclRegn));
@@ -1286,13 +1382,13 @@ static int HandleInternalData()
 						memset(pclAirb,0,sizeof(pclAirb));
 
 						ilRC = RunSQL(pclSqlBuf, pclSqlData);
-		    		if (ilRC != DB_SUCCESS)
-		    		{
-		        	dbg(TRACE, "<%s>: Next Allocation is not found in AFTTAB, line<%d>", pclFunc,__LINE__);
-		        	return RC_FAIL;
-		    		}
+                        if (ilRC != DB_SUCCESS)
+                        {
+                            dbg(TRACE, "<%s>: Next Allocation is not found in AFTTAB, line<%d>", pclFunc,__LINE__);
+                            return RC_FAIL;
+                        }
 
-		    		switch(ilRC)
+                        switch(ilRC)
 						{
 							case NOTFOUND:
 								dbg(TRACE, "<%s> The search for next allocation dep flight fails", pclFunc);
@@ -1300,10 +1396,10 @@ static int HandleInternalData()
 
 								break;
 							default:/*
-											@fya 20140304
-											Found
-											*/
-				    		get_fld(pclSqlData,FIELD_1,STR,20,pclUrno); TrimSpace(pclUrno);
+                                    @fya 20140304
+                                    Found
+                                    */
+                                get_fld(pclSqlData,FIELD_1,STR,20,pclUrno); TrimSpace(pclUrno);
 								get_fld(pclSqlData,FIELD_2,STR,20,pclAdid); TrimSpace(pclAdid);
 								get_fld(pclSqlData,FIELD_3,STR,20,pclRkey); TrimSpace(pclRkey);
 								get_fld(pclSqlData,FIELD_4,STR,20,pclRegn); /*TrimSpace(pclRegn);*/
@@ -1355,12 +1451,12 @@ static int HandleInternalData()
 									Then search the corresponding arrival flight
 									*/
 									memset(pclWhere,0,sizeof(pclWhere));
-					    		memset(pclSqlBuf,0,sizeof(pclSqlBuf));
-					    		memset(pclSqlData,0,sizeof(pclSqlData));
-					    		FindNextAllocArrBuildWhereClause(pclWhere,pclPstdNewData,pclTifdNewData,pclTifd);
-					    		FindNextAllocArrBuildFullQuery(pclSqlBuf,pclWhere);
+                                    memset(pclSqlBuf,0,sizeof(pclSqlBuf));
+                                    memset(pclSqlData,0,sizeof(pclSqlData));
+                                    FindNextAllocArrBuildWhereClause(pclWhere,pclPstdNewData,pclTifdNewData,pclTifd);
+                                    FindNextAllocArrBuildFullQuery(pclSqlBuf,pclWhere);
 
-					    		memset(pclUrno,0,sizeof(pclUrno));
+                                    memset(pclUrno,0,sizeof(pclUrno));
 									memset(pclAdid,0,sizeof(pclAdid));
 									memset(pclRkey,0,sizeof(pclRkey));
 									memset(pclRegn,0,sizeof(pclRegn));
@@ -2548,88 +2644,88 @@ static int HandleInternalData()
             /*strcpy(pcgSendMsgId,pclUrnoSelection);*/
             strcpy(pcgSendMsgId,pclRecordURNO);
 
-	    for (ilCount = 0; ilCount < igReSendMax; ilCount++)
-	    {
-	  		if (igSock > 0)
-	      {
-	      	/*
-	      	@fya 20140304
-	      	strcat(pclDataSent,"\n");
-	      	*/
-	    		ilRC = Send_data(igSock,pclDataSent);
-	      	dbg(DEBUG, "<%s>1-ilRC<%d>",pclFunc,ilRC);
+            for (ilCount = 0; ilCount < igReSendMax; ilCount++)
+            {
+                if (igSock > 0)
+              {
+                /*
+                @fya 20140304
+                strcat(pclDataSent,"\n");
+                */
+                    ilRC = Send_data(igSock,pclDataSent);
+                dbg(DEBUG, "<%s>1-ilRC<%d>",pclFunc,ilRC);
 
-		      if (ilRC == RC_SUCCESS)
-		      {
-	          igSckWaitACK = TRUE;
-	          igSckTryACKCnt = 0;
+                  if (ilRC == RC_SUCCESS)
+                  {
+                  igSckWaitACK = TRUE;
+                  igSckTryACKCnt = 0;
 
-	          GetServerTimeStamp( "UTC", 1, 0, pcgSckWaitACKExpTime);
-	          AddSecondsToCEDATime(pcgSckWaitACKExpTime, igSckACKCWait, 1);
-	          break;
-		      }
-	        else if(ilRC == RC_FAIL)
-		      {
-		      	dbg(DEBUG, "<%s>Send_data error",pclFunc);
-		        ilRC = Sockt_Reconnect();
-		        /*SendRST_Command();*/
-		      }
-		      else if(ilRC == RC_SENDTIMEOUT)
-		      {
-		      	dbg(DEBUG,"<%s>Send_data timeout, Re send again",pclFunc);
-		      }
-	      }
-	      else
-	      {
-	        if ((igConnected == TRUE) || (igOldCnnt == TRUE))
-	        {
-	       		ilRC = Sockt_Reconnect();
-	        	/*SendRST_Command();*/
-	        }
-	        else
-	        	  ilRC = RC_FAIL;
-	      }
-	    }
+                  GetServerTimeStamp( "UTC", 1, 0, pcgSckWaitACKExpTime);
+                  AddSecondsToCEDATime(pcgSckWaitACKExpTime, igSckACKCWait, 1);
+                  break;
+                  }
+                else if(ilRC == RC_FAIL)
+                  {
+                    dbg(DEBUG, "<%s>Send_data error",pclFunc);
+                    ilRC = Sockt_Reconnect();
+                    /*SendRST_Command();*/
+                  }
+                  else if(ilRC == RC_SENDTIMEOUT)
+                  {
+                    dbg(DEBUG,"<%s>Send_data timeout, Re send again",pclFunc);
+                  }
+              }
+              else
+              {
+                if ((igConnected == TRUE) || (igOldCnnt == TRUE))
+                {
+                    ilRC = Sockt_Reconnect();
+                    /*SendRST_Command();*/
+                }
+                else
+                      ilRC = RC_FAIL;
+              }
+            }
 
-	    /* fya 20140227 sending ack right after normal message*/
-	    for (ilCount = 0; ilCount < igReSendMax; ilCount++)
-	    {
-	  		if (igSock > 0)
-	      {
-	    		ilRC = SendAckMsg();
-	      	dbg(DEBUG, "<%s>1-ilRC<%d>",pclFunc,ilRC);
+            /* fya 20140227 sending ack right after normal message*/
+            for (ilCount = 0; ilCount < igReSendMax; ilCount++)
+            {
+                if (igSock > 0)
+              {
+                    ilRC = SendAckMsg();
+                dbg(DEBUG, "<%s>1-ilRC<%d>",pclFunc,ilRC);
 
-		      if (ilRC == RC_SUCCESS)
-		      {
-	          igSckWaitACK = TRUE;
-	          igSckTryACKCnt = 0;
+                  if (ilRC == RC_SUCCESS)
+                  {
+                  igSckWaitACK = TRUE;
+                  igSckTryACKCnt = 0;
 
-	          GetServerTimeStamp( "UTC", 1, 0, pcgSckWaitACKExpTime);
-	          AddSecondsToCEDATime(pcgSckWaitACKExpTime, igSckACKCWait, 1);
-	          break;
-		      }
-	        else if(ilRC == RC_FAIL)
-		      {
-		      	dbg(DEBUG, "<%s>Send_data error",pclFunc);
-		        ilRC = Sockt_Reconnect();
-		        /*SendRST_Command();*/
-		      }
-		      else if(ilRC == RC_SENDTIMEOUT)
-		      {
-		      	dbg(DEBUG,"<%s>Send_data timeout, Re send again",pclFunc);
-		      }
-	      }
-	      else
-	      {
-	        if ((igConnected == TRUE) || (igOldCnnt == TRUE))
-	        {
-	       		ilRC = Sockt_Reconnect();
-	        	/*SendRST_Command();*/
-	        }
-	        else
-	        	  ilRC = RC_FAIL;
-	      }
-	    }
+                  GetServerTimeStamp( "UTC", 1, 0, pcgSckWaitACKExpTime);
+                  AddSecondsToCEDATime(pcgSckWaitACKExpTime, igSckACKCWait, 1);
+                  break;
+                  }
+                else if(ilRC == RC_FAIL)
+                  {
+                    dbg(DEBUG, "<%s>Send_data error",pclFunc);
+                    ilRC = Sockt_Reconnect();
+                    /*SendRST_Command();*/
+                  }
+                  else if(ilRC == RC_SENDTIMEOUT)
+                  {
+                    dbg(DEBUG,"<%s>Send_data timeout, Re send again",pclFunc);
+                  }
+              }
+              else
+              {
+                if ((igConnected == TRUE) || (igOldCnnt == TRUE))
+                {
+                    ilRC = Sockt_Reconnect();
+                    /*SendRST_Command();*/
+                }
+                else
+                      ilRC = RC_FAIL;
+              }
+            }
 
 			if( ilCount >= igReSendMax)
 			{
@@ -6865,4 +6961,377 @@ static void FindNextAllocArrBuildFullQuery(char *pcpSqlBuf,char *pcpWhere)
     strcpy(pcpSqlBuf,pclSqlBuf);
     dbg(DEBUG,"\n*******************<%s>*******************",pclFunc);
 	dbg(DEBUG,"<%s>Full Query<%s>",pclFunc,pcpSqlBuf);
+}
+
+static int FindNextAllocation(char *pcpParkingStand, char *pcpTime, SENT_MSG *rpSentMsg)
+{
+	int  ilRC = RC_SUCCESS;			/* Return code */
+	int  ilQueRc = RC_SUCCESS;			/* Return code */
+	char *pclSelection = NULL;
+	char *pclFields = NULL;
+	char *pclData = NULL;
+	char *pclTmpPtr=NULL;
+	BC_HEAD *bchd = NULL;			/* Broadcast header*/
+	CMDBLK  *cmdblk = NULL;
+	int ilLen;
+	char *pclFunc = "FindNextAllocation";
+	char pclDataBuf[M_BUFF] = "\0";
+
+	int ilCount = 0;
+	int ilCountTowing = 0;
+	int ilCountT = 0;
+	int ilCountP = 0;
+
+	int ilItemNo = 0;
+	int ilItemNo1 = 0;
+	int ilNoEleField = 0;
+	int ilNoEleNewData = 0;
+	int ilNoEleOldData = 0;
+	int ilFlag = 0;
+	char pclAdidOldData[2] = "\0";
+	char pclAdidNewData[2] = "\0";
+	char pclPstaNewData[16] = "\0";
+	char pclPstaOldData[16] = "\0";
+	char pclPstdNewData[16] = "\0";
+	char pclPstdOldData[16] = "\0";
+	char pclStoaNewData[16] = "\0";
+	char pclStoaOldData[16] = "\0";
+	char pclStodNewData[16] = "\0";
+	char pclStodOldData[16] = "\0";
+
+	char pclEtaiNewData[16] = "\0";
+	char pclEtaiOldData[16] = "\0";
+	char pclEtdiNewData[16] = "\0";
+	char pclEtdiOldData[16] = "\0";
+
+	char pclTmoaNewData[16] = "\0";
+	char pclTmoaOldData[16] = "\0";
+	char pclOnblNewData[16] = "\0";
+	char pclOnblOldData[16] = "\0";
+	char pclOfblNewData[16] = "\0";
+	char pclOfblOldData[16] = "\0";
+	char pclRkey[16] = "\0";
+	char pclRegn[16] = "\0";
+
+	char pclTifaNewData[16] = "\0";
+	char pclTifaOldData[16] = "\0";
+	char pclTifdNewData[16] = "\0";
+	char pclTifdOldData[16] = "\0";
+
+	char pclTifa[16] = "\0";
+	char pclTifd[16] = "\0";
+	/*URNO,ADID,RKEY,REGN,STOA,STOD,ETAI,ETDI,TIFA,TIFD,ONBL,OFBL,PSTA,PSTD*/
+	char pclUrno[16] = "\0";
+	char pclUaft[16] = "\0";
+	char pclType[16] = "\0";
+	char pclStat[16] = "\0";
+	char pclTrit[16] = "\0";
+	char pclCdat[16] = "\0";
+	char pclAdid[16] = "\0";
+	/*char pclRkey[16] = "\0";*/
+	/*char pclRegn[16] = "\0";*/
+	char pclAirbNewData[16] = "\0";
+	char pclAirbOldData[16] = "\0";
+	char pclAirb[16] = "\0";
+	char pclStoa[16] = "\0";
+	char pclStod[16] = "\0";
+	char pclEtai[16] = "\0";
+	char pclEtdi[16] = "\0";
+	char pclOnbl[16] = "\0";
+	char pclOfbl[16] = "\0";
+	char pclPsta[16] = "\0";
+	char pclPstd[16] = "\0";
+	char pclTmoa[16] = "\0";
+	char pclUrnoSelection[50] = "\0";
+	char pclRecordURNO[50] = "\0";
+	char pclUrnoOldData[50] = "\0";
+	char pclUrnoNewData[50] = "\0";
+	char pclDataSent[1024] = "\0";
+	char pclNewData[512000] = "\0";
+	char pclOldData[512000] = "\0";
+	char pclSqlBuf[2048] = "\0",pclSqlData[2048] = "\0",pclWhere[2048] = "\0";
+
+	memset(pclWhere,0,sizeof(pclWhere));
+	memset(pclSqlBuf,0,sizeof(pclSqlBuf));
+	memset(pclSqlData,0,sizeof(pclSqlData));
+
+	FindNextAllocDepBuildWhereClause(pclWhere,pcpParkingStand,pcpTime);
+	FindNextAllocDepBuildFullQuery(pclSqlBuf,pclWhere);
+
+	/*URNO,ADID,RKEY,REGN,STOA,STOD,TIFA,TIFD,PSTA,PSTD,ETAI,ETDI,ONBL,OFBL,TMOA,AIRB*/
+	memset(pclUrno,0,sizeof(pclUrno));
+	memset(pclAdid,0,sizeof(pclAdid));
+	memset(pclRkey,0,sizeof(pclRkey));
+	memset(pclRegn,0,sizeof(pclRegn));
+	memset(pclStoa,0,sizeof(pclStoa));
+	memset(pclStod,0,sizeof(pclStod));
+	memset(pclEtai,0,sizeof(pclEtai));
+	memset(pclEtdi,0,sizeof(pclEtdi));
+	memset(pclTifa,0,sizeof(pclTifa));
+	memset(pclTifd,0,sizeof(pclTifd));
+	memset(pclOnbl,0,sizeof(pclOnbl));
+	memset(pclOfbl,0,sizeof(pclOfbl));
+	memset(pclPsta,0,sizeof(pclPsta));
+	memset(pclPstd,0,sizeof(pclPstd));
+	memset(pclPstd,0,sizeof(pclTmoa));
+	memset(pclAirb,0,sizeof(pclAirb));
+
+	ilRC = RunSQL(pclSqlBuf, pclSqlData);
+	if (ilRC != DB_SUCCESS)
+	{
+		dbg(TRACE, "<%s>: Next Allocation is not found in AFTTAB, line<%d>", pclFunc,__LINE__);
+		return RC_FAIL;
+	}
+
+	switch(ilRC)
+	{
+		case NOTFOUND:
+			dbg(TRACE, "<%s> The search for next allocation dep flight fails", pclFunc);
+			return RC_FAIL;
+
+			break;
+		default:/*
+				@fya 20140304
+				Found
+				URNO,ADID,RKEY,REGN,STOA,STOD,ETAI,ETDI,TIFA,TIFD,ONBL,OFBL,PSTA,PSTD,TMOA,AIRB
+				*/
+				get_fld(pclSqlData,FIELD_1,STR,20,pclUrno); TrimSpace(pclUrno);
+				get_fld(pclSqlData,FIELD_2,STR,20,pclAdid); TrimSpace(pclAdid);
+				get_fld(pclSqlData,FIELD_3,STR,20,pclRkey); TrimSpace(pclRkey);
+				get_fld(pclSqlData,FIELD_4,STR,20,pclRegn); /*TrimSpace(pclRegn);*/
+				get_fld(pclSqlData,FIELD_5,STR,20,pclStoa); TrimSpace(pclStoa);
+				get_fld(pclSqlData,FIELD_6,STR,20,pclStod); TrimSpace(pclStod);
+				get_fld(pclSqlData,FIELD_7,STR,20,pclEtai); TrimSpace(pclEtai);
+				get_fld(pclSqlData,FIELD_8,STR,20,pclEtdi); TrimSpace(pclEtdi);
+				get_fld(pclSqlData,FIELD_9,STR,20,pclTifa); TrimSpace(pclTifa);
+				get_fld(pclSqlData,FIELD_10,STR,20,pclTifd); TrimSpace(pclTifd);
+				get_fld(pclSqlData,FIELD_11,STR,20,pclOnbl); TrimSpace(pclOnbl);
+				get_fld(pclSqlData,FIELD_12,STR,20,pclOfbl); TrimSpace(pclOfbl);
+				get_fld(pclSqlData,FIELD_13,STR,20,pclPsta); TrimSpace(pclPsta);
+				get_fld(pclSqlData,FIELD_14,STR,20,pclPstd); TrimSpace(pclPstd);
+				get_fld(pclSqlData,FIELD_15,STR,20,pclTmoa); TrimSpace(pclTmoa);
+				get_fld(pclSqlData,FIELD_16,STR,20,pclAirb); TrimSpace(pclAirb);
+
+				dbg(DEBUG,"<%s>line <%d>",pclFunc,__LINE__);
+				dbg(DEBUG,"<%s>pclUrno<%s>",pclFunc,pclUrno);
+				dbg(DEBUG,"<%s>pclAdid<%s>",pclFunc,pclAdid);
+				dbg(DEBUG,"<%s>pclRkey<%s>",pclFunc,pclRkey);
+				dbg(DEBUG,"<%s>pclRegn<%s>",pclFunc,pclRegn);
+				dbg(DEBUG,"<%s>pclStoa<%s>",pclFunc,pclStoa);
+				dbg(DEBUG,"<%s>pclStod<%s>",pclFunc,pclStod);
+				dbg(DEBUG,"<%s>pclTifa<%s>",pclFunc,pclTifa);
+				dbg(DEBUG,"<%s>pclTifd<%s>",pclFunc,pclTifd);
+				dbg(DEBUG,"<%s>pclPsta<%s>",pclFunc,pclPsta);
+				dbg(DEBUG,"<%s>pclPstd<%s>",pclFunc,pclPstd);
+				dbg(DEBUG,"<%s>pclEtai<%s>",pclFunc,pclEtai);
+				dbg(DEBUG,"<%s>pclEtdi<%s>",pclFunc,pclEtdi);
+				dbg(DEBUG,"<%s>pclOnbl<%s>",pclFunc,pclOnbl);
+				dbg(DEBUG,"<%s>pclOfbl<%s>",pclFunc,pclOfbl);
+				dbg(DEBUG,"<%s>pclTmoa<%s>",pclFunc,pclTmoa);
+				dbg(DEBUG,"<%s>pclAirb<%s>",pclFunc,pclAirb);
+
+				if( atoi(pclAirb) != 0 )
+				{
+					dbg(TRACE,"<%s> Based on the query, AIRB should be null",pclFunc);
+
+					return RC_FAIL;
+				}
+				else
+				{
+					/*
+					At this stage, the departure part is ready, filling it.
+					*/
+					memset(rpSentMsg,0,sizeof(*rpSentMsg));
+					BuildDepPart(rpSentMsg, pclPstd, pclStod, pclEtdi, pclOfbl);
+					/*
+					Then search the corresponding arrival flight
+					*/
+					memset(pclWhere,0,sizeof(pclWhere));
+					memset(pclSqlBuf,0,sizeof(pclSqlBuf));
+					memset(pclSqlData,0,sizeof(pclSqlData));
+
+					/*
+					URNO,ADID,RKEY,REGN,STOA,STOD,TIFA,TIFD,PSTA,PSTD,ETAI,ETDI,ONBL,OFBL,TMOA
+					*/
+					FindNextAllocArrBuildWhereClause(pclWhere,pclPstd,pcpTime,pclTifa);
+					FindNextAllocArrBuildFullQuery(pclSqlBuf,pclWhere);
+
+					memset(pclUrno,0,sizeof(pclUrno));
+					memset(pclAdid,0,sizeof(pclAdid));
+					memset(pclRkey,0,sizeof(pclRkey));
+					memset(pclRegn,0,sizeof(pclRegn));
+					memset(pclStoa,0,sizeof(pclStoa));
+					memset(pclStod,0,sizeof(pclStod));
+					memset(pclEtai,0,sizeof(pclEtai));
+					memset(pclEtdi,0,sizeof(pclEtdi));
+					memset(pclTifa,0,sizeof(pclTifa));
+					memset(pclTifd,0,sizeof(pclTifd));
+					memset(pclOnbl,0,sizeof(pclOnbl));
+					memset(pclOfbl,0,sizeof(pclOfbl));
+					memset(pclPsta,0,sizeof(pclPsta));
+					memset(pclPstd,0,sizeof(pclPstd));
+					memset(pclPstd,0,sizeof(pclTmoa));
+
+					ilRC = RunSQL(pclSqlBuf, pclSqlData);
+					if (ilRC != DB_SUCCESS)
+					{
+						dbg(TRACE, "<%s>: Next Allocation is not found in AFTTAB, line<%d>", pclFunc,__LINE__);
+						/*return RC_FAIL;*/
+					}
+
+					switch(ilRC)
+					{
+						case NOTFOUND:
+							dbg(TRACE, "<%s> The search for next allocation arr flight not found", pclFunc);
+							/*This means the arrival part is not found, so keep the default value for the arrival part*/
+							break;
+						default:
+							/*This means the arrival part is found, so filling values for the arrival part*/
+
+							/*
+							URNO,ADID,RKEY,REGN,STOA,STOD,ETAI,ETDI,TIFA,TIFD,ONBL,OFBL,PSTA,PSTD,TMOA
+							*/
+							get_fld(pclSqlData,FIELD_1,STR,20,pclUrno); TrimSpace(pclUrno);
+							get_fld(pclSqlData,FIELD_2,STR,20,pclAdid); TrimSpace(pclAdid);
+							get_fld(pclSqlData,FIELD_3,STR,20,pclRkey); TrimSpace(pclRkey);
+							get_fld(pclSqlData,FIELD_4,STR,20,pclRegn); /*TrimSpace(pclRegn);*/
+							get_fld(pclSqlData,FIELD_5,STR,20,pclStoa); TrimSpace(pclStoa);
+							get_fld(pclSqlData,FIELD_6,STR,20,pclStod); TrimSpace(pclStod);
+							get_fld(pclSqlData,FIELD_7,STR,20,pclEtai); TrimSpace(pclEtai);
+							get_fld(pclSqlData,FIELD_8,STR,20,pclEtdi); TrimSpace(pclEtdi);
+							get_fld(pclSqlData,FIELD_9,STR,20,pclTifa); TrimSpace(pclTifa);
+							get_fld(pclSqlData,FIELD_10,STR,20,pclTifd); TrimSpace(pclTifd);
+							get_fld(pclSqlData,FIELD_11,STR,20,pclOnbl); TrimSpace(pclOnbl);
+							get_fld(pclSqlData,FIELD_12,STR,20,pclOfbl); TrimSpace(pclOfbl);
+							get_fld(pclSqlData,FIELD_13,STR,20,pclPsta); TrimSpace(pclPsta);
+							get_fld(pclSqlData,FIELD_14,STR,20,pclPstd); TrimSpace(pclPstd);
+							get_fld(pclSqlData,FIELD_15,STR,20,pclTmoa); TrimSpace(pclTmoa);
+
+							dbg(DEBUG,"<%s>line <%d>",pclFunc,__LINE__);
+							dbg(DEBUG,"<%s>pclUrno<%s>",pclFunc,pclUrno);
+							dbg(DEBUG,"<%s>pclAdid<%s>",pclFunc,pclAdid);
+							dbg(DEBUG,"<%s>pclRkey<%s>",pclFunc,pclRkey);
+							dbg(DEBUG,"<%s>pclRegn<%s>",pclFunc,pclRegn);
+							dbg(DEBUG,"<%s>pclStoa<%s>",pclFunc,pclStoa);
+							dbg(DEBUG,"<%s>pclStod<%s>",pclFunc,pclStod);
+							dbg(DEBUG,"<%s>pclTifa<%s>",pclFunc,pclTifa);
+							dbg(DEBUG,"<%s>pclTifd<%s>",pclFunc,pclTifd);
+							dbg(DEBUG,"<%s>pclPsta<%s>",pclFunc,pclPsta);
+							dbg(DEBUG,"<%s>pclPstd<%s>",pclFunc,pclPstd);
+							dbg(DEBUG,"<%s>pclEtai<%s>",pclFunc,pclEtai);
+							dbg(DEBUG,"<%s>pclEtdi<%s>",pclFunc,pclEtdi);
+							dbg(DEBUG,"<%s>pclOnbl<%s>",pclFunc,pclOnbl);
+							dbg(DEBUG,"<%s>pclOfbl<%s>",pclFunc,pclOfbl);
+							dbg(DEBUG,"<%s>pclTmoa<%s>",pclFunc,pclTmoa);
+
+							strcpy(rpSentMsg->pclStoa, pclStoa);
+							strcpy(rpSentMsg->pclEtai, pclEtai);
+							strcpy(rpSentMsg->pclTmoa, pclTmoa);
+							strcpy(rpSentMsg->pclOnbl, pclOnbl);
+							break;
+					}
+					ShowMsgStruct(*rpSentMsg);
+
+					memset(pclDataSent,0,sizeof(pclDataSent));
+					BuildSentData(pclDataSent,*rpSentMsg);
+					strcat(pclDataSent,"\n");
+					dbg(TRACE,"<%s> pclDataSent<%s>",pclFunc,pclDataSent);
+					StoreSentData(pclDataSent,pclUrnoNewData,"Normal",pclRecordURNO);
+
+					strcat(pclDataSent,"\n");
+					strcpy(pcgCurSendData,pclDataSent);
+					strcpy(pcgSendMsgId,pclRecordURNO);
+
+					for (ilCount = 0; ilCount < igReSendMax; ilCount++)
+					{
+						if (igSock > 0)
+						{
+							/*
+							@fya 20140304
+							strcat(pclDataSent,"\n");
+							*/
+							ilRC = Send_data(igSock,pclDataSent);
+							dbg(DEBUG, "<%s>1-ilRC<%d>",pclFunc,ilRC);
+
+							if (ilRC == RC_SUCCESS)
+							{
+								igSckWaitACK = TRUE;
+								igSckTryACKCnt = 0;
+
+								GetServerTimeStamp( "UTC", 1, 0, pcgSckWaitACKExpTime);
+								AddSecondsToCEDATime(pcgSckWaitACKExpTime, igSckACKCWait, 1);
+								break;
+							}
+							else if(ilRC == RC_FAIL)
+							{
+								dbg(DEBUG, "<%s>Send_data error",pclFunc);
+								ilRC = Sockt_Reconnect();
+								/*SendRST_Command();*/
+							}
+							else if(ilRC == RC_SENDTIMEOUT)
+							{
+								dbg(DEBUG,"<%s>Send_data timeout, Re send again",pclFunc);
+							}
+						}
+						else
+						{
+							if ((igConnected == TRUE) || (igOldCnnt == TRUE))
+							{
+								ilRC = Sockt_Reconnect();
+								/*SendRST_Command();*/
+							}
+							else
+								  ilRC = RC_FAIL;
+						}
+					}
+
+					/* fya 20140227 sending ack right after normal message*/
+					for (ilCount = 0; ilCount < igReSendMax; ilCount++)
+					{
+						if (igSock > 0)
+						{
+							ilRC = SendAckMsg();
+							dbg(DEBUG, "<%s>1-ilRC<%d>",pclFunc,ilRC);
+
+							if (ilRC == RC_SUCCESS)
+							{
+								igSckWaitACK = TRUE;
+								igSckTryACKCnt = 0;
+
+								GetServerTimeStamp( "UTC", 1, 0, pcgSckWaitACKExpTime);
+								AddSecondsToCEDATime(pcgSckWaitACKExpTime, igSckACKCWait, 1);
+								break;
+							}
+							else if(ilRC == RC_FAIL)
+							{
+								dbg(DEBUG, "<%s>Send_data error",pclFunc);
+								ilRC = Sockt_Reconnect();
+								/*SendRST_Command();*/
+							}
+							else if(ilRC == RC_SENDTIMEOUT)
+							{
+								dbg(DEBUG,"<%s>Send_data timeout, Re send again",pclFunc);
+							}
+						}
+						else
+						{
+							if ((igConnected == TRUE) || (igOldCnnt == TRUE))
+							{
+								ilRC = Sockt_Reconnect();
+								/*SendRST_Command();*/
+							}
+							else
+								  ilRC = RC_FAIL;
+					  }
+					}
+
+					if( ilCount >= igReSendMax)
+					{
+						dbg(TRACE,"<%s>Send_data <%d>Times failed, drop msg",pclFunc, ilCount);
+						return RC_FAIL;
+					}
+			}
+			break;
+	}
+	return RC_SUCCESS;
 }
