@@ -1,8 +1,7 @@
-
 #ifndef _DEF_mks_version
   #define _DEF_mks_version
   #include "ufisvers.h" /* sets UFIS_VERSION, must be done before mks_version */
-  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/lighdl.c 1.78b 3/17/2014 05:32:54 PM Exp  $";
+  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/lighdl.c 1.79a 3/25/2014 05:32:54 PM Exp  $";
 #endif /* _DEF_mks_version */
 
 /******************************************************************************/
@@ -1436,6 +1435,8 @@ static int HandleInternalData()
                     memset(pclSqlBuf,0,sizeof(pclSqlBuf));
                     memset(pclSqlData,0,sizeof(pclSqlData));
 
+                    dbg(TRACE,"<%s> Cancelled flight processing",pclFunc);
+
                     if ( strncmp(pclAdidNewData,"A",1) == 0 )
                     {
                         /*The cancelled flight is arrival, then send the departure flight*/
@@ -1452,8 +1453,8 @@ static int HandleInternalData()
                         dbg(TRACE,"<%s> pclAdidNewData<%s> is not A | D",pclFunc, pclAdidNewData);
                     }
 
-                    sprintf(pclSqlBuf, "SELECT URNO,ADID,RKEY,REGN,STOA,STOD,ETAI,ETDI,TIFA,TIFD,ONBL,OFBL,PSTA,PSTD,TMOA,AIRB,FTYP FROM AFTTAB WHERE ");
-                    strcat(pclSqlBuf,pclWhere);
+                    sprintf(pclSqlBuf, "SELECT URNO,ADID,RKEY,REGN,STOA,STOD,ETAI,ETDI,TIFA,TIFD,ONBL,OFBL,PSTA,PSTD,TMOA,AIRB,FTYP FROM AFTTAB WHERE %s", pclWhere);
+                    dbg(TRACE,"<%s> pclSqlBuf<%s>",pclFunc,pclSqlBuf);
 
                     memset(pclUrno,0,sizeof(pclUrno));
                     memset(pclAdid,0,sizeof(pclAdid));
@@ -1503,7 +1504,7 @@ static int HandleInternalData()
                                     dbg(TRACE,"<%s> line<%d> pclPstdNewData<%s> is null",pclFunc, __LINE__, pclPstdNewData);
                                 }
                             }
-                            else if (  strncmp(pclAdidNewData,"A",1) == 0 )
+                            else if ( strncmp(pclAdidNewData,"A",1) == 0 )
                             {
                                 if( strlen(pclPstaNewData) > 0 )
                                 {
@@ -1557,7 +1558,7 @@ static int HandleInternalData()
                             dbg(DEBUG,"<%s>pclAirb<%s>",pclFunc,pclAirb);
                             dbg(DEBUG,"<%s>pclFtyp<%s>",pclFunc,pclFtyp);
 
-                            if ( strncmp(pclFtyp,"X",1) == 0 || strncmp(pclFtyp,"N",1) == 0)
+                            if ( strncmp(pclFtyp,"X",1) == 0 || strncmp(pclFtyp,"N",1) == 0 )
                             {
                                 /* The rotation flights are both cancelled*/
                                 if ( strncmp(pclAdidNewData,"D",1) == 0 )
@@ -1595,18 +1596,18 @@ static int HandleInternalData()
                                     */
                                     if( strlen(pclPstd) > 0 )
                                     {
-                                        FindNextAllocation(pclPstd, pclTifdNewData, &rlSentMsg);
+                                        FindNextAllocation(pclPstd, pclTifd, &rlSentMsg);
                                     }
                                     else
                                     {
                                         dbg(TRACE,"<%s> line<%d> pclPstd<%s> is null",pclFunc, __LINE__, pclPstd);
                                     }
                                 }
-                                else if (  strncmp(pclPsta,"A",1) == 0 )
+                                else if ( strncmp(pclPsta,"A",1) == 0 )
                                 {
                                     if( strlen(pclPsta) > 0 )
                                     {
-                                        FindNextAllocation(pclPsta, pclTifaNewData, &rlSentMsg);
+                                        FindNextAllocation(pclPsta, pclTifa, &rlSentMsg);
                                     }
                                     else
                                     {
@@ -1616,7 +1617,7 @@ static int HandleInternalData()
                             }
                             else
                             {
-                                if ( strlen(pclOfbl) > 0 && strncmp(pclAdid,"D",1) != 0 )
+                                if ( strlen(pclOfbl) > 0 )
                                 {
                                     if ( strncmp(pclAdidNewData,"D",1) == 0 )
                                     {
@@ -7855,9 +7856,11 @@ static int FindNextAllocation(char *pcpParkingStand, char *pcpTime, SENT_MSG *rp
 					BuildSentData(pclDataSent,*rpSentMsg);
 					strcat(pclDataSent,"\n");
 					dbg(TRACE,"<%s> pclDataSent<%s>",pclFunc,pclDataSent);
-					StoreSentData(pclDataSent,pclUrnoNewData,"Normal",pclRecordURNO);
+					StoreSentData(pclDataSent,pclUrnoNewData,"NormalFlight",pclRecordURNO);
 
+                    /*
 					strcat(pclDataSent,"\n");
+					*/
 					strcpy(pcgCurSendData,pclDataSent);
 					strcpy(pcgSendMsgId,pclRecordURNO);
 
