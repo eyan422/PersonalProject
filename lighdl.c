@@ -1,7 +1,7 @@
 #ifndef _DEF_mks_version
   #define _DEF_mks_version
   #include "ufisvers.h" /* sets UFIS_VERSION, must be done before mks_version */
-  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/lighdl.c 1.79a 3/25/2014 05:32:54 PM Exp  $";
+  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/lighdl.c 1.79c 3/26/2014 05:32:54 PM Exp  $";
 #endif /* _DEF_mks_version */
 
 /******************************************************************************/
@@ -1453,7 +1453,7 @@ static int HandleInternalData()
                         dbg(TRACE,"<%s> pclAdidNewData<%s> is not A | D",pclFunc, pclAdidNewData);
                     }
 
-                    sprintf(pclSqlBuf, "SELECT URNO,ADID,RKEY,REGN,STOA,STOD,ETAI,ETDI,TIFA,TIFD,ONBL,OFBL,PSTA,PSTD,TMOA,AIRB,FTYP FROM AFTTAB WHERE %s", pclWhere);
+                    sprintf(pclSqlBuf, "SELECT URNO,ADID,RKEY,REGN,STOA,STOD,ETAI,ETDI,TIFA,TIFD,ONBL,OFBL,PSTA,PSTD,TMOA,AIRB,FTYP FROM AFTTAB %s", pclWhere);
                     dbg(TRACE,"<%s> pclSqlBuf<%s>",pclFunc,pclSqlBuf);
 
                     memset(pclUrno,0,sizeof(pclUrno));
@@ -1478,7 +1478,7 @@ static int HandleInternalData()
                     if (ilRC != DB_SUCCESS)
                     {
                         dbg(TRACE, "<%s>: Rotation Flight searching in AFTTAB fails, line<%d>", pclFunc,__LINE__);
-                        return RC_FAIL;
+                        /*return RC_FAIL;*/
                     }
 
                     switch(ilRC)
@@ -3341,7 +3341,8 @@ static int HandleInternalData()
             {
                 if( strlen(pclPstdOldData) > 0 && atoi(pclTifdNewData) > 0)
                 {
-                    FindNextAllocation(pclPstdOldData, pclTifdNewData, &rlSentMsg);
+                    /*FindNextAllocation(pclPstdOldData, pclTifdNewData, &rlSentMsg);*/
+                    dbg(TRACE,"<%s> line<%d> old PSTD != new PSTD",pclFunc, __LINE__);
                 }
                 else
                 {
