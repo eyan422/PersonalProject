@@ -1,7 +1,7 @@
 #ifndef _DEF_mks_version
   #define _DEF_mks_version
   #include "ufisvers.h" /* sets UFIS_VERSION, must be done before mks_version */
-  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/lighdl.c 1.79c 3/26/2014 05:32:54 PM Exp  $";
+  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/lighdl.c 1.79d 3/27/2014 05:32:54 PM Exp  $";
 #endif /* _DEF_mks_version */
 
 /******************************************************************************/
@@ -951,8 +951,14 @@ static int HandleInternalData()
 	char pclFtypNewData[16] = "\0";
 	char pclFtypOldData[16] = "\0";
 
+	char pclRegnNewData[16] = "\0";
+	char pclRegnOldData[16] = "\0";
+
 	char pclRkey[16] = "\0";
     char pclRegn[16] = "\0";
+
+    char pclTmpTifa[16] = "\0";
+    char pclTmpTifd[16] = "\0";
 
     char pclTifaNewData[16] = "\0";
     char pclTifaOldData[16] = "\0";
@@ -1359,7 +1365,6 @@ static int HandleInternalData()
 
 			if ( strcmp(cmdblk->command,"IFR") == 0 || strcmp(cmdblk->command,"UFR") == 0 )
 			{
-
                 ilItemNo =  get_item_no(pclFields, "FTYP", 5) + 1;
                 if (ilItemNo <= 0)
                 {
@@ -1428,6 +1433,19 @@ static int HandleInternalData()
 
                 if ( strncmp(pclFtypNewData,"X",1) == 0 || strncmp(pclFtypNewData,"N",1) == 0 )
                 {
+                    ilItemNo =  get_item_no(pclFields, "REGN", 5) + 1;
+                    if (ilItemNo <= 0)
+                    {
+                        dbg(TRACE,"<%s> REGN is not included in the field list, can not proceed",pclFunc);
+                        return RC_FAIL;
+                    }
+                    get_real_item(pclRegnNewData, pclNewData, ilItemNo);
+                    get_real_item(pclRegnOldData, pclOldData, ilItemNo);
+                    dbg(DEBUG,"<%s>The New REGN is <%s>", pclFunc, pclRegnNewData);
+                    dbg(DEBUG,"<%s>The Old REGN is <%s>", pclFunc, pclRegnOldData);
+                    TrimSpace(pclRegnNewData);
+                    TrimSpace(pclRegnOldData);
+
                     /*
                     Cancelled Flight
                     */
@@ -1440,13 +1458,18 @@ static int HandleInternalData()
                     if ( strncmp(pclAdidNewData,"A",1) == 0 )
                     {
                         /*The cancelled flight is arrival, then send the departure flight*/
-                        sprintf(pclWhere, "WHERE RKEY = '%s' AND ADID ='D'",pclUrnoNewData);
+                        /*sprintf(pclWhere, "WHERE RKEY = '%s' AND ADID ='D'",pclUrnoNewData);*/
+                        strncpy(pclTmpTifd, pclTifaNewData, 6);
+                        sprintf(pclWhere, "WHERE FTYP NOT IN ('X') AND TRIM(REGN) ='%s' AND ADID='D' AND TIFD like '%' ORDER BY TIFD;",pclRegnNewData, pclTmpTifd);
+                        /*sprintf(pclWhere, "WHERE TRIM(REGN) ='%s' AND ADID='D' AND TIFD like '%' ORDER BY TIFD;",pclRegnNewData, pclTmpTifd);*/
                     }
                     else if ( strncmp(pclAdidNewData,"D",1) == 0 )
                     {
                          /*The cancelled flight is departure, then send the arrival flight*/
-                         sprintf(pclWhere, "WHERE RKEY = '%s' AND ADID ='A'",pclUrnoNewData);
-
+                         /*sprintf(pclWhere, "WHERE RKEY = '%s' AND ADID ='A'",pclUrnoNewData);*/
+                        strncpy(pclTmpTifa, pclTifdNewData, 6);
+                        sprintf(pclWhere, "WHERE FTYP NOT IN ('X') AND TRIM(REGN) ='%s' AND ADID='A' AND TIFA like '%' ORDER BY TIFA;",pclRegnNewData, pclTmpTifa);
+                        /*sprintf(pclWhere, "WHERE TRIM(REGN) ='%s' AND ADID='A' AND TIFA like '%' ORDER BY TIFA;",pclRegnNewData, pclTmpTifa);*/
                     }
                     else
                     {
@@ -1594,7 +1617,7 @@ static int HandleInternalData()
                                     Normal arrival and departure flight
                                     Find the next allocation
                                     */
-                                    if( strlen(pclPstd) > 0 )
+                                    if( strlen(pclPstd) > 0 && strlen(pclPstaNewData) > 0  && strcmp(pclPstd,pclPstaNewData) != 0 )
                                     {
                                         FindNextAllocation(pclPstd, pclTifd, &rlSentMsg);
                                     }
@@ -1605,7 +1628,7 @@ static int HandleInternalData()
                                 }
                                 else if ( strncmp(pclPsta,"A",1) == 0 )
                                 {
-                                    if( strlen(pclPsta) > 0 )
+                                    if( strlen(pclPsta) > 0 && strlen(pclPstdNewData) > 0  && strcmp(pclPsta,pclPstdNewData) != 0 )
                                     {
                                         FindNextAllocation(pclPsta, pclTifa, &rlSentMsg);
                                     }
@@ -1621,10 +1644,6 @@ static int HandleInternalData()
                                 {
                                     if ( strncmp(pclAdidNewData,"D",1) == 0 )
                                     {
-                                        /*
-                                        Normal arrival and departure flight
-                                        Find the next allocation
-                                        */
                                         if( strlen(pclPstdNewData) > 0 )
                                         {
                                             FindNextAllocation(pclPstdNewData, pclTifdNewData, &rlSentMsg);
@@ -1652,20 +1671,20 @@ static int HandleInternalData()
                                         Normal arrival and departure flight
                                         Find the next allocation
                                         */
-                                        if( strlen(pclPstd) > 0 )
+                                        if( strlen(pclPstd) > 0 && strlen(pclPstaNewData) > 0  && strcmp(pclPstd,pclPstaNewData) != 0 )
                                         {
-                                            FindNextAllocation(pclPstd, pclTifdNewData, &rlSentMsg);
+                                            FindNextAllocation(pclPstd, pclTifd, &rlSentMsg);
                                         }
                                         else
                                         {
                                             dbg(TRACE,"<%s> line<%d> pclPstd<%s> is null",pclFunc, __LINE__, pclPstd);
                                         }
                                     }
-                                    else if (  strncmp(pclPsta,"A",1) == 0 )
+                                    else if ( strncmp(pclPsta,"A",1) == 0 )
                                     {
-                                        if( strlen(pclPsta) > 0 )
+                                        if( strlen(pclPsta) > 0 && strlen(pclPstdNewData) > 0  && strcmp(pclPsta,pclPstdNewData) != 0 )
                                         {
-                                            FindNextAllocation(pclPsta, pclTifaNewData, &rlSentMsg);
+                                            FindNextAllocation(pclPsta, pclTifa, &rlSentMsg);
                                         }
                                         else
                                         {
@@ -1700,12 +1719,12 @@ static int HandleInternalData()
                                     {
                                         if (igSock > 0)
                                         {
-                                        /*
-                                        @fya 20140304
-                                        strcat(pclDataSent,"\n");
-                                        */
-                                        ilRC = Send_data(igSock,pclDataSent);
-                                        dbg(DEBUG, "<%s>1-ilRC<%d>",pclFunc,ilRC);
+                                            /*
+                                            @fya 20140304
+                                            strcat(pclDataSent,"\n");
+                                            */
+                                            ilRC = Send_data(igSock,pclDataSent);
+                                            dbg(DEBUG, "<%s>1-ilRC<%d>",pclFunc,ilRC);
 
                                           if (ilRC == RC_SUCCESS)
                                           {
