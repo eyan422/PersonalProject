@@ -1,7 +1,7 @@
 #ifndef _DEF_mks_version
   #define _DEF_mks_version
   #include "ufisvers.h" /* sets UFIS_VERSION, must be done before mks_version */
-  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/lighdl.c 1.79d 3/27/2014 05:32:54 PM Exp  $";
+  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/lighdl.c 1.8a 3/31/2014 05:32:54 PM Exp  $";
 #endif /* _DEF_mks_version */
 
 /******************************************************************************/
@@ -1460,7 +1460,7 @@ static int HandleInternalData()
                         /*The cancelled flight is arrival, then send the departure flight*/
                         /*sprintf(pclWhere, "WHERE RKEY = '%s' AND ADID ='D'",pclUrnoNewData);*/
                         strncpy(pclTmpTifd, pclTifaNewData, 6);
-                        sprintf(pclWhere, "WHERE FTYP NOT IN ('X') AND TRIM(REGN) ='%s' AND ADID='D' AND TIFD like '%' ORDER BY TIFD;",pclRegnNewData, pclTmpTifd);
+                        sprintf(pclWhere, "WHERE FTYP NOT IN ('X') AND TRIM(REGN) ='%s' AND ADID='D' AND TIFD like '%s%%' ORDER BY TIFD;",pclRegnNewData, pclTmpTifd);
                         /*sprintf(pclWhere, "WHERE TRIM(REGN) ='%s' AND ADID='D' AND TIFD like '%' ORDER BY TIFD;",pclRegnNewData, pclTmpTifd);*/
                     }
                     else if ( strncmp(pclAdidNewData,"D",1) == 0 )
@@ -1468,7 +1468,7 @@ static int HandleInternalData()
                          /*The cancelled flight is departure, then send the arrival flight*/
                          /*sprintf(pclWhere, "WHERE RKEY = '%s' AND ADID ='A'",pclUrnoNewData);*/
                         strncpy(pclTmpTifa, pclTifdNewData, 6);
-                        sprintf(pclWhere, "WHERE FTYP NOT IN ('X') AND TRIM(REGN) ='%s' AND ADID='A' AND TIFA like '%' ORDER BY TIFA;",pclRegnNewData, pclTmpTifa);
+                        sprintf(pclWhere, "WHERE FTYP NOT IN ('X') AND TRIM(REGN) ='%s' AND ADID='A' AND TIFA like '%s%%' ORDER BY TIFA;",pclRegnNewData, pclTmpTifa);
                         /*sprintf(pclWhere, "WHERE TRIM(REGN) ='%s' AND ADID='A' AND TIFA like '%' ORDER BY TIFA;",pclRegnNewData, pclTmpTifa);*/
                     }
                     else
@@ -1708,7 +1708,7 @@ static int HandleInternalData()
                                     memset(pclDataSent,0,sizeof(pclDataSent));
                                     BuildSentData(pclDataSent,rlSentMsg);
 
-                                    StoreSentData(pclDataSent,pclUrno,"Normal",pclRecordURNO);
+                                    StoreSentData(pclDataSent,pclUrno,"NormalFlight",pclRecordURNO);
 
                                     strcat(pclDataSent,"\n");
                                     strcpy(pcgCurSendData,pclDataSent);
@@ -2060,7 +2060,7 @@ static int HandleInternalData()
                                     memset(pclDataSent,0,sizeof(pclDataSent));
                                     BuildSentData(pclDataSent,rlSentMsg);
 
-                                    StoreSentData(pclDataSent,pclUrnoNewData,"Normal",pclRecordURNO);
+                                    StoreSentData(pclDataSent,pclUrnoNewData,"NormalFlight",pclRecordURNO);
 
                                     strcat(pclDataSent,"\n");
                                     strcpy(pcgCurSendData,pclDataSent);
@@ -2976,7 +2976,7 @@ static int HandleInternalData()
 
                     strcpy(pcgCurSendData,pclDataSentCombined);
                     /* For continuous towing records, only one combined msg & ack is sent */
-                    StoreSentData(pclDataSentCombined,pclUrnoNewData,"Normal",pclRecordURNO);
+                    StoreSentData(pclDataSentCombined,pclUrnoNewData,"NormalFlight",pclRecordURNO);
                     strcpy(pcgSendMsgId,pclRecordURNO);
 
                     for (ilCount = 0; ilCount < igReSendMax; ilCount++)
@@ -3257,7 +3257,7 @@ static int HandleInternalData()
 			}
 			dbg(TRACE,"<%s> pclDataSent<%s>",pclFunc,pclDataSent);
 
-			StoreSentData(pclDataSent,pclUrnoNewData,"Normal",pclRecordURNO);
+			StoreSentData(pclDataSent,pclUrnoNewData,"NormalFlight",pclRecordURNO);
 
 			/*@fya 20140304*/
             strcat(pclDataSent,"\n");
