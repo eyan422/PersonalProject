@@ -1,7 +1,7 @@
 #ifndef _DEF_mks_version
   #define _DEF_mks_version
   #include "ufisvers.h" /* sets UFIS_VERSION, must be done before mks_version */
-  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/lighdl.c 1.8a 3/31/2014 05:32:54 PM Exp  $";
+  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/lighdl.c 1.8g 4/01/2014 06:28 PM Exp  $";
 #endif /* _DEF_mks_version */
 
 /******************************************************************************/
@@ -20,6 +20,7 @@ X-2)Adding the notification of new created towing flight -> rsp flisea for sendi
 X-3)ATD = AIRB, ATA = LAND
 X-4)off-block = OFBL
 X-5)fixed the bug on towing record in LIGTAB
+X-6)Change condition of sending out the towing records which have off-block time in LIGTAB
 X-6)Change condition of sending out the towing records which have off-block time in LIGTAB
 7) Get OFNL and ONBL from PDETAB
 */
@@ -951,6 +952,9 @@ static int HandleInternalData()
 	char pclFtypNewData[16] = "\0";
 	char pclFtypOldData[16] = "\0";
 
+	char pclFlnoNewData[16] = "\0";
+	char pclFlnoOldData[16] = "\0";
+
 	char pclRegnNewData[16] = "\0";
 	char pclRegnOldData[16] = "\0";
 
@@ -990,6 +994,7 @@ static int HandleInternalData()
 	char pclPsta[16] = "\0";
 	char pclPstd[16] = "\0";
 	char pclTmoa[16] = "\0";
+	char pclFlno[16] = "\0";
     char pclUrnoSelection[50] = "\0";
     char pclRecordURNO[50] = "\0";
 	char pclUrnoOldData[50] = "\0";
@@ -1446,6 +1451,19 @@ static int HandleInternalData()
                     TrimSpace(pclRegnNewData);
                     TrimSpace(pclRegnOldData);
 
+                    ilItemNo =  get_item_no(pclFields, "FLNO", 5) + 1;
+                    if (ilItemNo <= 0)
+                    {
+                        dbg(TRACE,"<%s> FLNO is not included in the field list, can not proceed",pclFunc);
+                        return RC_FAIL;
+                    }
+                    get_real_item(pclFlnoNewData, pclNewData, ilItemNo);
+                    get_real_item(pclFlnoOldData, pclOldData, ilItemNo);
+                    dbg(DEBUG,"<%s>The New FLNO is <%s>", pclFunc, pclFlnoNewData);
+                    dbg(DEBUG,"<%s>The Old FLNO is <%s>", pclFunc, pclFlnoOldData);
+                    TrimSpace(pclFlnoNewData);
+                    TrimSpace(pclFlnoOldData);
+
                     /*
                     Cancelled Flight
                     */
@@ -1459,24 +1477,42 @@ static int HandleInternalData()
                     {
                         /*The cancelled flight is arrival, then send the departure flight*/
                         /*sprintf(pclWhere, "WHERE RKEY = '%s' AND ADID ='D'",pclUrnoNewData);*/
-                        strncpy(pclTmpTifd, pclTifaNewData, 6);
-                        sprintf(pclWhere, "WHERE FTYP NOT IN ('X') AND TRIM(REGN) ='%s' AND ADID='D' AND TIFD like '%s%%' ORDER BY TIFD;",pclRegnNewData, pclTmpTifd);
-                        /*sprintf(pclWhere, "WHERE TRIM(REGN) ='%s' AND ADID='D' AND TIFD like '%' ORDER BY TIFD;",pclRegnNewData, pclTmpTifd);*/
+                        strcpy(pclTmpTifd, pclTifaNewData);
+                        AddSecondsToCEDATime(pclTmpTifd, 1 * 24 * 60 * 60, 1);
+                        if (strlen(pclRegnNewData) > 0 )
+                        {
+                            sprintf(pclWhere, "WHERE FTYP NOT IN ('X') AND TRIM(REGN) = '%s' AND ADID = 'D' AND FLNO like '%3.3s%%' AND TIFD between '%s' AND '%s' ORDER BY TIFD ASC",pclRegnNewData, pclFlnoNewData, pclTifaNewData, pclTmpTifd);
+                            /*sprintf(pclWhere, "WHERE TRIM(REGN) ='%s' AND ADID='D' AND TIFD like '%' ORDER BY TIFD;",pclRegnNewData, pclTmpTifd);*/
+                        }
+                        else if (strlen(pclRegnNewData) == 0 )
+                        {
+                            sprintf(pclWhere, "WHERE FTYP NOT IN ('X') AND REGN = ' ' AND ADID = 'D' AND FLNO like '%3.3s%%' AND TIFD between '%s' AND '%s' ORDER BY TIFD ASC", pclFlnoNewData ,pclTifaNewData, pclTmpTifd);
+                            /*sprintf(pclWhere, "WHERE TRIM(REGN) ='%s' AND ADID='D' AND TIFD like '%' ORDER BY TIFD;",pclRegnNewData, pclTmpTifd);*/
+                        }
                     }
                     else if ( strncmp(pclAdidNewData,"D",1) == 0 )
                     {
                          /*The cancelled flight is departure, then send the arrival flight*/
                          /*sprintf(pclWhere, "WHERE RKEY = '%s' AND ADID ='A'",pclUrnoNewData);*/
-                        strncpy(pclTmpTifa, pclTifdNewData, 6);
-                        sprintf(pclWhere, "WHERE FTYP NOT IN ('X') AND TRIM(REGN) ='%s' AND ADID='A' AND TIFA like '%s%%' ORDER BY TIFA;",pclRegnNewData, pclTmpTifa);
-                        /*sprintf(pclWhere, "WHERE TRIM(REGN) ='%s' AND ADID='A' AND TIFA like '%' ORDER BY TIFA;",pclRegnNewData, pclTmpTifa);*/
+                        strcpy(pclTmpTifa, pclTifdNewData);
+                        AddSecondsToCEDATime(pclTmpTifa, -1 * 24 * 60 * 60, 1);
+                        if (strlen(pclRegnNewData) > 0 )
+                        {
+                            sprintf(pclWhere, "WHERE FTYP NOT IN ('X') AND TRIM(REGN) = '%s' AND ADID = 'A' AND FLNO like '%3.3s%%' AND TIFA between '%s' AND'%s' ORDER BY TIFA DESC",pclRegnNewData, pclFlnoNewData, pclTmpTifa, pclTifdNewData);
+                            /*sprintf(pclWhere, "WHERE TRIM(REGN) ='%s' AND ADID='A' AND TIFA like '%' ORDER BY TIFA;",pclRegnNewData, pclTmpTifa);*/
+                        }
+                        else if (strlen(pclRegnNewData) == 0 )
+                        {
+                            sprintf(pclWhere, "WHERE FTYP NOT IN ('X') AND REGN = ' ' AND ADID = 'A' AND FLNO like '%3.3s%%' AND TIFA between '%s' AND '%s' ORDER BY TIFA DESC",pclFlnoNewData, pclTmpTifa, pclTifdNewData);
+                            /*sprintf(pclWhere, "WHERE TRIM(REGN) ='%s' AND ADID='A' AND TIFA like '%' ORDER BY TIFA;",pclRegnNewData, pclTmpTifa);*/
+                        }
                     }
                     else
                     {
                         dbg(TRACE,"<%s> pclAdidNewData<%s> is not A | D",pclFunc, pclAdidNewData);
                     }
 
-                    sprintf(pclSqlBuf, "SELECT URNO,ADID,RKEY,REGN,STOA,STOD,ETAI,ETDI,TIFA,TIFD,ONBL,OFBL,PSTA,PSTD,TMOA,AIRB,FTYP FROM AFTTAB %s", pclWhere);
+                    sprintf(pclSqlBuf, "SELECT URNO,ADID,RKEY,REGN,STOA,STOD,ETAI,ETDI,TIFA,TIFD,ONBL,OFBL,PSTA,PSTD,TMOA,AIRB,FTYP,FLNO FROM AFTTAB %s", pclWhere);
                     dbg(TRACE,"<%s> pclSqlBuf<%s>",pclFunc,pclSqlBuf);
 
                     memset(pclUrno,0,sizeof(pclUrno));
@@ -1496,6 +1532,7 @@ static int HandleInternalData()
                     memset(pclPstd,0,sizeof(pclTmoa));
                     memset(pclAirb,0,sizeof(pclAirb));
                     memset(pclFtyp,0,sizeof(pclFtyp));
+                    memset(pclFlno,0,sizeof(pclFlno));
 
                     ilRC = RunSQL(pclSqlBuf, pclSqlData);
                     if (ilRC != DB_SUCCESS)
@@ -1560,7 +1597,8 @@ static int HandleInternalData()
                             get_fld(pclSqlData,FIELD_14,STR,20,pclPstd); TrimSpace(pclPstd);
                             get_fld(pclSqlData,FIELD_15,STR,20,pclTmoa); TrimSpace(pclTmoa);
                             get_fld(pclSqlData,FIELD_16,STR,20,pclAirb); TrimSpace(pclAirb);
-                            get_fld(pclSqlData,FIELD_16,STR,20,pclFtyp); TrimSpace(pclFtyp);
+                            get_fld(pclSqlData,FIELD_17,STR,20,pclFtyp); TrimSpace(pclFtyp);
+                            get_fld(pclSqlData,FIELD_18,STR,20,pclFlno); TrimSpace(pclFlno);
 
                             dbg(DEBUG,"<%s>line <%d>",pclFunc,__LINE__);
                             dbg(DEBUG,"<%s>pclUrno<%s>",pclFunc,pclUrno);
@@ -1580,6 +1618,7 @@ static int HandleInternalData()
                             dbg(DEBUG,"<%s>pclTmoa<%s>",pclFunc,pclTmoa);
                             dbg(DEBUG,"<%s>pclAirb<%s>",pclFunc,pclAirb);
                             dbg(DEBUG,"<%s>pclFtyp<%s>",pclFunc,pclFtyp);
+                            dbg(DEBUG,"<%s>pclFlno<%s>",pclFunc,pclFlno);
 
                             if ( strncmp(pclFtyp,"X",1) == 0 || strncmp(pclFtyp,"N",1) == 0 )
                             {
@@ -1640,8 +1679,9 @@ static int HandleInternalData()
                             }
                             else
                             {
-                                if ( strlen(pclOfbl) > 0 )
+                                if ( strlen(pclOfbl) > 0 && strncmp(pclAdid,"D",1) == 0 )
                                 {
+                                    dbg(TRACE,"<%s> line<%d> OFBL is not null",pclFunc, __LINE__);
                                     if ( strncmp(pclAdidNewData,"D",1) == 0 )
                                     {
                                         if( strlen(pclPstdNewData) > 0 )
@@ -1694,11 +1734,12 @@ static int HandleInternalData()
                                 }
                                 else
                                 {
+                                    dbg(TRACE,"<%s> line<%d> OFBL is null",pclFunc, __LINE__);
                                     if ( strncmp(pclAdid,"D",1) == 0 )
                                     {
                                         BuildDepPart(&rlSentMsg, pclPstd, pclStod, pclEtdi, pclOfbl);
                                     }
-                                    else if (  strncmp(pclPsta,"A",1) == 0 )
+                                    else if ( strncmp(pclAdid,"A",1) == 0 )
                                     {
                                         BuildArrPart(&rlSentMsg, pclPsta, pclStoa, pclEtai, pclTmoa, pclOnbl);
                                     }
