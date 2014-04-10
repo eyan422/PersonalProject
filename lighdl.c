@@ -2326,6 +2326,11 @@ static int HandleInternalData()
                             memset(pclSqlBuf,0,sizeof(pclSqlBuf));
                             memset(pclSqlData,0,sizeof(pclSqlData));
 
+                            if (strcmp(pclPstaOldData,pclPstaNewData) == 0)
+                            {
+                                continue;
+                            }
+
                             if ( ilCountP == 0 && strcmp(pclPstaOldData,pclPstaNewData) != 0)
                             {
                                 /*FindNextAllocDepBuildWhereClause(pclWhere,pclPstaNewData,pclTifaNewData);*/
