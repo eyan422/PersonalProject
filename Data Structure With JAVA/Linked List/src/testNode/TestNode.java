@@ -29,7 +29,9 @@ class Node {
 		this.data = data;
 	}
 	
+	/*
 	public String toString() {
 		return "" + this.data;
 	}
+	*/
 }
