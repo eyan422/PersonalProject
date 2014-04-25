@@ -1,7 +1,7 @@
 #ifndef _DEF_mks_version
   #define _DEF_mks_version
   #include "ufisvers.h" /* sets UFIS_VERSION, must be done before mks_version */
-  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/lighdl.c 2.0 4/11/2014 06:15 PM Exp  $";
+  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/lighdl.c 2.1 4/24/2014 08:11 PM Exp  $";
 #endif /* _DEF_mks_version */
 
 /******************************************************************************/
@@ -182,6 +182,9 @@ static int igConfigTime;
 static int igConfigShift;
 static int igConfigEndShiftTime;
 static int igActualUseTime;
+
+static int igPastActualDep;
+static int igPastActualArr;
 
 static char	pcgCurSendData[4096] = "\0"; /* global CurSendData */
 static char	pcgSendHeartBeatExpTime[64] = "\0";  /* global Send heartbeat expect time */
@@ -1220,7 +1223,7 @@ static int HandleInternalData()
                             /*FindNextAllocationForTowingDelete(pclPstaNewData, pclTifaNewData, &rlSentMsg);*/
 
                             /*fya 2014-04-09*/
-                            dbg(TRACE,"<%s> 1T-Getting the result 5 seconds later",pclFunc);
+                            dbg(TRACE,"<%s> 1T-Getting the result 3 seconds later",pclFunc);
                             sleep(3);
 
                             FindNextAllocation(pclPstaNewData, pclTifaNewData, &rlSentMsg, 1, 0);
@@ -1237,10 +1240,11 @@ static int HandleInternalData()
                             /*FindNextAllocationForTowingDelete(pclPstdNewData, pclTifdNewData, &rlSentMsg);*/
 
                             /*fya 2014-04-09*/
-                            dbg(TRACE,"<%s> 2T-Getting the result 5 seconds later",pclFunc);
+                            dbg(TRACE,"<%s> 2T-Getting the result 3 seconds later",pclFunc);
                             sleep(3);
 
-                            FindNextAllocation(pclPstdNewData, pclTifdNewData, &rlSentMsg, 0, 1);
+                            if ( strlen(pclTifdNewData) > 0 )
+                                FindNextAllocation(pclPstdNewData, pclTifdNewData, &rlSentMsg, 0, 1);
                         }
                         else
                         {
@@ -1583,7 +1587,7 @@ static int HandleInternalData()
                                 if( strlen(pclPstdNewData) > 0 )
                                 {
                                     /*fya 2014-04-09*/
-                                    dbg(TRACE,"<%s> 1C-Getting the result 5 seconds later",pclFunc);
+                                    dbg(TRACE,"<%s> 1C-Getting the result 3 seconds later",pclFunc);
                                     sleep(3);
                                     FindNextAllocation(pclPstdNewData, pclTifdNewData, &rlSentMsg, 0, 1);
                                 }
@@ -1597,7 +1601,7 @@ static int HandleInternalData()
                                 if( strlen(pclPstaNewData) > 0 )
                                 {
                                     /*fya 2014-04-09*/
-                                    dbg(TRACE,"<%s> 2C-Getting the result 5 seconds later",pclFunc);
+                                    dbg(TRACE,"<%s> 2C-Getting the result 3 seconds later",pclFunc);
                                     sleep(3);
                                     FindNextAllocation(pclPstaNewData, pclTifaNewData, &rlSentMsg, 0, 1);
                                 }
@@ -1957,7 +1961,11 @@ static int HandleInternalData()
 
                         The reason of firstly finding the departure flight without AIRB for the next allocation is that if searching the arrival flight for the next allocation first, then the related departure flight may also has AIRB.
                         */
-                        FindNextAllocation(pclPstdNewData, pclTifdNewData, &rlSentMsg, 0, 1);
+                        if ( strlen(pclPstdNewData) > 0 )
+                            FindNextAllocation(pclPstdNewData, pclTifdNewData, &rlSentMsg, 0, 1);
+                        else
+                            dbg(TRACE,"<%s> line<%d> pclPstdNewData<%s> is null",pclFunc,__LINE__,pclPstdNewData);
+
                         return RC_SUCCESS;
                         #ifdef FYA
                         {
@@ -2235,7 +2243,7 @@ static int HandleInternalData()
                                             return RC_FAIL;
                                         }
 
-                                        if (strcmp(pclPstdOldData, pclPstdNewData) != 0 )
+                                        if ( strlen(pclPstdOldData) > 0 && strlen(pclPstdNewData) > 0 && strcmp(pclPstdOldData, pclPstdNewData) != 0 )
                                         {
                                             if( strlen(pclPstdOldData) > 0 && atoi(pclTifdNewData) > 0)
                                             {
@@ -2337,7 +2345,7 @@ static int HandleInternalData()
                         fya 20140411
                         New case on create and change towing - only when new and old past is different, and then searching for the old psta
                         */
-                        if ( strcmp(pclPstaOldData,pclPstaNewData) != 0 )
+                        if ( strlen(pclPstaOldData) > 0 && strlen(pclPstaNewData) > 0 && strcmp(pclPstaOldData,pclPstaNewData) != 0 )
                         {
                             FindNextAllocation(pclPstaOldData, pclTifaNewData, &rlSentMsg, 0, 0);
                             /*return RC_SUCCESS;*/
@@ -2652,7 +2660,11 @@ static int HandleInternalData()
 						}
 
                         /*for pstd*/
-                        FindNextAllocation(pclPstdNewData, pclTifaNewData, &rlSentMsg, 0, 1);
+                        if ( strlen(pclPstdNewData) > 0 )
+                            FindNextAllocation(pclPstdNewData, pclTifaNewData, &rlSentMsg, 0, 1);
+                        else
+                            dbg(TRACE,"<%s> line<%d> pclPstdNewData<%s> is null",pclFunc,__LINE__,pclPstdNewData);
+
                         return RC_SUCCESS;
                         #ifdef FYA
                         {
@@ -2853,7 +2865,7 @@ static int HandleInternalData()
                                         dbg(TRACE,"<%s> pclDataSent<%s>",pclFunc,pclDataSent);
                                         StoreSentData(pclDataSent,pclUrnoNewData,"Towing",pclRecordURNO);
 
-                                        if (strcmp(pclPstdOldData, pclPstdNewData) != 0 )
+                                        if ( strlen(pclPstdOldData) > 0 && strlen(pclPstdNewData) > 0 && strcmp(pclPstdOldData, pclPstdNewData) != 0 )
                                         {
                                             if( strlen(pclPstdOldData) > 0 && atoi(pclTifdNewData) > 0)
                                             {
@@ -3283,7 +3295,11 @@ static int HandleInternalData()
                             dbg(TRACE,"<%s>Calling FindNextAllocationForTowingCreation line<%d>",pclFunc,__LINE__);
 
                             PutDefaultValue(&rlSentMsgTmp);
-                            ilRC = FindNextAllocationForTowingCreation(rlTowing[ilCountT].pclPsta, &rlSentMsgTmp, rlTowing[ilCountT].pclTifd);
+
+                            if ( strlen(rlTowing[ilCountT].pclPsta) > 0 )
+                                ilRC = FindNextAllocationForTowingCreation(rlTowing[ilCountT].pclPsta, &rlSentMsgTmp, rlTowing[ilCountT].pclTifd);
+                            else
+                                dbg(TRACE,"<%s> line<%d> rlTowing[ilCountT].pclPsta<%s> is null",pclFunc,__LINE__,rlTowing[ilCountT].pclPsta);
                         }
 
 					    switch(ilRC)
@@ -4059,132 +4075,144 @@ static int GetConfig()
         igModID_ConMgr = 1005;
 	dbg(TRACE,"Connect Mgr Modid <%d>", igModID_ConMgr);
 
-  ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","HWECON_STB",CFG_STRING,pclTmpBuf);
-  if ((ilRC == RC_SUCCESS) && (strcmp(pclTmpBuf, " ") != 0))
+    ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","HWECON_STB",CFG_STRING,pclTmpBuf);
+    if ((ilRC == RC_SUCCESS) && (strcmp(pclTmpBuf, " ") != 0))
       igModID_ConSTB = atoi(pclTmpBuf);
-  else
+    else
       igModID_ConSTB = 1003;
-	dbg(TRACE,"Parallel Connect  Modid <%d>", igModID_ConSTB);
+    dbg(TRACE,"Parallel Connect  Modid <%d>", igModID_ConSTB);
 
-  ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","CLT_RECNCT_INTERVAL",CFG_STRING,pclTmpBuf);
-  if ((ilRC == RC_SUCCESS) && (strcmp(pclTmpBuf, " ") != 0))
+    ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","CLT_RECNCT_INTERVAL",CFG_STRING,pclTmpBuf);
+    if ((ilRC == RC_SUCCESS) && (strcmp(pclTmpBuf, " ") != 0))
       igReconIntv = atoi(pclTmpBuf);
-  else
+    else
       igReconIntv = 15;
-	dbg(TRACE,"Retry to connect Interval Time <%d> Second", igReconIntv);
+    dbg(TRACE,"Retry to connect Interval Time <%d> Second", igReconIntv);
 
-  ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","CLT_RECNCT_TIMES",CFG_STRING,pclTmpBuf);
-  if ((ilRC == RC_SUCCESS) && (strcmp(pclTmpBuf, " ") != 0))
+    ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","CLT_RECNCT_TIMES",CFG_STRING,pclTmpBuf);
+    if ((ilRC == RC_SUCCESS) && (strcmp(pclTmpBuf, " ") != 0))
       igReconMax = atoi(pclTmpBuf);
-  else
+    else
       igReconMax = 3;
-	dbg(TRACE,"Try Max <%d> Times for each connection", igReconMax);
+    dbg(TRACE,"Try Max <%d> Times for each connection", igReconMax);
 
 
-  ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","HEARTBEAT_INTERVAL",CFG_STRING,pclTmpBuf);
-  if ((ilRC == RC_SUCCESS) && (strcmp(pclTmpBuf, " ") != 0))
-  {
-  	igHeartBeatIntv = atoi(pclTmpBuf);
-  }
-  else
-  {
-  	igHeartBeatIntv = 5;
-  }
+    ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","HEARTBEAT_INTERVAL",CFG_STRING,pclTmpBuf);
+    if ((ilRC == RC_SUCCESS) && (strcmp(pclTmpBuf, " ") != 0))
+    {
+    igHeartBeatIntv = atoi(pclTmpBuf);
+    }
+    else
+    {
+    igHeartBeatIntv = 5;
+    }
 
-	dbg(TRACE,"HeartBeat Send Interval <%d> Second", igHeartBeatIntv);
+    dbg(TRACE,"HeartBeat Send Interval <%d> Second", igHeartBeatIntv);
 
-  ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","HEARTBEAT_TIMEOUT",CFG_STRING,pclTmpBuf);
-  if ((ilRC == RC_SUCCESS) && (strcmp(pclTmpBuf, " ") != 0))
+    ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","HEARTBEAT_TIMEOUT",CFG_STRING,pclTmpBuf);
+    if ((ilRC == RC_SUCCESS) && (strcmp(pclTmpBuf, " ") != 0))
       igHeartBeatTimOut = atoi(pclTmpBuf);
-  else
+    else
       igHeartBeatTimOut = 15;
-	dbg(TRACE,"HeartBeat Send TIMEOUT set to <%d> Second", igHeartBeatTimOut);
+    dbg(TRACE,"HeartBeat Send TIMEOUT set to <%d> Second", igHeartBeatTimOut);
 
-  ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","ACK_SEND_ENABLE",CFG_STRING,pclTmpBuf);
-  if ((ilRC == RC_SUCCESS) && (strcmp(pclTmpBuf, "NO") == 0))
-  {
+    ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","ACK_SEND_ENABLE",CFG_STRING,pclTmpBuf);
+    if ((ilRC == RC_SUCCESS) && (strcmp(pclTmpBuf, "NO") == 0))
+    {
       igSendAckEnable = FALSE;
     dbg(TRACE,"Send ACK to Server Disable");
-  }
-  else
-  {
+    }
+    else
+    {
       igSendAckEnable = TRUE;
     dbg(TRACE,"Send ACK to Server Enable");
-  }
+    }
 
-  ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","ACK_WAIT_TIME",CFG_STRING,pclTmpBuf);
-  if ((ilRC == RC_SUCCESS) && (strcmp(pclTmpBuf, " ") != 0))
+    ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","ACK_WAIT_TIME",CFG_STRING,pclTmpBuf);
+    if ((ilRC == RC_SUCCESS) && (strcmp(pclTmpBuf, " ") != 0))
       igSckACKCWait = atoi(pclTmpBuf);
-  else
+    else
       igSckACKCWait = 3;
-	dbg(TRACE,"Waiting ACK Time setting <%d> Second", igSckACKCWait);
+    dbg(TRACE,"Waiting ACK Time setting <%d> Second", igSckACKCWait);
 
-  ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","WACK_TRY_TIMES",CFG_STRING,pclTmpBuf);
-  if ((ilRC == RC_SUCCESS) && (strcmp(pclTmpBuf, " ") != 0))
+    ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","WACK_TRY_TIMES",CFG_STRING,pclTmpBuf);
+    if ((ilRC == RC_SUCCESS) && (strcmp(pclTmpBuf, " ") != 0))
       igSckTryACKCMax = atoi(pclTmpBuf);
-  else
+    else
       igSckTryACKCMax = 3;
-	dbg(TRACE,"Waiting ACK Resend data Max <%d> Times", igSckACKCWait);
+    dbg(TRACE,"Waiting ACK Resend data Max <%d> Times", igSckACKCWait);
 
-  ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","CON_DLY",CFG_STRING,pclTmpBuf);
-  if ((ilRC == RC_SUCCESS) && (strcmp(pclTmpBuf, " ") != 0))
+    ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","CON_DLY",CFG_STRING,pclTmpBuf);
+    if ((ilRC == RC_SUCCESS) && (strcmp(pclTmpBuf, " ") != 0))
       igConDly = atoi(pclTmpBuf);
-  else
+    else
       igConDly = 30;
 
-  ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","MGR_DLY",CFG_STRING,pclTmpBuf);
-  if ((ilRC == RC_SUCCESS) && (strcmp(pclTmpBuf, " ") != 0))
+    ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","MGR_DLY",CFG_STRING,pclTmpBuf);
+    if ((ilRC == RC_SUCCESS) && (strcmp(pclTmpBuf, " ") != 0))
       igMgrDly = atoi(pclTmpBuf);
-  else
+    else
       igMgrDly = 30;
 
-  ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","TIME_RANGE",CFG_STRING,pclTmpBuf);
-  if ((ilRC == RC_SUCCESS) && (strcmp(pclTmpBuf, " ") != 0))
+    ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","TIME_RANGE",CFG_STRING,pclTmpBuf);
+    if ((ilRC == RC_SUCCESS) && (strcmp(pclTmpBuf, " ") != 0))
       igTimeRange = atoi(pclTmpBuf);
-  else
+    else
       igTimeRange = 30;
 
-	ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","CONFIG_TIME",CFG_STRING,pclTmpBuf);
-  if (ilRC == RC_SUCCESS)
+    ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","CONFIG_TIME",CFG_STRING,pclTmpBuf);
+    if (ilRC == RC_SUCCESS)
       igConfigTime = atoi(pclTmpBuf);
-  else
+    else
       igConfigTime = 1;
 
-  ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","NEXT_ALLOC_DEP_UPPER",CFG_STRING,pclTmpBuf);
-  if (ilRC == RC_SUCCESS)
+    ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","NEXT_ALLOC_DEP_UPPER",CFG_STRING,pclTmpBuf);
+    if (ilRC == RC_SUCCESS)
       igNextAllocDepUpperRange = atoi(pclTmpBuf);
-  else
+    else
       igNextAllocDepUpperRange = 3;
 
-  ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","NEXT_ALLOC_ARR_UPPER",CFG_STRING,pclTmpBuf);
-  if (ilRC == RC_SUCCESS)
+    ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","NEXT_ALLOC_ARR_UPPER",CFG_STRING,pclTmpBuf);
+    if (ilRC == RC_SUCCESS)
       igNextAllocArrUpperRange = atoi(pclTmpBuf);
-  else
+    else
       igNextAllocArrUpperRange = 3;
 
-  ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","BATCH",CFG_STRING,pclTmpBuf);
-  if (ilRC == RC_SUCCESS)
+    ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","BATCH",CFG_STRING,pclTmpBuf);
+    if (ilRC == RC_SUCCESS)
       igBatch = atoi(pclTmpBuf);
-  else
+    else
       igBatch = 0;
 
-	ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","CONFIG_SHIFT",CFG_STRING,pclTmpBuf);
-  if (ilRC == RC_SUCCESS)
+    ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","CONFIG_SHIFT",CFG_STRING,pclTmpBuf);
+    if (ilRC == RC_SUCCESS)
       igConfigShift = atoi(pclTmpBuf);
-  else
+    else
       igConfigShift = 1;
 
-  ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","CONFIG_END_SHIFT",CFG_STRING,pclTmpBuf);
-  if (ilRC == RC_SUCCESS)
+    ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","CONFIG_END_SHIFT",CFG_STRING,pclTmpBuf);
+    if (ilRC == RC_SUCCESS)
       igConfigEndShiftTime = atoi(pclTmpBuf);
-  else
+    else
       igConfigEndShiftTime = 1;
 
-  ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","ACTUAL_USE_TIME",CFG_STRING,pclTmpBuf);
-  if (ilRC == RC_SUCCESS)
+    ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","ACTUAL_USE_TIME",CFG_STRING,pclTmpBuf);
+    if (ilRC == RC_SUCCESS)
       igActualUseTime = atoi(pclTmpBuf);
-  else
+    else
       igActualUseTime = 1;
+
+    ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","PAST_ACTUAL_DEP",CFG_STRING,pclTmpBuf);
+    if (ilRC == RC_SUCCESS)
+      igPastActualDep = atoi(pclTmpBuf);
+    else
+      igPastActualDep = -6;
+
+    ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","PAST_ACTUAL_ARR",CFG_STRING,pclTmpBuf);
+    if (ilRC == RC_SUCCESS)
+      igPastActualArr = atoi(pclTmpBuf);
+    else
+      igPastActualArr = -6;
 
 	/*
 	if ((ilRC=GetCfgEntry(pcgConfigFile,"MAIN","HEADER_PREFIX",CFG_STRING,&prgCfg.header_prefix,CFG_PRINT,"#"))
@@ -4201,10 +4229,10 @@ static int GetConfig()
 
 	{
 		return RC_FAIL;
-  }
-  else
-  {
-  	igSendAck = atoi(prgCfg.send_ack);
+    }
+    else
+    {
+        igSendAck = atoi(prgCfg.send_ack);
 	}
 
 	if ((ilRC=GetCfgEntry(pcgConfigFile,"MAIN","ACK_FORMAT",CFG_STRING,&prgCfg.ack_format,CFG_PRINT,"tcpack.txt"))
@@ -4218,25 +4246,25 @@ static int GetConfig()
 	}
 
 	ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","PREFIX",CFG_STRING,pcgPrefix);
-  if (ilRC != RC_SUCCESS)
-  {
-  	memset(pcgPrefix,0,sizeof(pcgPrefix));
-  	dbg(TRACE,"PREFIX is not set");
-  }
+    if (ilRC != RC_SUCCESS)
+    {
+    memset(pcgPrefix,0,sizeof(pcgPrefix));
+    dbg(TRACE,"PREFIX is not set");
+    }
 
 	ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","SUFFIX",CFG_STRING,pcgSuffix);
-  if (ilRC != RC_SUCCESS)
-  {
-  	memset(pcgSuffix,0,sizeof(pcgSuffix));
-  	dbg(TRACE,"SUFFIX is not set");
-  }
+    if (ilRC != RC_SUCCESS)
+    {
+    memset(pcgSuffix,0,sizeof(pcgSuffix));
+    dbg(TRACE,"SUFFIX is not set");
+    }
 
-  ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","Separator",CFG_STRING,pcgSeparator);
-  if (ilRC != RC_SUCCESS)
-  {
-  	memset(pcgSeparator,0,sizeof(pcgSeparator));
-  	dbg(TRACE,"Separator is not set");
-  }
+    ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","Separator",CFG_STRING,pcgSeparator);
+    if (ilRC != RC_SUCCESS)
+    {
+    memset(pcgSeparator,0,sizeof(pcgSeparator));
+    dbg(TRACE,"Separator is not set");
+    }
 
 	/*
 	if ((ilRC=GetCfgEntry(pcgConfigFile,"MAIN","MSGNO_KEYWORD",CFG_STRING,&prgCfg.msgno_keyword,CFG_PRINT,"msgno="))
@@ -4896,7 +4924,7 @@ static int Receive_data(int ipSock,int ipTimeOut)
 	            	#endif
 	            	*/
 
-				    		if (strcmp(pclTmpUrno, pcgSendMsgId) == 0)
+                  if ( strlen(pclTmpUrno) > 0 && strlen(pcgSendMsgId) > 0 && strcmp(pclTmpUrno, pcgSendMsgId) == 0)
 	              {
 	              	igSckWaitACK = FALSE;
 	              	igSckTryACKCnt = 0;
@@ -7025,7 +7053,7 @@ static int StoreSentData(char *pcpDataSent,char *pcpUaft,char *pcpFlagTowing, ch
   /*Insert the normal flight which is not towing ones into LIGTAB
   And STAT is null
   */
-  if( strcmp(pcpFlagTowing,"Towing") != 0 )
+  if( strlen(pcpFlagTowing) > 0 && strcmp(pcpFlagTowing,"Towing") != 0 )
   {
   	strcpy(pclFieldList,"URNO,UAFT,TYPE,DATA,STAT,TRIT,CDAT");
 		sprintf(pclDataList,"%s,'%s','%s','%s','%s','%s','%s'",pclUrno,pcpUaft,"NormalFlight",pcpDataSent,"R","",pclCurrentTime);
@@ -7904,7 +7932,7 @@ static void FindNextAllocDepBuildWhereClauseFutureActual(char *pcpWhere,char *pc
     strcpy(pclTmpTime,pclTmpTimeNow);
 
     /*AddSecondsToCEDATime(pclTmpTime, -0.5 * 60 * 60, 1);*/
-    AddSecondsToCEDATime(pclTmpTime, 3 * 60 * 60, 1);
+    AddSecondsToCEDATime(pclTmpTime, 3 * 24 * 60 * 60, 1);
 
 	/*
 	@fya 20140310
@@ -7914,13 +7942,13 @@ static void FindNextAllocDepBuildWhereClauseFutureActual(char *pcpWhere,char *pc
 	/*AddSecondsToCEDATime(pclTmpTime, igNextAllocDepUpperRange * 60 * 60 * 24, 1);*/
 
 	/*sprintf(pclWhere,"PSTD = '%s' and FTYP NOT IN ('X','N') and ADID = 'D' and TIFD between '%s' and '%s' and AIRB=' ' order by TIFA desc",pcpParkstand,pcpTifdNewData,pclTmpTime);*/
-    if ( strcmp(pcpTowingTifd, pclTmpTimeNow) >= 0 )
+    if ( strlen (pcpTowingTifd) > 0 && strcmp(pcpTowingTifd, pclTmpTimeNow) >= 0 )
 	{
 	    sprintf(pclWhere,"PSTD = '%s' and FTYP NOT IN ('X','N') and ADID = 'D' and TIFD between '%s' and '%s' and AIRB=' ' order by TIFD asc",pcpParkstand,pclTmpTimeNow,pcpTowingTifd);
 	}
 	else
 	{
-        sprintf(pclWhere,"PSTD = '%s' and FTYP NOT IN ('X','N') and ADID = 'D' and TIFD between '%s' and '%s' and AIRB=' ' order by TIFD desc",pcpParkstand,pclTmpTimeNow,pclTmpTime);
+        sprintf(pclWhere,"PSTD = '%s' and FTYP NOT IN ('X','N') and ADID = 'D' and TIFD between '%s' and '%s' and AIRB=' ' order by TIFD asc",pcpParkstand,pclTmpTimeNow,pclTmpTime);
 	}
 
 	strcpy(pcpWhere,pclWhere);
@@ -7942,7 +7970,8 @@ static void FindNextAllocArrBuildWhereClausePastActual(char *pcpWhere,char *pcpP
     dbg(TRACE,"<%s> Currnt time is <%s>",pclFunc, pclTmpTimeNow);
     strcpy(pclTmpTime,pclTmpTimeNow);
 
-    AddSecondsToCEDATime(pclTmpTime, -2 * 60 * 60, 1);
+    /*AddSecondsToCEDATime(pclTmpTime, -2 * 60 * 60, 1);*/
+    AddSecondsToCEDATime(pclTmpTime, igPastActualArr * 60 * 60, 1);
 
     /*
     if ( strcmp(pcpTowingTifd, pclTmpTimeNow) >= 0 )
@@ -7952,7 +7981,8 @@ static void FindNextAllocArrBuildWhereClausePastActual(char *pcpWhere,char *pcpP
     else
     */
     {
-        sprintf(pclWhere,"PSTA = '%s' and FTYP NOT IN ('X','N') and ADID = 'A' and TIFA between '%s' and '%s' order by TIFA desc",pcpParkstand,pclTmpTime,pclTmpTimeNow);
+        /*sprintf(pclWhere,"PSTA = '%s' and FTYP NOT IN ('X','N') and ADID = 'A' and TIFA between '%s' and '%s' order by TIFA desc",pcpParkstand,pclTmpTime,pclTmpTimeNow);*/
+        sprintf(pclWhere,"PSTA = '%s' and FTYP NOT IN ('X','N') and ADID IN ('A','B') and TIFA between '%s' and '%s' order by TIFA desc",pcpParkstand,pclTmpTime,pclTmpTimeNow);
     }
 
 	strcpy(pcpWhere,pclWhere);
@@ -7973,7 +8003,7 @@ static void FindNextAllocDepBuildWhereClauseTC1(char *pcpWhere,char *pcpParkstan
     dbg(TRACE,"<%s> Currnt UTC time is <%s>",pclFunc, pclTmpTimeNow);
     strcpy(pclTmpTime,pclTmpTimeNow);
 
-    AddSecondsToCEDATime(pclTmpTime, 3 * 60 * 60, 1);
+    AddSecondsToCEDATime(pclTmpTime, 3 * 24 * 60 * 60, 1);
 
 	/*
 	@fya 20140310
@@ -7983,13 +8013,13 @@ static void FindNextAllocDepBuildWhereClauseTC1(char *pcpWhere,char *pcpParkstan
 	/*AddSecondsToCEDATime(pclTmpTime, igNextAllocDepUpperRange * 60 * 60 * 24, 1);*/
 
 	/*sprintf(pclWhere,"PSTD = '%s' and FTYP NOT IN ('X','N') and ADID = 'D' and TIFD between '%s' and '%s' and AIRB=' ' order by TIFA desc",pcpParkstand,pcpTifdNewData,pclTmpTime);*/
-    if ( strcmp(pcpTowingTifd, pclTmpTimeNow) >= 0 )
+    if ( strlen(pcpTowingTifd) > 0 && strcmp(pcpTowingTifd, pclTmpTimeNow) >= 0 )
 	{
 	    sprintf(pclWhere,"PSTD = '%s' and FTYP NOT IN ('X','N') and ADID = 'D' and TIFD between '%s' and '%s' and AIRB=' ' order by TIFD asc",pcpParkstand,pclTmpTimeNow,pcpTowingTifd);
 	}
 	else
 	{
-        sprintf(pclWhere,"PSTD = '%s' and FTYP NOT IN ('X','N') and ADID = 'D' and TIFD between '%s' and '%s' and AIRB=' ' order by TIFD desc",pcpParkstand,pclTmpTimeNow,pclTmpTime);
+        sprintf(pclWhere,"PSTD = '%s' and FTYP NOT IN ('X','N') and ADID = 'D' and TIFD between '%s' and '%s' and AIRB=' ' order by TIFD asc",pcpParkstand,pclTmpTimeNow,pclTmpTime);
 	}
 
 	strcpy(pcpWhere,pclWhere);
@@ -8027,11 +8057,13 @@ static void FindNextAllocArrBuildWhereClause(char *pcpWhere,char *pcpParkstand,c
 
     if (strlen(pcpNextTifd) > 0 && strncmp(pcpNextTifd, "1", 1) == 0 )
     {
-        sprintf(pclWhere,"PSTA = '%s' and FTYP NOT IN ('X','N') and ADID = 'A' and TIFA between '%s' and '%s' order by TIFA desc",pcpParkstand, pclTmpTime, pcpFormalTifd);
+        /*sprintf(pclWhere,"PSTA = '%s' and FTYP NOT IN ('X','N') and ADID = 'A' and TIFA between '%s' and '%s' order by TIFA desc",pcpParkstand, pclTmpTime, pcpFormalTifd);*/
+        sprintf(pclWhere,"PSTA = '%s' and FTYP NOT IN ('X','N') and ADID IN ('A','B') and TIFA between '%s' and '%s' order by TIFA desc",pcpParkstand, pclTmpTime, pcpFormalTifd);
     }
     else if (strlen(pcpNextTifd) > 0 && strncmp(pcpNextTifd, "0", 1) == 0 )
     {
-        sprintf(pclWhere,"PSTA = '%s' and FTYP NOT IN ('X','N') and ADID = 'A' and TIFA between '%s' and '%s' order by TIFA asc",pcpParkstand,pcpFormalTifd,pclTmpTime1);
+        sprintf(pclWhere,"PSTA = '%s' and FTYP NOT IN ('X','N') and ADID IN ('A','B') and TIFA between '%s' and '%s' order by TIFA asc",pcpParkstand,pcpFormalTifd,pclTmpTime1);
+        /*sprintf(pclWhere,"PSTA = '%s' and FTYP NOT IN ('X','N') and ADID = 'A' and TIFA between '%s' and '%s' order by TIFA asc",pcpParkstand,pcpFormalTifd,pclTmpTime1);*/
     }
 
 	strcpy(pcpWhere,pclWhere);
@@ -8052,10 +8084,12 @@ static void FindNextAllocArrBuildWhereClauseTC(char *pcpWhere,char *pcpParkstand
     dbg(TRACE,"<%s> Currnt time is <%s>",pclFunc, pclTmpTimeNow);
     strcpy(pclTmpTime,pclTmpTimeNow);
 
-    AddSecondsToCEDATime(pclTmpTime, -2 * 60 * 60, 1);
+    /*AddSecondsToCEDATime(pclTmpTime, -2 * 60 * 60, 1);*/
+    AddSecondsToCEDATime(pclTmpTime, igPastActualArr * 60 * 60, 1);
 
     {
-        sprintf(pclWhere,"PSTA = '%s' and FTYP NOT IN ('X','N') and ADID = 'A' and TIFA between '%s' and '%s' order by TIFA desc",pcpParkstand,pclTmpTime,pclTmpTimeNow);
+        /*sprintf(pclWhere,"PSTA = '%s' and FTYP NOT IN ('X','N') and ADID = 'A' and TIFA between '%s' and '%s' order by TIFA desc",pcpParkstand,pclTmpTime,pclTmpTimeNow);*/
+        sprintf(pclWhere,"PSTA = '%s' and FTYP NOT IN ('X','N') and ADID IN ('A','B') and TIFA between '%s' and '%s' order by TIFA desc",pcpParkstand,pclTmpTime,pclTmpTimeNow);
     }
 
 	strcpy(pcpWhere,pclWhere);
@@ -8350,7 +8384,7 @@ static int FindNextAllocationFuture(char *pcpParkingStand, char *pcpTime, SENT_M
 							dbg(DEBUG,"<%s>pclOfbl<%s>",pclFunc,pclOfbl);
 							dbg(DEBUG,"<%s>pclTmoa<%s>",pclFunc,pclTmoa);
 
-                            if ( strcmp(pclTifdTmp,pclTifa) > 0 )
+                            if ( strlen(pclTifdTmp) > 0 && strlen(pclTifa) > 0 && strcmp(pclTifdTmp,pclTifa) > 0 )
                             {
                                 strcpy(rpSentMsg->pclStoa, pclStoa);
                                 strcpy(rpSentMsg->pclEtai, pclEtai);
@@ -8371,14 +8405,17 @@ static int FindNextAllocationFuture(char *pcpParkingStand, char *pcpTime, SENT_M
 					dbg(TRACE,"<%s> pclDataSent<%s>",pclFunc,pclDataSent);
 
 					if (ipAckNotSent == 1)
-                        StoreSentData(pclDataSent,pclUrnoNewData,"NormalFlight",pclRecordURNO);
+					{
+					    StoreSentData(pclDataSent,pclUrnoNewData,"NormalFlight",pclRecordURNO);
+					    strcpy(pcgSendMsgId,pclRecordURNO);
+					}
                     else if (ipAckNotSent == 0)
                         StoreSentData(pclDataSent,pclUrnoNewData,"NormalFlight-NoAck",pclRecordURNO);
                     /*
 					strcat(pclDataSent,"\n");
 					*/
 					strcpy(pcgCurSendData,pclDataSent);
-					strcpy(pcgSendMsgId,pclRecordURNO);
+					/*strcpy(pcgSendMsgId,pclRecordURNO);*/
 
 					for (ilCount = 0; ilCount < igReSendMax; ilCount++)
 					{
@@ -8757,7 +8794,7 @@ static int FindNextAllocationForTowingCreation(char *pcpParkingStand, SENT_MSG *
                     dbg(DEBUG,"<%s>pclTmoa<%s>",pclFunc,pclTmoa);
 
 
-                    if ( strcmp(pclTifdTmp, pclTifa) > 0 )
+                    if ( strlen(pclTifdTmp) > 0 && strlen(pclTifa) > 0 && strcmp(pclTifdTmp, pclTifa) > 0 )
                     {
                         strcpy(rpSentMsg->pclStoa, pclStoa);
                         strcpy(rpSentMsg->pclEtai, pclEtai);
@@ -8852,7 +8889,7 @@ static int FindNextAllocationForTowingCreation(char *pcpParkingStand, SENT_MSG *
                     dbg(DEBUG,"<%s>pclOfbl<%s>",pclFunc,pclOfbl);
                     dbg(DEBUG,"<%s>pclTmoa<%s>",pclFunc,pclTmoa);
 
-                    if ( strcmp(pclTifdTmp, pclTifa) > 0 )
+                    if ( strlen(pclTifdTmp) > 0 && strlen(pclTifa) > 0 && strcmp(pclTifdTmp, pclTifa) > 0 )
                     {
                         strcpy(rpSentMsg->pclStoa, pclStoa);
                         strcpy(rpSentMsg->pclEtai, pclEtai);
@@ -8909,6 +8946,7 @@ static int FindNextAllocationForTowingCreation(char *pcpParkingStand, SENT_MSG *
 				dbg(DEBUG,"<%s>pclTmoa<%s>",pclFunc,pclTmoa);
 				dbg(DEBUG,"<%s>pclAirb<%s>",pclFunc,pclAirb);
 
+                strcpy(pclTifdTmp, pclTifd);
                 /*
 				if( atoi(pclAirb) != 0 )
 				{
@@ -9015,10 +9053,18 @@ static int FindNextAllocationForTowingCreation(char *pcpParkingStand, SENT_MSG *
 							dbg(DEBUG,"<%s>pclOfbl<%s>",pclFunc,pclOfbl);
 							dbg(DEBUG,"<%s>pclTmoa<%s>",pclFunc,pclTmoa);
 
-							strcpy(rpSentMsg->pclStoa, pclStoa);
-							strcpy(rpSentMsg->pclEtai, pclEtai);
-							strcpy(rpSentMsg->pclTmoa, pclTmoa);
-							strcpy(rpSentMsg->pclOnbl, pclOnbl);
+                            if (strlen(pclTifdTmp) > 0 && strlen(pclTifa) > 0 && strcmp(pclTifdTmp, pclTifa) > 0 )
+                            {
+                                strcpy(rpSentMsg->pclStoa, pclStoa);
+                                strcpy(rpSentMsg->pclEtai, pclEtai);
+                                strcpy(rpSentMsg->pclTmoa, pclTmoa);
+                                strcpy(rpSentMsg->pclOnbl, pclOnbl);
+                            }
+                            else
+                            {
+                                dbg(TRACE,"<%s> Found dep tifd<%s> <= arr tifa<%s>",pclFunc, pclTifdTmp, pclTifa);
+                            }
+
 							break;
 					}
 					/*ShowMsgStruct(*rpSentMsg);*/
@@ -9205,7 +9251,7 @@ static int FindNextAllocation(char *pcpParkingStand, char *pcpTime, SENT_MSG *rp
                     }
                     else
                     {
-                        dbg(TRACE,"<%s> The tifd<%s> is less than now<%s>", pcpTime, pclTmpTimeNow);
+                        dbg(TRACE,"<%s> The tifd<%s> is less than now<%s>", pclFunc, pcpTime, pclTmpTimeNow);
                     }
 
                     return RC_SUCCESS;
@@ -9329,7 +9375,7 @@ static int FindNextAllocation(char *pcpParkingStand, char *pcpTime, SENT_MSG *rp
                             dbg(DEBUG,"<%s>pclOfbl<%s>",pclFunc,pclOfbl);
                             dbg(DEBUG,"<%s>pclTmoa<%s>",pclFunc,pclTmoa);
 
-                            if (strcmp(pclTifdTmp, pclTifa) > 0 )
+                            if (strlen(pclTifdTmp) > 0 && strlen(pclTifa) >0 && strcmp(pclTifdTmp, pclTifa) > 0 )
                             {
                                 strcpy(rpSentMsg->pclStoa, pclStoa);
                                 strcpy(rpSentMsg->pclEtai, pclEtai);
@@ -9425,7 +9471,7 @@ static int FindNextAllocation(char *pcpParkingStand, char *pcpTime, SENT_MSG *rp
                             dbg(DEBUG,"<%s>pclOfbl<%s>",pclFunc,pclOfbl);
                             dbg(DEBUG,"<%s>pclTmoa<%s>",pclFunc,pclTmoa);
 
-                            if ( strcmp(pclTifdTmp, pclTifa) > 0 )
+                            if ( strlen(pclTifdTmp) > 0 && strlen(pclTifa) >0 && strcmp(pclTifdTmp, pclTifa) > 0 )
                             {
                                 strcpy(rpSentMsg->pclStoa, pclStoa);
                                 strcpy(rpSentMsg->pclEtai, pclEtai);
@@ -9450,7 +9496,10 @@ static int FindNextAllocation(char *pcpParkingStand, char *pcpTime, SENT_MSG *rp
                     /*StoreSentData(pclDataSent,pclUrnoNewData,"NormalFlight",pclRecordURNO);*/
 
                     if (ipAckNotSent == 1)
+                    {
                         StoreSentData(pclDataSent,pclUrnoNewData,"NormalFlight",pclRecordURNO);
+                        strcpy(pcgSendMsgId,pclRecordURNO);
+                    }
                     else if (ipAckNotSent == 0)
                         StoreSentData(pclDataSent,pclUrnoNewData,"NormalFlight-NoAck",pclRecordURNO);
 
@@ -9458,7 +9507,7 @@ static int FindNextAllocation(char *pcpParkingStand, char *pcpTime, SENT_MSG *rp
                     strcat(pclDataSent,"\n");
                     */
                     strcpy(pcgCurSendData,pclDataSent);
-                    strcpy(pcgSendMsgId,pclRecordURNO);
+                    /*strcpy(pcgSendMsgId,pclRecordURNO);*/
 
                     for (ilCount = 0; ilCount < igReSendMax; ilCount++)
                     {
@@ -9595,6 +9644,8 @@ static int FindNextAllocation(char *pcpParkingStand, char *pcpTime, SENT_MSG *rp
             dbg(DEBUG,"<%s>pclTmoa<%s>",pclFunc,pclTmoa);
             dbg(DEBUG,"<%s>pclAirb<%s>",pclFunc,pclAirb);
 
+            strcpy(pclTifdTmp, pclTifd);
+
             /*
             At this stage, the departure part is ready, filling it.
             */
@@ -9692,10 +9743,18 @@ static int FindNextAllocation(char *pcpParkingStand, char *pcpTime, SENT_MSG *rp
                     dbg(DEBUG,"<%s>pclOfbl<%s>",pclFunc,pclOfbl);
                     dbg(DEBUG,"<%s>pclTmoa<%s>",pclFunc,pclTmoa);
 
-                    strcpy(rpSentMsg->pclStoa, pclStoa);
-                    strcpy(rpSentMsg->pclEtai, pclEtai);
-                    strcpy(rpSentMsg->pclTmoa, pclTmoa);
-                    strcpy(rpSentMsg->pclOnbl, pclOnbl);
+                    if ( strlen(pclTifdTmp) > 0 && strlen(pclTifa) >0 && strcmp(pclTifdTmp,pclTifa)> 0 )
+                    {
+                        strcpy(rpSentMsg->pclStoa, pclStoa);
+                        strcpy(rpSentMsg->pclEtai, pclEtai);
+                        strcpy(rpSentMsg->pclTmoa, pclTmoa);
+                        strcpy(rpSentMsg->pclOnbl, pclOnbl);
+                    }
+                    else
+                    {
+                        dbg(TRACE,"<%s> Found dep tifd<%s> <= arr tifa<%s>",pclFunc, pclTifdTmp, pclTifa);
+                    }
+
                     break;
             }
             ShowMsgStruct(*rpSentMsg);
@@ -9704,13 +9763,21 @@ static int FindNextAllocation(char *pcpParkingStand, char *pcpTime, SENT_MSG *rp
             BuildSentData(pclDataSent,*rpSentMsg);
             strcat(pclDataSent,"\n");
             dbg(TRACE,"<%s> pclDataSent<%s>",pclFunc,pclDataSent);
-            StoreSentData(pclDataSent,pclUrnoNewData,"NormalFlight",pclRecordURNO);
 
+            if (ipAckNotSent == 1)
+            {
+                StoreSentData(pclDataSent,pclUrnoNewData,"NormalFlight",pclRecordURNO);
+                strcpy(pcgSendMsgId,pclRecordURNO);
+            }
+            else if (ipAckNotSent == 0)
+            {
+                StoreSentData(pclDataSent,pclUrnoNewData,"NormalFlight-NoAck",pclRecordURNO);
+            }
             /*
             strcat(pclDataSent,"\n");
             */
             strcpy(pcgCurSendData,pclDataSent);
-            strcpy(pcgSendMsgId,pclRecordURNO);
+            /*strcpy(pcgSendMsgId,pclRecordURNO);*/
 
             for (ilCount = 0; ilCount < igReSendMax; ilCount++)
             {
@@ -9755,44 +9822,47 @@ static int FindNextAllocation(char *pcpParkingStand, char *pcpTime, SENT_MSG *rp
                 }
             }
 
-            /* fya 20140227 sending ack right after normal message*/
-            for (ilCount = 0; ilCount < igReSendMax; ilCount++)
+            if (ipAckNotSent == 1)
             {
-                if (igSock > 0)
+                /* fya 20140227 sending ack right after normal message*/
+                for (ilCount = 0; ilCount < igReSendMax; ilCount++)
                 {
-                    ilRC = SendAckMsg();
-                    dbg(DEBUG, "<%s>1-ilRC<%d>",pclFunc,ilRC);
+                    if (igSock > 0)
+                    {
+                        ilRC = SendAckMsg();
+                        dbg(DEBUG, "<%s>1-ilRC<%d>",pclFunc,ilRC);
 
-                    if (ilRC == RC_SUCCESS)
-                    {
-                        igSckWaitACK = TRUE;
-                        igSckTryACKCnt = 0;
+                        if (ilRC == RC_SUCCESS)
+                        {
+                            igSckWaitACK = TRUE;
+                            igSckTryACKCnt = 0;
 
-                        GetServerTimeStamp( "UTC", 1, 0, pcgSckWaitACKExpTime);
-                        AddSecondsToCEDATime(pcgSckWaitACKExpTime, igSckACKCWait, 1);
-                        break;
-                    }
-                    else if(ilRC == RC_FAIL)
-                    {
-                        dbg(DEBUG, "<%s>Send_data error",pclFunc);
-                        ilRC = Sockt_Reconnect();
-                        /*SendRST_Command();*/
-                    }
-                    else if(ilRC == RC_SENDTIMEOUT)
-                    {
-                        dbg(DEBUG,"<%s>Send_data timeout, Re send again",pclFunc);
-                    }
-                }
-                else
-                {
-                    if ((igConnected == TRUE) || (igOldCnnt == TRUE))
-                    {
-                        ilRC = Sockt_Reconnect();
-                        /*SendRST_Command();*/
+                            GetServerTimeStamp( "UTC", 1, 0, pcgSckWaitACKExpTime);
+                            AddSecondsToCEDATime(pcgSckWaitACKExpTime, igSckACKCWait, 1);
+                            break;
+                        }
+                        else if(ilRC == RC_FAIL)
+                        {
+                            dbg(DEBUG, "<%s>Send_data error",pclFunc);
+                            ilRC = Sockt_Reconnect();
+                            /*SendRST_Command();*/
+                        }
+                        else if(ilRC == RC_SENDTIMEOUT)
+                        {
+                            dbg(DEBUG,"<%s>Send_data timeout, Re send again",pclFunc);
+                        }
                     }
                     else
-                          ilRC = RC_FAIL;
-              }
+                    {
+                        if ((igConnected == TRUE) || (igOldCnnt == TRUE))
+                        {
+                            ilRC = Sockt_Reconnect();
+                            /*SendRST_Command();*/
+                        }
+                        else
+                              ilRC = RC_FAIL;
+                  }
+                }
             }
 
             if( ilCount >= igReSendMax)
@@ -9820,7 +9890,8 @@ static void FindNextAllocArrBuildWhereClauseTC1(char *pcpWhere,char *pcpParkstan
     dbg(TRACE,"<%s> Currnt time is <%s>",pclFunc, pclTmpTimeNow);
     strcpy(pclTmpTime,pclTmpTimeNow);
 
-    AddSecondsToCEDATime(pclTmpTime, -2 * 60 * 60, 1);
+    /*AddSecondsToCEDATime(pclTmpTime, -2 * 60 * 60, 1);*/
+    AddSecondsToCEDATime(pclTmpTime, igPastActualArr * 60 * 60, 1);
 
     /*
     if ( strcmp(pcpTowingTifd, pclTmpTimeNow) >= 0 )
@@ -9830,7 +9901,8 @@ static void FindNextAllocArrBuildWhereClauseTC1(char *pcpWhere,char *pcpParkstan
     else
     */
     {
-        sprintf(pclWhere,"PSTA = '%s' and FTYP NOT IN ('X','N') and ADID = 'A' and TIFA between '%s' and '%s' order by TIFA desc",pcpParkstand,pclTmpTime,pclTmpTimeNow);
+        /*sprintf(pclWhere,"PSTA = '%s' and FTYP NOT IN ('X','N') and ADID = 'A' and TIFA between '%s' and '%s' order by TIFA desc",pcpParkstand,pclTmpTime,pclTmpTimeNow);*/
+        sprintf(pclWhere,"PSTA = '%s' and FTYP NOT IN ('X','N') and ADID IN ('A','B') and TIFA between '%s' and '%s' order by TIFA desc",pcpParkstand,pclTmpTime,pclTmpTimeNow);
     }
 
 	strcpy(pcpWhere,pclWhere);
@@ -9851,7 +9923,8 @@ static void FindNextAllocArrBuildWhereClauseFutureActual(char *pcpWhere,char *pc
     dbg(TRACE,"<%s> Currnt time is <%s>",pclFunc, pclTmpTimeNow);
     strcpy(pclTmpTime,pclTmpTimeNow);
 
-    AddSecondsToCEDATime(pclTmpTime, -2 * 60 * 60, 1);
+    /*AddSecondsToCEDATime(pclTmpTime, -2 * 60 * 60, 1);*/
+    AddSecondsToCEDATime(pclTmpTime, igPastActualArr * 60 * 60, 1);
 
     /*
     if ( strcmp(pcpTime, pclTmpTimeNow) >= 0 )
@@ -9861,7 +9934,8 @@ static void FindNextAllocArrBuildWhereClauseFutureActual(char *pcpWhere,char *pc
     else
     */
     {
-        sprintf(pclWhere,"PSTA = '%s' and FTYP NOT IN ('X','N') and ADID = 'A' and TIFA between '%s' and '%s' order by TIFA desc",pcpParkstand,pclTmpTime,pclTmpTimeNow);
+        /*sprintf(pclWhere,"PSTA = '%s' and FTYP NOT IN ('X','N') and ADID = 'A' and TIFA between '%s' and '%s' order by TIFA desc",pcpParkstand,pclTmpTime,pclTmpTimeNow);*/
+        sprintf(pclWhere,"PSTA = '%s' and FTYP NOT IN ('X','N') and ADID IN ('A','B') and TIFA between '%s' and '%s' order by TIFA desc",pcpParkstand,pclTmpTime,pclTmpTimeNow);
     }
 
 	strcpy(pcpWhere,pclWhere);
@@ -9882,7 +9956,8 @@ static void FindNextAllocDepBuildWhereClauseTC(char *pcpWhere,char *pcpParkstand
     dbg(TRACE,"<%s> Currnt UTC time is <%s>",pclFunc, pclTmpTimeNow);
     strcpy(pclTmpTime,pclTmpTimeNow);
 
-    AddSecondsToCEDATime(pclTmpTime, -6 * 60 * 60, 1);
+    /*AddSecondsToCEDATime(pclTmpTime, -6 * 60 * 60, 1);*/
+    AddSecondsToCEDATime(pclTmpTime, igPastActualDep * 60 * 60, 1);
 
 	/*
 	@fya 20140310
@@ -9913,7 +9988,8 @@ static void FindNextAllocDepBuildWhereClausePastActual(char *pcpWhere,char *pcpP
     dbg(TRACE,"<%s> Currnt UTC time is <%s>",pclFunc, pclTmpTimeNow);
     strcpy(pclTmpTime,pclTmpTimeNow);
 
-    AddSecondsToCEDATime(pclTmpTime, -6 * 60 * 60, 1);
+    /*AddSecondsToCEDATime(pclTmpTime, -6 * 60 * 60, 1);*/
+    AddSecondsToCEDATime(pclTmpTime, igPastActualDep * 60 * 60, 1);
 
 	/*
 	@fya 20140310
@@ -9939,20 +10015,18 @@ static void FindNextAllocArrBuildWhereClauseFutureActualFromNow(char *pcpWhere, 
 
     /*fya 20140410*/
     GetServerTimeStamp( "UTC", 1, 0, pclTmpTimeNow);
-
-
     dbg(TRACE,"<%s> Currnt time is <%s>",pclFunc, pclTmpTimeNow);
 
     strcpy(pclTmpTime,pclTmpTimeNow);
-    AddSecondsToCEDATime(pclTmpTime, 3 * 60 * 60, 1);
+    AddSecondsToCEDATime(pclTmpTime, 3 * 24 * 60 * 60, 1);
 
-    if ( strcmp(pcpTifd, pclTmpTimeNow) < 0 )
+    if ( strlen(pcpTifd) > 0 && strcmp(pcpTifd, pclTmpTimeNow) < 0 )
     {
-        sprintf(pclWhere,"PSTA = '%s' and FTYP NOT IN ('X','N') and ADID = 'A' and TIFA between '%s' and '%s' order by TIFA asc",pcpParkstand,pclTmpTimeNow,pclTmpTime);
+        sprintf(pclWhere,"PSTA = '%s' and FTYP NOT IN ('X','N') and ADID IN ('A','B') and TIFA between '%s' and '%s' order by TIFA asc",pcpParkstand,pclTmpTimeNow,pclTmpTime);
     }
     else
     {
-        sprintf(pclWhere,"PSTA = '%s' and FTYP NOT IN ('X','N') and ADID = 'A' and TIFA between '%s' and '%s' order by TIFA desc",pcpParkstand,pclTmpTimeNow,pcpTifd);
+        sprintf(pclWhere,"PSTA = '%s' and FTYP NOT IN ('X','N') and ADID IN ('A','B') and TIFA between '%s' and '%s' order by TIFA asc",pcpParkstand,pclTmpTimeNow,pcpTifd);
     }
 
 	strcpy(pcpWhere,pclWhere);

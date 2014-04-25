@@ -1,9 +1,14 @@
-package simpleGui3C;
+package InnerClass;
 
 import java.awt.*;
 import javax.swing.*;
 
 class MyDrawPanel extends JPanel {
+		/**
+	 * 
+	 */
+	private static final long serialVersionUID1 = 1L;
+	
 		/**
 	 * 
 	 */
