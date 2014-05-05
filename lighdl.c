@@ -1,7 +1,7 @@
 #ifndef _DEF_mks_version
   #define _DEF_mks_version
   #include "ufisvers.h" /* sets UFIS_VERSION, must be done before mks_version */
-  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/lighdl.c 2.1 4/24/2014 08:11 PM Exp  $";
+  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/lighdl.c 2.2 4/25/2014 08:11 PM Exp  $";
 #endif /* _DEF_mks_version */
 
 /******************************************************************************/
@@ -1226,7 +1226,8 @@ static int HandleInternalData()
                             dbg(TRACE,"<%s> 1T-Getting the result 3 seconds later",pclFunc);
                             sleep(3);
 
-                            FindNextAllocation(pclPstaNewData, pclTifaNewData, &rlSentMsg, 1, 0);
+                            /*FindNextAllocation(pclPstaNewData, pclTifaNewData, &rlSentMsg, 1, 0);*/
+                            FindNextAllocation(pclPstaNewData, pclTifaNewData, &rlSentMsg, 0, 0);
                         }
                         else
                         {
@@ -3299,7 +3300,10 @@ static int HandleInternalData()
                             if ( strlen(rlTowing[ilCountT].pclPsta) > 0 )
                                 ilRC = FindNextAllocationForTowingCreation(rlTowing[ilCountT].pclPsta, &rlSentMsgTmp, rlTowing[ilCountT].pclTifd);
                             else
+                            {
                                 dbg(TRACE,"<%s> line<%d> rlTowing[ilCountT].pclPsta<%s> is null",pclFunc,__LINE__,rlTowing[ilCountT].pclPsta);
+                                continue;
+                            }
                         }
 
 					    switch(ilRC)
@@ -3603,7 +3607,7 @@ static int HandleInternalData()
 			strcpy(pcgCurSendData,pclDataSent);
             /*strcpy(pcgSendMsgId,pclSelection);*/
             /*strcpy(pcgSendMsgId,pclUrnoSelection);*/
-            strcpy(pcgSendMsgId,pclRecordURNO);
+            /*strcpy(pcgSendMsgId,pclRecordURNO);*/
 
             for (ilCount = 0; ilCount < igReSendMax; ilCount++)
             {
@@ -3649,6 +3653,7 @@ static int HandleInternalData()
             }
 
             /* fya 20140227 sending ack right after normal message*/
+
             for (ilCount = 0; ilCount < igReSendMax; ilCount++)
             {
                 if (igSock > 0)
@@ -3669,7 +3674,6 @@ static int HandleInternalData()
                   {
                     dbg(DEBUG, "<%s>Send_data error",pclFunc);
                     ilRC = Sockt_Reconnect();
-                    /*SendRST_Command();*/
                   }
                   else if(ilRC == RC_SENDTIMEOUT)
                   {
@@ -3681,7 +3685,6 @@ static int HandleInternalData()
                 if ((igConnected == TRUE) || (igOldCnnt == TRUE))
                 {
                     ilRC = Sockt_Reconnect();
-                    /*SendRST_Command();*/
                 }
                 else
                       ilRC = RC_FAIL;
@@ -4955,7 +4958,11 @@ static int Receive_data(int ipSock,int ipTimeOut)
 	              else
 	              {
 	              	dbg(TRACE,"<%s> Received ack message id <%s> does not equal sent one<%s>", pclFunc, pclTmpUrno, pcgSendMsgId);
-	              	ilRC = RC_FAIL;
+
+	              	if (igDisableAck == 0)
+                        ilRC = RC_FAIL;
+                    else
+                        ilRC = RC_SUCCESS;
 	              }
 	            }
       	    }
