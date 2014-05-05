@@ -41,7 +41,19 @@ public class TestingHashSet {
 	System.out.println(set);
 	set.addAll(g8);
 	System.out.println(set);
+	
+	System.out.println("++++");
+	ptintUniversal(set);
+	System.out.println("++++");
+	
 	set.clear();
 	System.out.println(set);
+	}
+	
+	static void ptintUniversal(Collection<?> c) {
+		for (Object o:c){
+			System.out.printf("%s ", o);
+		}
+		System.out.println();
 	}
 }
