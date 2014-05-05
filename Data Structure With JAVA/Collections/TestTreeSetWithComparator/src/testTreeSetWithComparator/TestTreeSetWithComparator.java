@@ -17,9 +17,10 @@ public class TestTreeSetWithComparator {
 		 String s1rev = sb1.reverse().toString();
 		 String s2rev = sb2.reverse().toString();
 		 
-		 //System.out.println(s1rev);
-		 //System.out.println(s2rev);
-		 
+		 /*
+		 System.out.println(sb1.reverse());
+		 System.out.println(s1rev);
+		 */
 		 return s1rev.compareTo(s2rev);
 	 }
 }
