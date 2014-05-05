@@ -10,6 +10,7 @@ public class TestQueue {
 		System.out.println(queue);
 		
 		String firstOut = queue.remove();
+		
 		System.out.println(queue);
 		System.out.printf("Removed %s%n", firstOut);
 		
