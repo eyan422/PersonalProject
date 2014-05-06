@@ -1,7 +1,7 @@
 #ifndef _DEF_mks_version
   #define _DEF_mks_version
   #include "ufisvers.h" /* sets UFIS_VERSION, must be done before mks_version */
-  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/lighdl.c 2.2 4/25/2014 08:11 PM Exp  $";
+  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/lighdl.c 2.3 06/05/2014 08:11 PM Exp  $";
 #endif /* _DEF_mks_version */
 
 /******************************************************************************/
@@ -71,6 +71,8 @@ static char sccs_hwecon[]="%Z% UFIS 4.5 (c) ABB AAT/I %M% %I% / %E% %U% / AKL";
 #include "timdef.h"
 #include "lighdl.h"
 #include "urno_fn.h"
+#include "Queue.h"
+#include "Queue.c"
 
 #define XS_BUFF  128
 #define S_BUFF   512
@@ -207,6 +209,8 @@ static char pcgTimeUpperLimit[TIMEFORMAT] = "\0";
 static int igTimeRange = 0;
 static long lgEvtCnt = 0;
 static int igBatch = 0;
+static int igDisableAck = 0;
+Queue *pcgQueue = NULL;
 
 /*
 @fya 20140310
@@ -293,6 +297,10 @@ static void FindEarliest_Start_LeaveBuildFullQuery(char *pcpSqlBuf,char *pcpWher
 static void FindEarliest_Start_LeaveBuildWhereClause(char *pcpParkstand,char *pcpWhere,int ipConfigEndShiftTime);
 static void Upd_ACK_FlightBuildWhereClause(char *pcpWhere,char *pclRecvBuffer);
 static void Upd_ACK_FlightBuildFullQuery(char *pcpSqlBuf,char *pcpWhere);
+
+static void Get_FlightDataWhereClause(char *pcpWhere,char *pclRecvBuffer);
+static void Get_FlightDataBuildFullQuery(char *pcpSqlBuf,char *pcpWhere);
+
 static void BuildEmptyData(char *pcpDataSent,char *pcpPosi);
 static void BuildSentDataDep(char *pcpDataSent,SENT_MSG rpSentMsg);
 static void BuildSentDataArr(char *pcpDataSent,SENT_MSG rpSentMsg);
@@ -312,6 +320,7 @@ static void FindNextAllocDepBuildWhereClausePastActual(char *pcpWhere,char *pcpP
 static int FindNextAllocationFuture(char *pcpParkingStand, char *pcpTime, SENT_MSG *rpSentMsg, int ipDeleteTowing, int ipAckNotSent);
 static void FindNextAllocDepBuildWhereClauseFutureActual(char *pcpWhere,char *pcpParkstand, char *pcpTowingTifd);
 static void FindNextAllocArrBuildWhereClauseFutureActualFromNow(char *pcpWhere, char *pcpParkstand, char *pcpTifd);
+static void print(Item i);
 /******************************************************************************/
 /*                                                                            */
 /* The MAIN program                                                           */
@@ -543,6 +552,9 @@ static int Init_Handler()
 
 	BuildCurrentTime();
 
+    /*Initial internal queue for message id*/
+	pcgQueue = InitQueue();
+
 	return (ilRc);
 } /* end of Init_Handler */
 
@@ -669,6 +681,12 @@ static int Reset()
 static void Terminate(int ipSleep)
 {
 	dbg(TRACE,"Terminate: now leaving ...");
+
+
+    dbg(TRACE,"Make the queue empty");
+    ClearQueue(pcgQueue);
+    dbg(TRACE,"Destruct the queue");
+    DestroyQueue(pcgQueue);
 
 	CloseTCP();
 
@@ -1227,7 +1245,8 @@ static int HandleInternalData()
                             sleep(3);
 
                             /*FindNextAllocation(pclPstaNewData, pclTifaNewData, &rlSentMsg, 1, 0);*/
-                            FindNextAllocation(pclPstaNewData, pclTifaNewData, &rlSentMsg, 0, 0);
+                            /*FindNextAllocation(pclPstaNewData, pclTifaNewData, &rlSentMsg, 0, 0);*/
+                            FindNextAllocation(pclPstaNewData, pclTifaNewData, &rlSentMsg, 0, 1);
                         }
                         else
                         {
@@ -1669,7 +1688,8 @@ static int HandleInternalData()
                                     */
                                     if( strlen(pclPstdNewData) > 0 )
                                     {
-                                        FindNextAllocation(pclPstdNewData, pclTifdNewData, &rlSentMsg, 0, 1, 0);
+                                        /*FindNextAllocation(pclPstdNewData, pclTifdNewData, &rlSentMsg, 0, 1, 0);*/
+                                        FindNextAllocation(pclPstdNewData, pclTifdNewData, &rlSentMsg, 0, 1, 1);
                                     }
                                     else
                                     {
@@ -1680,7 +1700,8 @@ static int HandleInternalData()
                                 {
                                     if( strlen(pclPstaNewData) > 0 )
                                     {
-                                        FindNextAllocation(pclPstaNewData, pclTifaNewData, &rlSentMsg, 0, 1, 0);
+                                        /*FindNextAllocation(pclPstaNewData, pclTifaNewData, &rlSentMsg, 0, 1, 0);*/
+                                        FindNextAllocation(pclPstaNewData, pclTifaNewData, &rlSentMsg, 0, 1, 1);
                                     }
                                     else
                                     {
@@ -1724,7 +1745,8 @@ static int HandleInternalData()
                                     {
                                         if( strlen(pclPstdNewData) > 0 )
                                         {
-                                            FindNextAllocation(pclPstdNewData, pclTifdNewData, &rlSentMsg, 0, 1, 0);
+                                            /*FindNextAllocation(pclPstdNewData, pclTifdNewData, &rlSentMsg, 0, 1, 0);*/
+                                            FindNextAllocation(pclPstdNewData, pclTifdNewData, &rlSentMsg, 0, 1, 1);
                                         }
                                         else
                                         {
@@ -1735,7 +1757,8 @@ static int HandleInternalData()
                                     {
                                         if( strlen(pclPstaNewData) > 0 )
                                         {
-                                            FindNextAllocation(pclPstaNewData, pclTifaNewData, &rlSentMsg, 0, 1, 0);
+                                            /*FindNextAllocation(pclPstaNewData, pclTifaNewData, &rlSentMsg, 0, 1, 0);*/
+                                            FindNextAllocation(pclPstaNewData, pclTifaNewData, &rlSentMsg, 0, 1, 1);
                                         }
                                         else
                                         {
@@ -1790,8 +1813,13 @@ static int HandleInternalData()
                                     StoreSentData(pclDataSent,pclUrno,"NormalFlight",pclRecordURNO);
 
                                     strcat(pclDataSent,"\n");
-                                    strcpy(pcgCurSendData,pclDataSent);
+                                    /*strcpy(pcgCurSendData,pclDataSent);*/
                                     strcpy(pcgSendMsgId,pclRecordURNO);
+
+                                    EnQueue(pcgQueue, atoi(pcgSendMsgId));
+                                    dbg(TRACE,"%s Size<%d> Traverse all element in queue:", pclFunc, GetSize(pcgQueue));
+                                    QueueTraverse(pcgQueue,print);
+
 
                                     /*Send out the message*/
                                     for (ilCount = 0; ilCount < igReSendMax; ilCount++)
@@ -2151,8 +2179,12 @@ static int HandleInternalData()
                                         StoreSentData(pclDataSent,pclUrnoNewData,"NormalFlight",pclRecordURNO);
 
                                         strcat(pclDataSent,"\n");
-                                        strcpy(pcgCurSendData,pclDataSent);
+                                        /*strcpy(pcgCurSendData,pclDataSent);*/
                                         strcpy(pcgSendMsgId,pclRecordURNO);
+
+                                        EnQueue(pcgQueue, atoi(pcgSendMsgId));
+                                        dbg(TRACE,"%s Size<%d> Traverse all element in queue:", pclFunc, GetSize(pcgQueue));
+                                        QueueTraverse(pcgQueue,print);
 
                                         /*Send out the message*/
                                         for (ilCount = 0; ilCount < igReSendMax; ilCount++)
@@ -2248,7 +2280,8 @@ static int HandleInternalData()
                                         {
                                             if( strlen(pclPstdOldData) > 0 && atoi(pclTifdNewData) > 0)
                                             {
-                                                FindNextAllocation(pclPstdOldData, pclTifdNewData, &rlSentMsg, 0);
+                                                /*FindNextAllocation(pclPstdOldData, pclTifdNewData, &rlSentMsg, 0);*/
+                                                FindNextAllocation(pclPstdOldData, pclTifdNewData, &rlSentMsg, 1);
                                             }
                                             else
                                             {
@@ -2348,7 +2381,8 @@ static int HandleInternalData()
                         */
                         if ( strlen(pclPstaOldData) > 0 && strlen(pclPstaNewData) > 0 && strcmp(pclPstaOldData,pclPstaNewData) != 0 )
                         {
-                            FindNextAllocation(pclPstaOldData, pclTifaNewData, &rlSentMsg, 0, 0);
+                            /*FindNextAllocation(pclPstaOldData, pclTifaNewData, &rlSentMsg, 0, 0);*/
+                            FindNextAllocation(pclPstaOldData, pclTifaNewData, &rlSentMsg, 0, 1);
                             /*return RC_SUCCESS;*/
                             #ifdef FYA
                             {
@@ -2556,10 +2590,14 @@ static int HandleInternalData()
                                                 /*strcat(pclDataSent,"\n");*/
 
                                                 /*At this stage, the message struct is completed*/
-                                                strcpy(pcgCurSendData,pclDataSent);
+                                                /*strcpy(pcgCurSendData,pclDataSent);*/
                                                 /*strcpy(pcgSendMsgId,pclSelection);*/
                                                 /*strcpy(pcgSendMsgId,pclUrnoSelection);*/
                                                 strcpy(pcgSendMsgId,pclRecordURNO);
+
+                                                EnQueue(pcgQueue, atoi(pcgSendMsgId));
+                                                dbg(TRACE,"%s Size<%d> Traverse all element in queue:", pclFunc, GetSize(pcgQueue));
+                                                QueueTraverse(pcgQueue,print);
 
                                                 for (ilCount = 0; ilCount < igReSendMax; ilCount++)
                                                 {
@@ -2870,7 +2908,8 @@ static int HandleInternalData()
                                         {
                                             if( strlen(pclPstdOldData) > 0 && atoi(pclTifdNewData) > 0)
                                             {
-                                                FindNextAllocation(pclPstdOldData, pclTifdNewData, &rlSentMsg, 0);
+                                                /*FindNextAllocation(pclPstdOldData, pclTifdNewData, &rlSentMsg, 0);*/
+                                                FindNextAllocation(pclPstdOldData, pclTifdNewData, &rlSentMsg, 1);
                                             }
                                             else
                                             {
@@ -3347,10 +3386,14 @@ static int HandleInternalData()
 						strcat(pclDataSentCombined, pclDataSentTowing);
 					}/* End of for loop */
 
-                    strcpy(pcgCurSendData,pclDataSentCombined);
+                    /*strcpy(pcgCurSendData,pclDataSentCombined);*/
                     /* For continuous towing records, only one combined msg & ack is sent */
-                    StoreSentData(pclDataSentCombined,pclUrnoNewData,"NormalFlight",pclRecordURNO);
+                    StoreSentData(pclDataSentCombined,pclUrnoNewData,"CombinedNormalFlight",pclRecordURNO);
                     strcpy(pcgSendMsgId,pclRecordURNO);
+
+                    EnQueue(pcgQueue, atoi(pcgSendMsgId));
+                    dbg(TRACE,"%s Size<%d> Traverse all element in queue:", pclFunc, GetSize(pcgQueue));
+                    QueueTraverse(pcgQueue,print);
 
                     for (ilCount = 0; ilCount < igReSendMax; ilCount++)
                     {
@@ -3604,10 +3647,16 @@ static int HandleInternalData()
 			/*@fya 20140304*/
             strcat(pclDataSent,"\n");
 			/*At this stage, the message struct is completed*/
-			strcpy(pcgCurSendData,pclDataSent);
+			/*strcpy(pcgCurSendData,pclDataSent);*/
             /*strcpy(pcgSendMsgId,pclSelection);*/
             /*strcpy(pcgSendMsgId,pclUrnoSelection);*/
             /*strcpy(pcgSendMsgId,pclRecordURNO);*/
+
+            strcpy(pcgSendMsgId,pclRecordURNO);
+
+            EnQueue(pcgQueue, atoi(pcgSendMsgId));
+            dbg(TRACE,"%s Size<%d> Traverse all element in queue:", pclFunc, GetSize(pcgQueue));
+            QueueTraverse(pcgQueue,print);
 
             for (ilCount = 0; ilCount < igReSendMax; ilCount++)
             {
@@ -3705,7 +3754,8 @@ static int HandleInternalData()
                 */
                 if( strlen(pclPstdNewData) > 0 )
                 {
-                    FindNextAllocation(pclPstdNewData, pclTifdNewData, &rlSentMsg, 0, 0);
+                    /*FindNextAllocation(pclPstdNewData, pclTifdNewData, &rlSentMsg, 0, 0);*/
+                    FindNextAllocation(pclPstdNewData, pclTifdNewData, &rlSentMsg, 0, 1);
                 }
                 else
                 {
@@ -3716,7 +3766,8 @@ static int HandleInternalData()
             {
                 if( strlen(pclPstaNewData) > 0 )
                 {
-                    FindNextAllocation(pclPstaNewData, pclTifaNewData, &rlSentMsg, 0, 0);
+                    /*FindNextAllocation(pclPstaNewData, pclTifaNewData, &rlSentMsg, 0, 0);*/
+                    FindNextAllocation(pclPstaNewData, pclTifaNewData, &rlSentMsg, 0, 1);
                 }
                 else
                 {
@@ -3780,13 +3831,16 @@ static int HandleInternalData()
             /*strcat(pclDataT,"\n");*/
 
             /*At this stage, the message struct is completed*/
-            strcpy(pcgCurSendData,pclDataT);
+            /*strcpy(pcgCurSendData,pclDataT);*/
             /*strcpy(pcgSendMsgId,pclSelection);*/
             /*strcpy(pcgSendMsgId, pclUrnoSelection);*/
 
             strcpy(pcgSendMsgId,pclUrno);
             /*strcpy(pcgSendMsgId,pclDataT);*/
 
+            EnQueue(pcgQueue, atoi(pcgSendMsgId));
+            dbg(TRACE,"%s Size<%d> Traverse all element in queue:", pclFunc, GetSize(pcgQueue));
+            QueueTraverse(pcgQueue,print);
 
             for (ilCount = 0; ilCount < igReSendMax; ilCount++)
             {
@@ -4186,6 +4240,12 @@ static int GetConfig()
       igBatch = atoi(pclTmpBuf);
     else
       igBatch = 0;
+
+    ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","DISABLE_ACK",CFG_STRING,pclTmpBuf);
+    if (ilRC == RC_SUCCESS)
+      igDisableAck = atoi(pclTmpBuf);
+    else
+      igDisableAck = 0;
 
     ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","CONFIG_SHIFT",CFG_STRING,pclTmpBuf);
     if (ilRC == RC_SUCCESS)
@@ -4812,6 +4872,10 @@ static int Receive_data(int ipSock,int ipTimeOut)
 	int 	ilCount = 0;
 	int		ilMsgNo = 0;
 	int 	ilFound = 0;
+
+	Item ilMsgid = 0;
+    char pclMsgid[64] = "\0";
+
 	struct timeval rlTimeout;
 
 	static char	pclRecvBuffer[BUFF] = "\0";
@@ -4821,7 +4885,8 @@ static int Receive_data(int ipSock,int ipTimeOut)
   char *pclMsgIdBgn = NULL;
   char pclTmpBuf[10] = "\0";
   char *pclTmpStart = NULL;
-	char pclSqlBuf[2048] = "\0",pclSqlData[2048] = "\0",pclWhere[2048] = "\0";
+    char pclSqlBuf[2048] = "\0",pclSqlData[2048] = "\0",pclWhere[2048] = "\0";
+    char pclCurSendData[4096] = "\0";
   /*
   if (igSckWaitACK == TRUE)
     rlTimeout.tv_sec = 2;
@@ -4926,8 +4991,14 @@ static int Receive_data(int ipSock,int ipTimeOut)
 	            		strcpy(pcgSendMsgId,"5149");
 	            	#endif
 	            	*/
+                memset(pclMsgid,0,sizeof(pclMsgid));
 
-                  if ( strlen(pclTmpUrno) > 0 && strlen(pcgSendMsgId) > 0 && strcmp(pclTmpUrno, pcgSendMsgId) == 0)
+                DeQueue(pcgQueue, &ilMsgid);
+                itoa(ilMsgid,pclMsgid,10);
+                dbg(TRACE,"%s The waited MsgId is <%s>", pclFunc, pclMsgid);
+
+                  /*if ( strlen(pclTmpUrno) > 0 && strlen(pcgSendMsgId) > 0 && strcmp(pclTmpUrno, pcgSendMsgId) == 0)*/
+                  if ( strlen(pclTmpUrno) > 0 && strlen(pclMsgid) > 0 && strcmp(pclTmpUrno, pclMsgid) == 0)
 	              {
 	              	igSckWaitACK = FALSE;
 	              	igSckTryACKCnt = 0;
@@ -4936,34 +5007,38 @@ static int Receive_data(int ipSock,int ipTimeOut)
 	              	Upd_ACK_FlightBuildFullQuery(pclSqlBuf,pclWhere);
 
 	              	ilRC = RunSQL(pclSqlBuf,pclSqlData);
-									if (ilRC != DB_SUCCESS)
-									{
-								  	dbg(DEBUG, "<%s> Updating LIGTAB for ack fails", pclFunc);
-								  	ilRC = RC_FAIL;
-									}
-									else
-									{
-										dbg(DEBUG, "<%s> Updating LIGTAB for ack succeeds", pclFunc);
-									}
+                    if (ilRC != DB_SUCCESS)
+                    {
+                        dbg(DEBUG, "<%s> Updating LIGTAB for ack fails", pclFunc);
+                        ilRC = RC_FAIL;
+                    }
+                    else
+                    {
+                        dbg(DEBUG, "<%s> Updating LIGTAB for ack succeeds", pclFunc);
+                    }
 
-									/*
-									@fya 20140303
-									Comment out below statements, cos once lighdl receives the ack message, no need to send the ack message to sps again*/
-									/*
-									dbg(DEBUG,"<%s> Sending ACK message",pclFunc);
-					    		SendAckMsg();
-					    		*/
-					    		ilRC = RC_SUCCESS;
+                    /*
+                    @fya 20140303
+                    Comment out below statements, cos once lighdl receives the ack message, no need to send the ack message to sps again*/
+                    /*
+                    dbg(DEBUG,"<%s> Sending ACK message",pclFunc);
+                    SendAckMsg();
+                    */
+                    ilRC = RC_SUCCESS;
 	              }
 	              else
 	              {
-	              	dbg(TRACE,"<%s> Received ack message id <%s> does not equal sent one<%s>", pclFunc, pclTmpUrno, pcgSendMsgId);
+	              	/*dbg(TRACE,"<%s> Received ack message id <%s> does not equal sent one<%s>", pclFunc, pclTmpUrno, pcgSendMsgId);*/
+	              	dbg(TRACE,"<%s> Received ack message id <%s> does not equal sent one<%s>", pclFunc, pclTmpUrno, pclMsgid);
 
-	              	if (igDisableAck == 0)
+	              	if (igDisableAck == 1)
                         ilRC = RC_FAIL;
                     else
                         ilRC = RC_SUCCESS;
 	              }
+
+                    dbg(TRACE,"%s Size<%d> Traverse all element in queue:", pclFunc, GetSize(pcgQueue));
+                    QueueTraverse(pcgQueue,print);
 	            }
       	    }
 
@@ -5001,7 +5076,37 @@ static int Receive_data(int ipSock,int ipTimeOut)
 	 	      @fya 20140304
 	 	      strcat(pcgCurSendData,"\n");
 	 	      */
-	 	    	ilRC = Send_data(igSock,pcgCurSendData);
+
+                Get_FlightDataWhereClause(pclWhere,pclMsgid);
+                Get_FlightDataBuildFullQuery(pclSqlBuf,pclWhere);
+
+                ilRC = RunSQL(pclSqlBuf, pclCurSendData);
+                if (ilRC != DB_SUCCESS)
+                {
+                    dbg(DEBUG, "<%s> Updating LIGTAB for ack fails", pclFunc);
+                    ilRC = RC_FAIL;
+                }
+                else
+                {
+                    dbg(DEBUG, "<%s> Updating LIGTAB for ack succeeds", pclFunc);
+                }
+
+                if(pclCurSendData[strlen(pclCurSendData)-1] == 0x04)
+                {
+                    dbg(TRACE,"%s Resending data-1 <%s>",pclFunc, pclCurSendData);
+                    Send_data_wo_separator(igSock,pclCurSendData);
+                }
+                else if(pclCurSendData[strlen(pclCurSendData)-1] == '\n')
+                {
+                    dbg(TRACE,"%s Resending data-2 <%s>",pclFunc, pclCurSendData);
+                    Send_data(igSock,pclCurSendData);
+                }
+                else
+                {
+                    strcat(pclCurSendData,"\n");
+                    dbg(TRACE,"%s Resending data-3 <%s>",pclFunc, pclCurSendData);
+                    Send_data(igSock,pclCurSendData);
+                }
 	      }
 	      GetServerTimeStamp( "UTC", 1, 0, pcgSckWaitACKExpTime);
 	      AddSecondsToCEDATime(pcgSckWaitACKExpTime, igSckACKCWait, 1);
@@ -6009,10 +6114,14 @@ static int SendBatchFlights(void)
 		 /*@fya 20140304*/
         strcat(pclDataSent,"\n");
 		/*At this stage, the message struct is completed*/
-		strcpy(pcgCurSendData,pclDataSent);
-        /*strcpy(pcgSendMsgId,pclSelection);*/
+		/*strcpy(pcgCurSendData,pclDataSent);
+        strcpy(pcgSendMsgId,pclSelection);*/
         /*strcpy(pcgSendMsgId,pclUrnoSelection);*/
         strcpy(pcgSendMsgId,pclRecordURNO);
+
+        EnQueue(pcgQueue, atoi(pcgSendMsgId));
+        dbg(TRACE,"%s Size<%d> Traverse all element in queue:", pclFunc, GetSize(pcgQueue));
+        QueueTraverse(pcgQueue,print);
 
         for (ilCount = 0; ilCount < igReSendMax; ilCount++)
         {
@@ -7842,6 +7951,18 @@ static void Upd_ACK_FlightBuildWhereClause(char *pcpWhere,char *pcpUrno)
 	dbg(DEBUG,"Where Clause<%s>",pcpWhere);
 }
 
+static void Get_FlightDataWhereClause(char *pcpWhere,char *pcpUrno)
+{
+	char *pclFunc = "Get_FlightDataWhereClause";
+	char pclCurrentTime[64] = "\0";
+	char pclWhere[2048] = "\0";
+
+	sprintf(pclWhere,"URNO = '%s'", pcpUrno);
+
+	strcpy(pcpWhere,pclWhere);
+	dbg(DEBUG,"Where Clause<%s>",pcpWhere);
+}
+
 static void Upd_ACK_FlightBuildFullQuery(char *pcpSqlBuf,char *pcpWhere)
 {
 	char *pclFunc = "Upd_ACK_FlightBuildFullQuery";
@@ -7850,6 +7971,20 @@ static void Upd_ACK_FlightBuildFullQuery(char *pcpSqlBuf,char *pcpWhere)
 	memset(pcpSqlBuf,0,sizeof(pcpSqlBuf));
 
 	sprintf(pclSqlBuf, "UPDATE LIGTAB SET STAT = 'A' WHERE %s", pcpWhere);
+
+	strcpy(pcpSqlBuf,pclSqlBuf);
+	dbg(DEBUG,"\n*******************<%s>*******************",pclFunc);
+	dbg(DEBUG,"<%s>Full Query<%s>",pclFunc,pcpSqlBuf);
+}
+
+static void Get_FlightDataBuildFullQuery(char *pcpSqlBuf,char *pcpWhere)
+{
+	char *pclFunc = "Get_FlightDataBuildFullQuery";
+	char pclSqlBuf[2048] = "\0";
+
+	memset(pcpSqlBuf,0,sizeof(pcpSqlBuf));
+
+	sprintf(pclSqlBuf, "SELECT DATA FROM LIGTAB WHERE %s", pcpWhere);
 
 	strcpy(pcpSqlBuf,pclSqlBuf);
 	dbg(DEBUG,"\n*******************<%s>*******************",pclFunc);
@@ -8415,14 +8550,18 @@ static int FindNextAllocationFuture(char *pcpParkingStand, char *pcpTime, SENT_M
 					{
 					    StoreSentData(pclDataSent,pclUrnoNewData,"NormalFlight",pclRecordURNO);
 					    strcpy(pcgSendMsgId,pclRecordURNO);
+
+					    EnQueue(pcgQueue, atoi(pcgSendMsgId));
+					    dbg(TRACE,"%s Size<%d> Traverse all element in queue:", pclFunc, GetSize(pcgQueue));
+                        QueueTraverse(pcgQueue,print);
 					}
                     else if (ipAckNotSent == 0)
                         StoreSentData(pclDataSent,pclUrnoNewData,"NormalFlight-NoAck",pclRecordURNO);
                     /*
 					strcat(pclDataSent,"\n");
 					*/
-					strcpy(pcgCurSendData,pclDataSent);
-					/*strcpy(pcgSendMsgId,pclRecordURNO);*/
+					/*strcpy(pcgCurSendData,pclDataSent);
+					strcpy(pcgSendMsgId,pclRecordURNO);*/
 
 					for (ilCount = 0; ilCount < igReSendMax; ilCount++)
 					{
@@ -9506,6 +9645,10 @@ static int FindNextAllocation(char *pcpParkingStand, char *pcpTime, SENT_MSG *rp
                     {
                         StoreSentData(pclDataSent,pclUrnoNewData,"NormalFlight",pclRecordURNO);
                         strcpy(pcgSendMsgId,pclRecordURNO);
+
+                        EnQueue(pcgQueue, atoi(pcgSendMsgId));
+                        dbg(TRACE,"%s Size<%d> Traverse all element in queue:", pclFunc, GetSize(pcgQueue));
+                        QueueTraverse(pcgQueue,print);
                     }
                     else if (ipAckNotSent == 0)
                         StoreSentData(pclDataSent,pclUrnoNewData,"NormalFlight-NoAck",pclRecordURNO);
@@ -9513,8 +9656,8 @@ static int FindNextAllocation(char *pcpParkingStand, char *pcpTime, SENT_MSG *rp
                     /*
                     strcat(pclDataSent,"\n");
                     */
-                    strcpy(pcgCurSendData,pclDataSent);
-                    /*strcpy(pcgSendMsgId,pclRecordURNO);*/
+                    /*strcpy(pcgCurSendData,pclDataSent);
+                    strcpy(pcgSendMsgId,pclRecordURNO);*/
 
                     for (ilCount = 0; ilCount < igReSendMax; ilCount++)
                     {
@@ -9775,6 +9918,10 @@ static int FindNextAllocation(char *pcpParkingStand, char *pcpTime, SENT_MSG *rp
             {
                 StoreSentData(pclDataSent,pclUrnoNewData,"NormalFlight",pclRecordURNO);
                 strcpy(pcgSendMsgId,pclRecordURNO);
+
+                EnQueue(pcgQueue, atoi(pcgSendMsgId));
+                dbg(TRACE,"%s Size<%d> Traverse all element in queue:", pclFunc, GetSize(pcgQueue));
+                QueueTraverse(pcgQueue,print);
             }
             else if (ipAckNotSent == 0)
             {
@@ -9783,8 +9930,8 @@ static int FindNextAllocation(char *pcpParkingStand, char *pcpTime, SENT_MSG *rp
             /*
             strcat(pclDataSent,"\n");
             */
-            strcpy(pcgCurSendData,pclDataSent);
-            /*strcpy(pcgSendMsgId,pclRecordURNO);*/
+            /*strcpy(pcgCurSendData,pclDataSent);
+            strcpy(pcgSendMsgId,pclRecordURNO);*/
 
             for (ilCount = 0; ilCount < igReSendMax; ilCount++)
             {
@@ -10038,4 +10185,10 @@ static void FindNextAllocArrBuildWhereClauseFutureActualFromNow(char *pcpWhere, 
 
 	strcpy(pcpWhere,pclWhere);
     dbg(DEBUG,"<%s>Where Clause<%s>",pclFunc,pcpWhere);
+}
+
+static void print(Item i)
+{
+    /*printf("The data in this node is %d\n",i);*/
+    dbg(TRACE,"The data in this node is %d",i);
 }

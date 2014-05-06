@@ -1,0 +1,13 @@
+# depslib dependency file v1.0
+1399351745 source:d:\git\personalproject\queue\queueinlist\main.c
+	"Queue.h"
+	"Queue.c"
+	<stdio.h>
+
+1399350959 d:\git\personalproject\queue\queueinlist\queue.h
+
+1399351002 d:\git\personalproject\queue\queueinlist\queue.c
+	"Queue.h"
+	<malloc.h>
+	<stdio.h>
+
