@@ -98,7 +98,7 @@ PNode DeQueue(Queue *pqueue,Item *pitem)
     return pqueue->front;
 }
 
-void QueueTraverse(Queue *pqueue,void (*visit)())
+void QueueTraverse(Queue *pqueue,void (*visit)(Item i))
 {
     PNode pnode = pqueue->front;
     int i = pqueue->size;
