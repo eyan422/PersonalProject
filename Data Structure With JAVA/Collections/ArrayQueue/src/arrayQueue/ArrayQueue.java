@@ -99,4 +99,18 @@ public class ArrayQueue<E> implements Queue<E> {
 		front = 0;
 		back = size;
 	}
+	
+	public String toString()
+	{
+		String ret = "";
+		for (int i = front; i < back; i++)
+		{
+			if(i != 0)
+			{
+				ret = ret + " ";
+			}
+			ret = ret + elements[i];	
+		}
+		return ret;
+	}
 }
