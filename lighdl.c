@@ -5052,7 +5052,7 @@ static int Receive_data(int ipSock,int ipTimeOut)
                     else
                     {
                         ilcursor += LEN;
-                        if (ilcursor <= strlen(pclString_3))
+                        if (ilcursor <= strlen(pclRecvBuffer))
                             strncpy(pclTmpUrno, pclTmpStart + ilcursor, 14);
                     }
 
