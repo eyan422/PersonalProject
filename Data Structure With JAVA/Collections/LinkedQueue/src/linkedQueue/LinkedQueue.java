@@ -2,9 +2,10 @@ package linkedQueue;
 
 public class LinkedQueue<E> implements Queue<E> {
 	
-	private Node<E> head = new Node<E>(); // dummy node
+	private Node<E> head = new Node<E>();// dummy node
 	
 	private int size;
+	
 	public void add(E element) 
 	{
 		head.prev = head.prev.next = new Node<E>(element, head.prev, head);
@@ -17,6 +18,7 @@ public class LinkedQueue<E> implements Queue<E> {
 		{
 			throw new java.util.EmptyStackException();
 		}
+		
 		return head.next.element; // front of queue // next <--> prev
 	}
 	
@@ -49,6 +51,7 @@ public class LinkedQueue<E> implements Queue<E> {
 		E element;
 		Node<E> prev;
 		Node<E> next;
+		
 		Node()
 		{
 			this.prev = this.next = this;
@@ -61,10 +64,10 @@ public class LinkedQueue<E> implements Queue<E> {
 			this.next = next;
 		}
 	}
-	
+	/*
 	public String toString()
 	{
-		Node cursor = head.next;
+		Node<E> cursor = head.next;
 		String ret = "";
 		for (int i = 0; i < size; i++)
 		{
@@ -78,4 +81,23 @@ public class LinkedQueue<E> implements Queue<E> {
 		}
 		return ret;
 	}
+	*/
+	//
+	public String toString()
+	{
+		Node<E> cursor = head.prev;
+		String ret = "";
+		for (int i = 0; i < size; i++)
+		{
+			if(i != 0)
+			{
+				ret = ret + " ";
+			}
+			
+			ret = ret + cursor.element;
+			cursor = cursor.prev;
+		}
+		return ret;
+	}
+	//
 }
