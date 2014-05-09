@@ -1,7 +1,7 @@
 #ifndef _DEF_mks_version
   #define _DEF_mks_version
   #include "ufisvers.h" /* sets UFIS_VERSION, must be done before mks_version */
-  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/lighdl.c 2.3 08/05/2014 16:18 PM Exp  $";
+  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/lighdl.c 2.4 08/05/2014 16:18 PM Exp  $";
 #endif /* _DEF_mks_version */
 
 /******************************************************************************/
@@ -96,6 +96,9 @@ static char sccs_hwecon[]="%Z% UFIS 4.5 (c) ABB AAT/I %M% %I% / %E% %U% / AKL";
 #define START_FOUND 3
 #define TEST
 #define TOWING_FLT_NO 30
+
+#define FIX_LEN 36
+#define LEN 110
 /******************************************************************************/
 /* External variables                                                         */
 /******************************************************************************/
@@ -3797,8 +3800,19 @@ static int HandleInternalData()
                 {
                     dbg(TRACE,"<%s> line<%d> pclPstdNewData<%s> is null",pclFunc, __LINE__, pclPstdNewData);
                 }
+
+                if( strlen(pclPstdOldData) > 0 && strcmp(pclPstdOldData, pclPstdNewData) != 0)
+                {
+                    /*FindNextAllocation(pclPstdNewData, pclTifdNewData, &rlSentMsg, 0, 0);*/
+                    FindNextAllocation(pclPstdOldData, pclTifdNewData, &rlSentMsg, 0, 1);
+                }
+                else
+                {
+                    dbg(TRACE,"<%s> line<%d> pclPstdNewData<%s> is null or pclPstdOldData<%s> == pclPstdNewData<%s>",pclFunc, __LINE__, pclPstdNewData,pclPstdOldData, pclPstdNewData);
+                }
+
             }
-            else if (  strncmp(pclAdidNewData,"A",1) == 0 )
+            else if ( strncmp(pclAdidNewData,"A",1) == 0 )
             {
                 if( strlen(pclPstaNewData) > 0 )
                 {
@@ -3808,6 +3822,16 @@ static int HandleInternalData()
                 else
                 {
                     dbg(TRACE,"<%s> line<%d> pclPstaNewData<%s> is null",pclFunc, __LINE__, pclPstaNewData);
+                }
+
+                if( strlen(pclPstaOldData) > 0 && strcmp(pclPstaOldData, pclPstaNewData) != 0)
+                {
+                    /*FindNextAllocation(pclPstdNewData, pclTifdNewData, &rlSentMsg, 0, 0);*/
+                    FindNextAllocation(pclPstaOldData, pclTifaNewData, &rlSentMsg, 0, 1);
+                }
+                else
+                {
+                    dbg(TRACE,"<%s> line<%d> pclPstaNewData<%s> is null or pclPstaOldData<%s> == pclPstaNewData<%s>",pclFunc, __LINE__, pclPstaNewData,pclPstaOldData, pclPstaNewData);
                 }
             }
 		}
@@ -4916,6 +4940,8 @@ static int Receive_data(int ipSock,int ipTimeOut)
 	int		ilMsgNo = 0;
 	int 	ilFound = 0;
 
+    int ilcursor = 36;
+
 	Item ilMsgid = 0;
     char pclMsgid[64] = "\0";
 
@@ -4981,7 +5007,7 @@ static int Receive_data(int ipSock,int ipTimeOut)
     	    ilNo = recv( ipSock, pclRecvBuffer, sizeof(pclRecvBuffer), 0);
     	    dbg(DEBUG,"time after recv<%d>",time(0));
 
-    	    if( ilNo > 0 )
+            if( ilNo > 0 )
           {
       	  	dbg(TRACE,"<%s> Len<%d>Complete message<%s>",pclFunc,ilNo,pclRecvBuffer);
 
@@ -5015,71 +5041,89 @@ static int Receive_data(int ipSock,int ipTimeOut)
 	            @fya
 	            modify the hardcoded number into macros
 	            */
-	            strncpy(pclTmpUrno,pclTmpStart+36,14);
-
-	            TrimZero(pclTmpUrno);
-
-	        		/*dbg(DEBUG,"<%s> Received the ack message<%s> The ack message id is <%s>",pclFunc,pclRecvBuffer,pclTmpUrno);*/
-							dbg(DEBUG,"<%s> Received the ack message<%s> Msgid<%s>",pclFunc,pclRecvBuffer,pclTmpUrno);
-
-	            if (atoi(pclTmpUrno) == 0)
+	            /************************************/
+                for (ilCount = 0; ilCount < (strlen(pclRecvBuffer) / LEN); ilCount++)
 	            {
-	            	dbg(TRACE,"Received ack message id <%s> is invalid number", pclTmpUrno);
-	           		ilRC = RC_FAIL;
-	            }
-	            else
-	            {
-	            	/*
-	            	#ifdef TEST
-	            		strcpy(pcgSendMsgId,"5149");
-	            	#endif
-	            	*/
-                memset(pclMsgid,0,sizeof(pclMsgid));
+	                memset(pclTmpUrno,0,sizeof(pclTmpUrno));
 
-                DeQueue(pcgQueue, &ilMsgid);
-                itoa(ilMsgid,pclMsgid,10);
-                dbg(TRACE,"%s The waited MsgId is <%s>", pclFunc, pclMsgid);
-
-                  /*if ( strlen(pclTmpUrno) > 0 && strlen(pcgSendMsgId) > 0 && strcmp(pclTmpUrno, pcgSendMsgId) == 0)*/
-                  if ( strlen(pclTmpUrno) > 0 && strlen(pclMsgid) > 0 && strcmp(pclTmpUrno, pclMsgid) == 0)
-	              {
-	              	igSckWaitACK = FALSE;
-	              	igSckTryACKCnt = 0;
-
-	              	Upd_ACK_FlightBuildWhereClause(pclWhere,pclTmpUrno);
-	              	Upd_ACK_FlightBuildFullQuery(pclSqlBuf,pclWhere);
-
-	              	ilRC = RunSQL(pclSqlBuf,pclSqlData);
-                    if (ilRC != DB_SUCCESS)
+                    if (ilCount == 0)
+                        /*strncpy(pclTmpUrno,pclTmpStart + 36,14);*/
+                        strncpy(pclTmpUrno, pclTmpStart + ilcursor, 14);
+                    else
                     {
-                        dbg(DEBUG, "<%s> Updating LIGTAB for ack fails", pclFunc);
+                        ilcursor += LEN;
+                        if (ilcursor <= strlen(pclString_3))
+                            strncpy(pclTmpUrno, pclTmpStart + ilcursor, 14);
+                    }
+
+                    TrimZero(pclTmpUrno);
+
+                    /*dbg(DEBUG,"<%s> Received the ack message<%s> The ack message id is <%s>",pclFunc,pclRecvBuffer,pclTmpUrno);*/
+                    dbg(DEBUG,"<%s> Received the ack message<%s> Msgid<%s>",pclFunc,pclRecvBuffer,pclTmpUrno);
+
+                    /*if (atoi(pclTmpUrno) == 0)*/
+                    if (strlen(pclTmpUrno) <= 0 || atoi(pclTmpUrno) == 0)
+                    {
+                        dbg(TRACE,"Received ack message id <%s> is invalid number", pclTmpUrno);
                         ilRC = RC_FAIL;
                     }
                     else
                     {
-                        dbg(DEBUG, "<%s> Updating LIGTAB for ack succeeds", pclFunc);
+                        /*
+                        #ifdef TEST
+                            strcpy(pcgSendMsgId,"5149");
+                        #endif
+                        */
+                        memset(pclMsgid,0,sizeof(pclMsgid));
+
+                        DeQueue(pcgQueue, &ilMsgid);
+                        itoa(ilMsgid,pclMsgid,10);
+                        dbg(TRACE,"%s The waited MsgId is <%s>", pclFunc, pclMsgid);
+
+                        /*if ( strlen(pclTmpUrno) > 0 && strlen(pcgSendMsgId) > 0 && strcmp(pclTmpUrno, pcgSendMsgId) == 0)*/
+                        if ( strlen(pclTmpUrno) > 0 && strlen(pclMsgid) > 0 && strcmp(pclTmpUrno, pclMsgid) == 0)
+                        {
+                            igSckWaitACK = FALSE;
+                            igSckTryACKCnt = 0;
+
+                            dbg(TRACE,"<%s> Received ack message id <%s> equals sent one<%s>", pclFunc, pclTmpUrno, pclMsgid);
+
+                            Upd_ACK_FlightBuildWhereClause(pclWhere,pclTmpUrno);
+                            Upd_ACK_FlightBuildFullQuery(pclSqlBuf,pclWhere);
+
+                            ilRC = RunSQL(pclSqlBuf,pclSqlData);
+                            if (ilRC != DB_SUCCESS)
+                            {
+                                dbg(DEBUG, "<%s> Updating LIGTAB for ack fails", pclFunc);
+                                ilRC = RC_FAIL;
+                            }
+                            else
+                            {
+                                dbg(DEBUG, "<%s> Updating LIGTAB for ack succeeds", pclFunc);
+                            }
+
+                            /*
+                            @fya 20140303
+                            Comment out below statements, cos once lighdl receives the ack message, no need to send the ack message to sps again*/
+                            /*
+                            dbg(DEBUG,"<%s> Sending ACK message",pclFunc);
+                            SendAckMsg();
+                            */
+                            ilRC = RC_SUCCESS;
+                        }
+                        else
+                        {
+                            /*dbg(TRACE,"<%s> Received ack message id <%s> does not equal sent one<%s>", pclFunc, pclTmpUrno, pcgSendMsgId);*/
+                            dbg(TRACE,"<%s> Received ack message id <%s> does not equal sent one<%s>", pclFunc, pclTmpUrno, pclMsgid);
+
+                            return RC_FAIL;
+                        }
+
+                        dbg(TRACE,"%s Size<%d> Traverse all element in queue:", pclFunc, GetSize(pcgQueue));
+                        QueueTraverse(pcgQueue,print);
                     }
-
-                    /*
-                    @fya 20140303
-                    Comment out below statements, cos once lighdl receives the ack message, no need to send the ack message to sps again*/
-                    /*
-                    dbg(DEBUG,"<%s> Sending ACK message",pclFunc);
-                    SendAckMsg();
-                    */
-                    ilRC = RC_SUCCESS;
-	              }
-	              else
-	              {
-	              	/*dbg(TRACE,"<%s> Received ack message id <%s> does not equal sent one<%s>", pclFunc, pclTmpUrno, pcgSendMsgId);*/
-	              	dbg(TRACE,"<%s> Received ack message id <%s> does not equal sent one<%s>", pclFunc, pclTmpUrno, pclMsgid);
-
-                    return RC_FAIL;
-	              }
-
-                    dbg(TRACE,"%s Size<%d> Traverse all element in queue:", pclFunc, GetSize(pcgQueue));
-                    QueueTraverse(pcgQueue,print);
-	            }
+                }/*for loop*/
+                /************************************/
       	    }
 
             GetServerTimeStamp( "UTC", 1, 0, pcgRcvHeartBeatExpTime);

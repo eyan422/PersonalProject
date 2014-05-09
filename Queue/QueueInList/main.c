@@ -50,7 +50,7 @@ int main()
     printf("length_3: %d\n\n",strlen(pclString_3));
 
     //pclTmpStart = strstr(pclString_2,"ACK_");
-    pclTmpStart = strstr(pclString_3,"ACK_");
+    //pclTmpStart = strstr(pclString_3,"ACK_");
     //
 
     EnQueue(pq,27011);
@@ -76,7 +76,7 @@ int main()
             {
                     ilcursor += LEN;
                     if (ilcursor <= strlen(pclString_3))
-                    strncpy(pclTmp, pclTmpStart + ilcursor, 14);
+						strncpy(pclTmp, pclTmpStart + ilcursor, 14);
             }
 
             TrimZero(pclTmp);
