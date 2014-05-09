@@ -85,7 +85,7 @@ PNode EnQueue(Queue *pqueue,Item item)
 PNode DeQueue(Queue *pqueue,Item *pitem)
 {
     PNode pnode = pqueue->front;
-    if(IsEmpty(pqueue)!=1&&pnode!=NULL)
+    if(IsEmpty(pqueue) != 1 && pnode != NULL)
     {
         if(pitem!=NULL)
             *pitem = pnode->data;

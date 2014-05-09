@@ -1,7 +1,7 @@
 #ifndef _DEF_mks_version
   #define _DEF_mks_version
   #include "ufisvers.h" /* sets UFIS_VERSION, must be done before mks_version */
-  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/lighdl.c 2.3 06/05/2014 08:11 PM Exp  $";
+  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/lighdl.c 2.3 08/05/2014 16:18 PM Exp  $";
 #endif /* _DEF_mks_version */
 
 /******************************************************************************/
@@ -1909,6 +1909,13 @@ static int HandleInternalData()
                                     if( ilCount >= igReSendMax)
                                     {
                                         dbg(TRACE,"<%s>Send_data <%d>Times failed, drop msg",pclFunc, ilCount);
+
+                                        dbg(TRACE,"Make the queue empty");
+                                        ClearQueue(pcgQueue);
+                                        /*
+                                        dbg(TRACE,"Destruct the queue");
+                                        DestroyQueue(pcgQueue);
+                                        */
                                         return RC_FAIL;
                                     }
                                 }
@@ -2274,6 +2281,13 @@ static int HandleInternalData()
                                         if( ilCount >= igReSendMax)
                                         {
                                             dbg(TRACE,"<%s>Send_data <%d>Times failed, drop msg",pclFunc, ilCount);
+
+                                            dbg(TRACE,"Make the queue empty");
+                                            ClearQueue(pcgQueue);
+                                            /*
+                                            dbg(TRACE,"Destruct the queue");
+                                            DestroyQueue(pcgQueue);
+                                            */
                                             return RC_FAIL;
                                         }
 
@@ -2686,6 +2700,13 @@ static int HandleInternalData()
                                                 if( ilCount >= igReSendMax)
                                                 {
                                                     dbg(TRACE,"<%s>Send_data <%d>Times failed, drop msg",pclFunc, ilCount);
+
+                                                    dbg(TRACE,"Make the queue empty");
+                                                    ClearQueue(pcgQueue);
+                                                    /*
+                                                    dbg(TRACE,"Destruct the queue");
+                                                    DestroyQueue(pcgQueue);
+                                                    */
                                                     return RC_FAIL;
                                                 }
 
@@ -3476,6 +3497,13 @@ static int HandleInternalData()
                     if( ilCount >= igReSendMax)
                     {
                         dbg(TRACE,"<%s>Send_data <%d>Times failed, drop msg",pclFunc, ilCount);
+
+                        dbg(TRACE,"Make the queue empty");
+                        ClearQueue(pcgQueue);
+                        /*
+                        dbg(TRACE,"Destruct the queue");
+                        DestroyQueue(pcgQueue);
+                        */
                         return RC_FAIL;
                     }
 
@@ -3744,6 +3772,13 @@ static int HandleInternalData()
 			if( ilCount >= igReSendMax)
 			{
 				dbg(TRACE,"<%s>Send_data <%d>Times failed, drop msg",pclFunc, ilCount);
+
+				dbg(TRACE,"Make the queue empty");
+                ClearQueue(pcgQueue);
+                /*
+                dbg(TRACE,"Destruct the queue");
+                DestroyQueue(pcgQueue);
+                */
 				return RC_FAIL;
 			}
 
@@ -3929,6 +3964,13 @@ static int HandleInternalData()
 			if( ilCount >= igReSendMax)
 			{
 				dbg(TRACE,"<%s>Send_data <%d>Times failed, drop msg",pclFunc, ilCount);
+
+				dbg(TRACE,"Make the queue empty");
+                ClearQueue(pcgQueue);
+                /*
+                dbg(TRACE,"Destruct the queue");
+                DestroyQueue(pcgQueue);
+                */
 				return RC_FAIL;
 			}
 
@@ -4880,12 +4922,12 @@ static int Receive_data(int ipSock,int ipTimeOut)
 	struct timeval rlTimeout;
 
 	static char	pclRecvBuffer[BUFF] = "\0";
-  char pclCurrentTime[64] = "\0";
+    char pclCurrentTime[64] = "\0";
 	char pclTmpUrno[16] = "\0";
-  char *pclMsgIdEnd = NULL;
-  char *pclMsgIdBgn = NULL;
-  char pclTmpBuf[10] = "\0";
-  char *pclTmpStart = NULL;
+    char *pclMsgIdEnd = NULL;
+    char *pclMsgIdBgn = NULL;
+    char pclTmpBuf[10] = "\0";
+    char *pclTmpStart = NULL;
     char pclSqlBuf[2048] = "\0",pclSqlData[2048] = "\0",pclWhere[2048] = "\0";
     char pclCurSendData[4096] = "\0";
   /*
@@ -4895,7 +4937,7 @@ static int Receive_data(int ipSock,int ipTimeOut)
     rlTimeout.tv_sec = ipTimeOut;
   */
 	rlTimeout.tv_sec = 0;
-  rlTimeout.tv_usec = 10;  /* blocked for 0 useconds */
+    rlTimeout.tv_usec = 10;  /* blocked for 0 useconds */
 
 	memset(pclRecvBuffer,0,sizeof(pclRecvBuffer));
 
@@ -5032,10 +5074,7 @@ static int Receive_data(int ipSock,int ipTimeOut)
 	              	/*dbg(TRACE,"<%s> Received ack message id <%s> does not equal sent one<%s>", pclFunc, pclTmpUrno, pcgSendMsgId);*/
 	              	dbg(TRACE,"<%s> Received ack message id <%s> does not equal sent one<%s>", pclFunc, pclTmpUrno, pclMsgid);
 
-	              	if (igDisableAck == 1)
-                        ilRC = RC_FAIL;
-                    else
-                        ilRC = RC_SUCCESS;
+                    return RC_FAIL;
 	              }
 
                     dbg(TRACE,"%s Size<%d> Traverse all element in queue:", pclFunc, GetSize(pcgQueue));
@@ -5710,31 +5749,31 @@ static int GetMsgno(char *pcpMsg)
 
 static int Sockt_Reconnect(void)
 {
-	char * pclFunc = "Sockt_Reconnect";
-	int ilRc = RC_SUCCESS;
-	int ilQueRc = RC_SUCCESS;
-  int ilCount = 0;
+    char * pclFunc = "Sockt_Reconnect";
+    int ilRc = RC_SUCCESS;
+    int ilQueRc = RC_SUCCESS;
+    int ilCount = 0;
 
-  igConnectionNo++;
+    igConnectionNo++;
 
-  igOldCnnt = igConnected;
-  CloseTCP();
-  igSock = 0;
+    igOldCnnt = igConnected;
+    CloseTCP();
+    igSock = 0;
 	dbg(TRACE,"<%s>Keep trying to connect <%s><%s>",pclFunc,pcgIP,pcgPort);
 /*    for (ilCount = 0; ilCount < igReconMax; ilCount++)
 {*/
- 	 ilRc = OpenServerSocket();
-	 dbg(DEBUG,"<%s>ilRc<%d>",pclFunc,ilRc);
-	 ilCount++;
- 	 if (ilRc != RC_SUCCESS)
-	 {
+     ilRc = OpenServerSocket();
+     dbg(DEBUG,"<%s>ilRc<%d>",pclFunc,ilRc);
+     ilCount++;
+     if (ilRc != RC_SUCCESS)
+     {
         CloseTCP();
-   			igSock = 0;
-   }
+            igSock = 0;
+     }
 /*}*/
 
 	if(ilRc == RC_SUCCESS)
-  {
+    {
       dbg(TRACE,"<%s>ilCount[%d]igSock<%d>, connection success,reset ilConnectionNo",pclFunc,ilCount,igSock);
       igConnected = TRUE;
 
@@ -5742,12 +5781,12 @@ static int Sockt_Reconnect(void)
 
       dbg(TRACE,"<%s> Calling SendRST_Command",pclFunc);
       SendRST_Command();
-  }
+    }
 	else
-  {
+    {
       dbg(TRACE,"<%s>ilCount[%d]igSock<%d>, connection fails",pclFunc,ilCount,igSock);
       igConnected = FALSE;
-  }
+    }
 
   if (igOldCnnt != igConnected)
   {
@@ -5763,7 +5802,10 @@ static int Sockt_Reconnect(void)
   AddSecondsToCEDATime(pcgReconExpTime, igReconIntv, 1);
   AddSecondsToCEDATime(pcgRcvHeartBeatExpTime, igHeartBeatTimOut, 1);
 
-  dbg(DEBUG," <%s> pcgReconExpTime<%s>Heartbeat Exp Rec Time<%s> igHeartBeatTimOut<%d>", pclFunc,pcgReconExpTime,pcgRcvHeartBeatExpTime,igHeartBeatTimOut);
+    dbg(DEBUG," <%s> pcgReconExpTime<%s>Heartbeat Exp Rec Time<%s> igHeartBeatTimOut<%d>", pclFunc,pcgReconExpTime,pcgRcvHeartBeatExpTime,igHeartBeatTimOut);
+
+    dbg(TRACE,"Make the queue empty");
+    ClearQueue(pcgQueue);
 
 	return ilRc;
 }
@@ -6210,6 +6252,13 @@ static int SendBatchFlights(void)
 		if( ilCount >= igReSendMax)
 		{
 			dbg(TRACE,"<%s>Send_data <%d>Times failed, drop msg",pclFunc, ilCount);
+
+            dbg(TRACE,"Make the queue empty");
+            ClearQueue(pcgQueue);
+            /*
+            dbg(TRACE,"Destruct the queue");
+            DestroyQueue(pcgQueue);
+            */
 			return RC_FAIL;
 		}
 
@@ -6257,6 +6306,13 @@ static int SendBatchFlights(void)
     if( ilCount >= igReSendMax)
     {
         dbg(TRACE,"<%s>Send_data <%d>Times failed, drop msg",pclFunc, ilCount);
+
+        dbg(TRACE,"Make the queue empty");
+        ClearQueue(pcgQueue);
+        /*
+        dbg(TRACE,"Destruct the queue");
+        DestroyQueue(pcgQueue);
+        */
         return RC_FAIL;
     }
 }
@@ -8521,6 +8577,13 @@ static int FindNextAllocationFuture(char *pcpParkingStand, char *pcpTime, SENT_M
         if( ilCount >= igReSendMax)
         {
             dbg(TRACE,"<%s>Send_data <%d>Times failed, drop msg",pclFunc, ilCount);
+
+            dbg(TRACE,"Make the queue empty");
+            ClearQueue(pcgQueue);
+            /*
+            dbg(TRACE,"Destruct the queue");
+            DestroyQueue(pcgQueue);
+            */
             return RC_FAIL;
         }
 
@@ -8649,6 +8712,13 @@ static int FindNextAllocationFuture(char *pcpParkingStand, char *pcpTime, SENT_M
             if( ilCount >= igReSendMax)
             {
                 dbg(TRACE,"<%s>Send_data <%d>Times failed, drop msg",pclFunc, ilCount);
+
+                dbg(TRACE,"Make the queue empty");
+                ClearQueue(pcgQueue);
+                /*
+                dbg(TRACE,"Destruct the queue");
+                DestroyQueue(pcgQueue);
+                */
                 return RC_FAIL;
             }
 
@@ -8925,6 +8995,13 @@ static int FindNextAllocationFuture(char *pcpParkingStand, char *pcpTime, SENT_M
 					if( ilCount >= igReSendMax)
 					{
 						dbg(TRACE,"<%s>Send_data <%d>Times failed, drop msg",pclFunc, ilCount);
+
+						dbg(TRACE,"Make the queue empty");
+                        ClearQueue(pcgQueue);
+                        /*
+                        dbg(TRACE,"Destruct the queue");
+                        DestroyQueue(pcgQueue);
+                        */
 						return RC_FAIL;
 					}
 			}
@@ -9790,6 +9867,13 @@ static int FindNextAllocation(char *pcpParkingStand, char *pcpTime, SENT_MSG *rp
                         if( ilCount >= igReSendMax)
                         {
                             dbg(TRACE,"<%s>Send_data <%d>Times failed, drop msg",pclFunc, ilCount);
+
+                            dbg(TRACE,"Make the queue empty");
+                            ClearQueue(pcgQueue);
+                            /*
+                            dbg(TRACE,"Destruct the queue");
+                            DestroyQueue(pcgQueue);
+                            */
                             return RC_FAIL;
                         }
                     }
@@ -10142,6 +10226,13 @@ static int FindNextAllocation(char *pcpParkingStand, char *pcpTime, SENT_MSG *rp
                     if( ilCount >= igReSendMax)
                     {
                         dbg(TRACE,"<%s>Send_data <%d>Times failed, drop msg",pclFunc, ilCount);
+
+                        dbg(TRACE,"Make the queue empty");
+                        ClearQueue(pcgQueue);
+                        /*
+                        dbg(TRACE,"Destruct the queue");
+                        DestroyQueue(pcgQueue);
+                        */
                         return RC_FAIL;
                     }
                     return RC_SUCCESS;
@@ -10416,6 +10507,13 @@ static int FindNextAllocation(char *pcpParkingStand, char *pcpTime, SENT_MSG *rp
             if( ilCount >= igReSendMax)
             {
                 dbg(TRACE,"<%s>Send_data <%d>Times failed, drop msg",pclFunc, ilCount);
+
+                dbg(TRACE,"Make the queue empty");
+                ClearQueue(pcgQueue);
+                /*
+                dbg(TRACE,"Destruct the queue");
+                DestroyQueue(pcgQueue);
+                */
                 return RC_FAIL;
             }
             return RC_SUCCESS;
