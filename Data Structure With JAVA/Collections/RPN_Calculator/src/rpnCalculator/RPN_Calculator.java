@@ -33,6 +33,7 @@ public class RPN_Calculator {
 			else if (ch == 'q' || ch == 'Q')
 			{
 				System.out.println("Bye");
+				in.close();
 				return;
 			} 
 			else 
