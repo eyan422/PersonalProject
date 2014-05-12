@@ -90,6 +90,7 @@ public class Ring<E> extends AbstractList<E> implements List<E>
 			{
 				throw new IllegalStateException();
 			}
+			
 			if (size == 1) 
 			{
 				end = preLast = null;
@@ -103,6 +104,7 @@ public class Ring<E> extends AbstractList<E> implements List<E>
 			{
 				end = preLast;
 			}
+			
 			last = null;
 			--size;
 		}
