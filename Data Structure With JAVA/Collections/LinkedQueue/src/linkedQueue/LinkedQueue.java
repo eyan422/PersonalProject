@@ -46,7 +46,7 @@ public class LinkedQueue<E> implements Queue<E> {
 		return size;
 	}
 	
-	private static class Node<E> 
+	private static class Node<E>
 	{
 		E element;
 		Node<E> prev;

@@ -43,7 +43,8 @@ public class LinkedListStack<E> implements Stack<E> {
 		Node<E> prev;
 		Node<E> next;
 		
-		Node() {
+		Node() 
+		{
 			this.prev = this.next = this;
 		}
 		
@@ -55,6 +56,7 @@ public class LinkedListStack<E> implements Stack<E> {
 	}
 	
 	public static void main(String[] args) {
+		
 		Deque<String> stack = new ArrayDeque<String>();
 		stack.push("GB");
 		stack.push("DE");
@@ -69,5 +71,7 @@ public class LinkedListStack<E> implements Stack<E> {
 		System.out.println("stack.push(\"IE\"): ");
 		stack.push("IE");
 		System.out.println(stack);
+		
+		//System.out.println(new Node<String>());
 	}
 }
