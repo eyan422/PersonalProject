@@ -28,6 +28,7 @@ public class Ring<E> extends AbstractList<E> implements List<E>
 		{
 			throw new IndexOutOfBoundsException();
 		}
+		
 		Node<E> p = end.next;
 		for (int i=0; i<index; i++) 
 		{
@@ -53,6 +54,7 @@ public class Ring<E> extends AbstractList<E> implements List<E>
 		buf.append("]");
 		return buf.toString();
 	}
+	
 	public int size() 
 	{
 		return size;
@@ -62,10 +64,12 @@ public class Ring<E> extends AbstractList<E> implements List<E>
 	{
 		private Node<E> last;
 		private Node<E> preLast = end;
+		
 		public boolean hasNext() 
 		{
 			return size > 0;
 		}
+		
 		public E next()
 		{
 			if (last == null)
@@ -107,7 +111,9 @@ public class Ring<E> extends AbstractList<E> implements List<E>
 	private static class Node<E>
 	{
 		E element;
+		
 		Node<E> next;
+		
 		Node(E element, Node<E> next) 
 		{
 			this.element = element;

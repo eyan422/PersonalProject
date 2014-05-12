@@ -9,7 +9,7 @@ public class Josephus {
 	{
 		Ring<String> ring = new Ring<String>();
 		
-		for (int i=0; i<SOLDIERS; i++)
+		for (int i = 0; i < SOLDIERS; i++)
 		{
 			ring.add(ALPHA.substring(i, i+1));
 		}
