@@ -148,6 +148,7 @@ public class Polynomial
 				buf.append("x^" + e);
 			}
 		}
+		
 		return buf.toString();
 	}
 	
