@@ -14,44 +14,57 @@ public class Polynomial
 	
 	public Polynomial(double coef, int exp) 
 	{
-		if (coef != 0.0) {
+		if (coef != 0.0)
+		{
 			list.add(new Term(coef, exp));
 		}
 	}
 	
-	public Polynomial(Polynomial p) { // copy constructor
-		for (Term term : p.list) {
+	public Polynomial(Polynomial p) 
+	{ // copy constructor
+		for (Term term : p.list) 
+		{
 			this.list.add(new Term(term));
 		}
 	}
 	
-	public Polynomial(double... a) {
-		for (int i=0; i<a.length; i++) {
-			if (a[i] != 0.0) {
+	public Polynomial(double... a) 
+	{
+		for (int i=0; i<a.length; i++) 
+		{
+			if (a[i] != 0.0) 
+			{
 				list.add(new Term(a[i], i));
 			}
 		}
 	}
 	
-	public int degree() {
-		if (list.isEmpty()) {
+	public int degree() 
+	{
+		if (list.isEmpty()) 
+		{
 			return -1;
 		} 
-		else {
+		else 
+		{
 			return list.get(list.size()-1).exp;
 		}
 	}
 	
-	public boolean isZero() {
+	public boolean isZero() 
+	{
 		return list.isEmpty();
 	}
 		
-	public Polynomial plus(Polynomial p) {
-		if (this.isZero()) {
+	public Polynomial plus(Polynomial p) 
+	{
+		if (this.isZero()) 
+		{
 			return new Polynomial(p);
 		}
 		
-		if (p.isZero()) {
+		if (p.isZero()) 
+		{
 			return new Polynomial(this);
 		}
 		
@@ -59,36 +72,43 @@ public class Polynomial
 		ListIterator<Term> it = list.listIterator();
 		ListIterator<Term> itp = p.list.listIterator();
 		
-		while (it.hasNext() && itp.hasNext()) {
+		while (it.hasNext() && itp.hasNext()) 
+		{
 			Term term = it.next();
 			Term pTerm = itp.next();
 			
-			if (term.exp < pTerm.exp) {
+			if (term.exp < pTerm.exp) 
+			{
 				q.list.add(new Term(term));
 				itp.previous();
 			} 
-			else if (term.exp == pTerm.exp) {
+			else if (term.exp == pTerm.exp) 
+			{
 				q.list.add(new Term(term.coef + pTerm.coef, term.exp));
 			} 
-			else { // (term.exp > pTerm.exp) 
+			else
+			{ // (term.exp > pTerm.exp) 
 				q.list.add(new Term(pTerm));
 				it.previous();
 			}
 		}
 		
-		while (it.hasNext()) {
+		while (it.hasNext()) 
+		{
 			q.list.add(new Term(it.next()));
 		}
 		
-		while (itp.hasNext()) {
+		while (itp.hasNext()) 
+		{
 			q.list.add(new Term(itp.next()));
 		}
 		return q;
 	}
 	
-	public String toString() {
-		
-		if (this.isZero()) {
+	public String toString() 
+	{
+		if (this.isZero()) 
+		{
 			return "0";
 		}
 		
@@ -96,40 +116,50 @@ public class Polynomial
 		StringBuilder buf = new StringBuilder();
 		boolean isFirstTerm = true;
 		
-		while (it.hasNext()) {
+		while (it.hasNext()) 
+		{
 			Term term = it.next();
 			double c = term.coef;
 			int e = term.exp;
 			
-			if (isFirstTerm) {
+			if (isFirstTerm) 
+			{
 				buf.append(String.format("%.2f", c));
 				isFirstTerm = false;
 			} 
-			else {
-				if (term.coef < 0) {
+			else 
+			{
+				if (term.coef < 0) 
+				{
 					buf.append(String.format(" - %.2f", -c));
 				} 
-				else {
+				else 
+				{
 					buf.append(String.format(" + %.2f", c));
 				}
 			}
 			
-			if (e == 1) {
+			if (e == 1) 
+			{
 				buf.append("x");
 			} 
-			else if (e > 1) {
+			else if (e > 1) 
+			{
 				buf.append("x^" + e);
 			}
 		}
 		return buf.toString();
 	}
 	
-	private static class Term {
+	private static class Term 
+	{
 		private double coef;
 		private int exp;
 		
-		public Term(double coef, int exp) {
-			if (coef == 0.0 || exp < 0) {
+		public Term(double coef, int exp)
+		{
+			if (coef == 0.0 || exp < 0) 
+			{
 				throw new IllegalArgumentException();
 			}
 			
@@ -137,7 +167,8 @@ public class Polynomial
 			this.exp = exp;
 		}
 		
-		public Term(Term that) { // copy constructor
+		public Term(Term that) 
+		{ // copy constructor
 			this(that.coef, that.exp);
 		}
 	}
