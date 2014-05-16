@@ -4,7 +4,8 @@ import java.util.*;
 import java.io.*;
 
 public class Concordance {
-	private Map<String,String> map = new HashMap<String,String>();
+	//private Map<String,String> map = new HashMap<String,String>();
+	private Map<String,String> map = new TreeMap<String,String>();
 	
 	public Concordance(String file) {
 		int lineNumber = 0;
