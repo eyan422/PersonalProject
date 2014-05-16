@@ -1,0 +1,31 @@
+1-normal flight:
+
+UFR
+1.1
+X-depart airb is not null
+1.2
+X-towing flight ofbl is not null
+
+X-IFR
+X-DFR
+
+2-flight cancel:
+X-arr only
+X-dep only
+X-arr only in rotation
+X-dep only in rotation
+X-arr & dep in rotation
+
+3-towing 
+X-IFR
+X-DFR
+X-IFR & DFR
+
+UFR
+towing flight ofbl is null
+
+=============
+X-AIRB and OFBL (multiple messages) is not null, then find next allocation, breaks;
+X-UFR and IFR normal flight sends next allocation too	(in past and future)
+X-towing update, two messages-> one bulk message
+X-towing delete, tow messages next allocation wrong
