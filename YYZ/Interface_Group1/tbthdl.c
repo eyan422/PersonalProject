@@ -2,7 +2,7 @@
 #ifndef _DEF_mks_version
   #define _DEF_mks_version
   #include "ufisvers.h" /* sets UFIS_VERSION, must be done before mks_version */
-  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/skeleton.c 1.3 2003/11/18 19:43:14SGT heb Exp  $";
+  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/tbthdl.c 0.1 2014/05/30 11:05:14SGT fya Exp  $";
 #endif /* _DEF_mks_version */
 /******************************************************************************/
 /*                                                                            */
@@ -101,6 +101,7 @@ static int  GetCommand(char *pcpCommand, int *pipCmd);
 /*fya 0.1*/
 static int GetConfig();
 static int GetRuleSchema(RULE *rpRule);
+static void getOneline(_RULE *rpLine, char * pcpLine);
 /******************************************************************************/
 /*                                                                            */
 /* The MAIN program                                                           */
@@ -799,7 +800,7 @@ static int GetConfig()
 /* Following the GetRuleSchema function										*/
 /* Reads the .csv file and fill in the configuration structure			*/
 /* ******************************************************************** */
-static int GetRuleSchema(RULE *rpRule);
+static int GetRuleSchema(_RULE *rpRule);
 {
     int ilRC = RC_SUCCESS;
     char pclFunc[] = "GetRuleSchema:";
@@ -807,189 +808,94 @@ static int GetRuleSchema(RULE *rpRule);
     FILE *fp;
     int ilCurLine;
     char pclLine[2048];
-    int ilNoEle;
-    int ilI;
-    int ilCurLevel;
-    char pclTag[16];
-    char pclPrevTag[16];
-    char pclName[32];
-    //char pclType[8]; //Frank v1.52 20121227
-    char pclType[32];
 
-    char pclBasTab[8];
-    char pclBasFld[8];
-    char pclFlag[64];
-    int ilInfoFldFlag;
-    char pclNameStack[100][1024];
-    char pclItem1[32];
-    char pclItem2[32];
-    char pclItem3[32];
+    int ilNoLine = 0;
+    int ilI;
     int ilJ;
-    int ilNoMethod;
     char pclTmpBuf[128];
+    _LINE rlLine;
+
 
     ilRC = iGetConfigEntry(pcgConfigFile, "MAIN", "RULE_SCHEMA_FILE", CFG_STRING, pclTmpBuf);
     if (ilRC == RC_SUCCESS)
+    {
         sprintf(pclCfgFile, "%s/%s", getenv("CFG_PATH"), pclTmpBuf);
+    }
     else
+    {
         sprintf(pclCfgFile, "%s/%s.csv", getenv("CFG_PATH"), mod_name);
+    }
 
     dbg(TRACE, "%s Rule Config File is <%s>", pclFunc, pclCfgFile);
 
-    if ((fp = (FILE *) fopen(pclCfgFile, "r")) == (FILE *) NULL) {
+    if ((fp = (FILE *) fopen(pclCfgFile, "r")) == (FILE *) NULL)
+    {
         dbg(TRACE, "%s Rule Config File <%s> does not exist", pclFunc, pclCfgFile);
         return RC_FAIL;
     }
 
-    igCurInterface = 0;
-    igUsingMultiTypeFlag = FALSE;
-    memset((char *) &rgXml.rlLine[0].ilLevel, 0x00, sizeof (_LINE) * MAX_XML_LINES);
-    strcpy(pclPrevTag, "");
-    ilInfoFldFlag = FALSE;
-    igCurXmlLines = 0;
-    ilCurLevel = 0;
-    ilCurLine = 1;
-
     while (fgets(pclLine, 2048, fp))
     {
+        /*Getting the rule string one by one from csv file*/
         pclLine[strlen(pclLine) - 1] = '\0';
         if (pclLine[strlen(pclLine) - 1] == '\012' || pclLine[strlen(pclLine) - 1] == '\015')
+        {
             pclLine[strlen(pclLine) - 1] = '\0';
-        ilNoEle = GetNoOfElements(pclLine, ';');
-        dbg(DEBUG, "%s Current Line = (%d)<%s>", pclFunc, ilNoEle, pclLine);
-
-        get_item(ilNoEle, pclLine, pclTag, 0, ";", "\0", "\0");
-        get_item(1, pclLine, pclTag, 0, ";", "\0", "\0");
-        TrimRight(pclTag);
-        get_item(2, pclLine, pclName, 0, ";", "\0", "\0");
-        TrimRight(pclName);
-
-        //Frank v1.52 20121227
-        //dbg(DEBUG,"%s %d pclName<%s>",pclFunc,__LINE__,pclName);
-
-        get_item(3, pclLine, pclType, 0, ";", "\0", "\0");
-        TrimRight(pclType);
-        get_item(4, pclLine, pclBasTab, 0, ";", "\0", "\0");
-        TrimRight(pclBasTab);
-        get_item(5, pclLine, pclBasFld, 0, ";", "\0", "\0");
-        TrimRight(pclBasFld);
-        get_item(6, pclLine, pclFlag, 0, ";", "\0", "\0");
-        TrimRight(pclFlag);
-        if (strcmp(pclTag, "TITLE") != 0) {
-            if (strcmp(pclTag, "STR_BGN") == 0) {
-                if (strcmp(pclPrevTag, "STR_END") != 0)
-                    ilCurLevel++;
-                if (ilInfoFldFlag == TRUE)
-                    ilCurLevel--;
-                ilInfoFldFlag = FALSE;
-                strcpy(&pclNameStack[ilCurLevel - 1][0], pclName);
-            } else {
-                if (strcmp(pclTag, "STR_END") == 0) {
-                    ilCurLevel--;
-                    ilInfoFldFlag = FALSE;
-                    if (strcmp(pclName, &pclNameStack[ilCurLevel - 1][0]) != 0) {
-                        dbg(TRACE, "%s Wrong Name at STR_END <%s><%s> specified!!! Line = %d",
-                                pclFunc, pclName, &pclNameStack[ilCurLevel - 1][0], ilCurLine);
-                        return ilRC;
-                    }
-                } else {
-                    if (strcmp(pclTag, "HDR") == 0) {
-                        if (ilInfoFldFlag == FALSE) {
-                            ilCurLevel++;
-                            ilInfoFldFlag = TRUE;
-                        }
-                    } else {
-                        if (strcmp(pclTag, "KEY") == 0) {
-                            if (strcmp(pclPrevTag, "STR_END") == 0)
-                                ilCurLevel--;
-                            if (ilInfoFldFlag == FALSE) {
-                                ilCurLevel++;
-                                ilInfoFldFlag = TRUE;
-                            }
-                        } else {
-                            if (strcmp(pclTag, "DAT") == 0) {
-                                if (strcmp(pclPrevTag, "STR_END") == 0)
-                                    ilCurLevel--;
-                                if (ilInfoFldFlag == FALSE) {
-                                    ilCurLevel++;
-                                    ilInfoFldFlag = TRUE;
-                                }
-                            } else {
-                                dbg(TRACE, "%s Wrong Tag <%s> specified!!!", pclFunc, pclTag);
-                                return ilRC;
-                            }
-                        }
-                    }
-                }
-            }
-            rgXml.rlLine[igCurXmlLines].ilLevel = ilCurLevel;
-            strcpy(&rgXml.rlLine[igCurXmlLines].pclTag[0], pclTag);
-
-            strcpy(&rgXml.rlLine[igCurXmlLines].pclName[0], pclName);
-            //Frank v1.52 20121227
-            //dbg(DEBUG,"%s %d pclName<%s>&rgXml.rlLine[igCurXmlLines].pclName[0]<%s>",pclFunc,__LINE__,pclName,&rgXml.rlLine[igCurXmlLines].pclName[0]);
-
-            strcpy(&rgXml.rlLine[igCurXmlLines].pclType[0], pclType);
-            if (strcmp(pclType, "MULTI") == 0) {
-                igUsingMultiTypeFlag = TRUE;
-            }
-            if (strcmp(pcgMode, "OUTPUT") == 0 && strcmp(pclTag, "STR_BGN") != 0 && strcmp(pclTag, "STR_END") != 0) {
-                if (*pclBasTab == ' ')
-                    strcpy(&rgXml.rlLine[igCurXmlLines].pclBasTab[0], pclName);
-                else
-                    strcpy(&rgXml.rlLine[igCurXmlLines].pclBasTab[0], pclBasTab);
-                if (*pclBasFld == ' ')
-                    strcpy(&rgXml.rlLine[igCurXmlLines].pclBasFld[0], pclName);
-                else
-                    strcpy(&rgXml.rlLine[igCurXmlLines].pclBasFld[0], pclBasFld);
-            } else {
-                strcpy(&rgXml.rlLine[igCurXmlLines].pclBasTab[0], pclBasTab);
-                strcpy(&rgXml.rlLine[igCurXmlLines].pclBasFld[0], pclBasFld);
-            }
-            strcpy(&rgXml.rlLine[igCurXmlLines].pclFlag[0], pclFlag);
-            ilNoEle = GetNoOfElements(pclLine, ';');
-            for (ilI = 7; ilI <= ilNoEle; ilI += 3) {
-                get_item(ilI, pclLine, pclItem1, 0, ";", "\0", "\0");
-                TrimRight(pclItem1);
-                get_item(ilI + 1, pclLine, pclItem2, 0, ";", "\0", "\0");
-                TrimRight(pclItem2);
-                get_item(ilI + 2, pclLine, pclItem3, 0, ";", "\0", "\0");
-                TrimRight(pclItem3);
-                if (strcmp(pclItem1, "{END}") != 0) {
-                    if (*pclItem1 != ' ') {
-                        if (strcmp(&rgXml.rlLine[igCurXmlLines].pclTag[0], "HDR") == 0 &&
-                                strcmp(&rgXml.rlLine[igCurXmlLines].pclName[0], pcgMessageOrigin) == 0) {
-                            strcpy(&rgInterface[igCurInterface].pclIntfName[0], pclItem1);
-                            rgInterface[igCurInterface].ilIntfIdx = (ilI - 7) / 3;
-                            igCurInterface++;
-                        } else {
-                            strcpy(&rgXml.rlLine[igCurXmlLines].pclMethod[(ilI - 7) / 3][0], pclItem1);
-                            rgXml.rlLine[igCurXmlLines].ilNoMethod++;
-                        }
-                    }
-                    if (*pclItem2 != ' ') {
-                        strcpy(&rgXml.rlLine[igCurXmlLines].pclFieldA[(ilI - 7) / 3][0], pclItem2);
-                        rgXml.rlLine[igCurXmlLines].ilNoFieldA++;
-                    }
-                    if (*pclItem3 != ' ') {
-                        strcpy(&rgXml.rlLine[igCurXmlLines].pclFieldD[(ilI - 7) / 3][0], pclItem3);
-                        rgXml.rlLine[igCurXmlLines].ilNoFieldD++;
-                    }
-                }
-            }
-            igCurXmlLines++;
-            ilCurLine++;
-            strcpy(pclPrevTag, pclTag);
         }
+
+        ilNoLine++;
+        getOneline(rlLine, pclLine);
+        showRule(rlLine,ilNoLine);
     }
     fclose(fp);
 
     dbg(TRACE, "---------------------------------------------------------");
 
     return ilRC;
-} /* End of GetXMLSchema */
+} /* End of GetRuleSchema */
 
-void showRule(RULE *rpRule, int ilNumOfRule)
+void getOneline(_RULE *rpLine, char * pcpLine)
+{
+	char *pclFunc = "getOneline";
+
+	int ilNoEle = 0;
+
+	ilNoEle = GetNoOfElements(pclLine, ';');
+    dbg(DEBUG, "%s line<%d> Current Line = (%d)<%s>", pclFunc, ilNoLine++, ilNoEle, pclLine);
+
+    get_item(ilNoEle, pclLine, rpLine->pclActive, 0, ";", "\0", "\0");
+    get_item(1, pclLine, rpLine->pclActive, 0, ";", "\0", "\0");
+    TrimRight(rpLine->pclActive);
+
+    get_item(2, pclLine, rpLine->pclRuleGroup, 0, ";", "\0", "\0");
+    TrimRight(rpLine->pclRuleGroup);
+    get_item(3, pclLine, rpLine->pclSourceTable, 0, ";", "\0", "\0");
+    TrimRight(rpLine->pclSourceTable);
+    get_item(4, pclLine, rpLine->pclSourceKey, 0, ";", "\0", "\0");
+    TrimRight(rpLine->pclSourceKey);
+    get_item(5, pclLine, rpLine->pclSourceField, 0, ";", "\0", "\0");
+    TrimRight(rpLine->pclSourceField);
+    get_item(6, pclLine, rpLine->pclSourceFieldType, 0, ";", "\0", "\0");
+    TrimRight(rpLine->pclSourceFieldType);
+    get_item(7, pclLine, rpLine->pclDestTable, 0, ";", "\0", "\0");
+    TrimRight(rpLine->pclDestTable);
+    get_item(8, pclLine, rpLine->pclDestKey, 0, ";", "\0", "\0");
+    TrimRight(rpLine->pclDestKey);
+    get_item(9, pclLine, rpLine->pclDestField, 0, ";", "\0", "\0");
+    TrimRightrpLine->(pclDestField);
+    get_item(10, pclLine, rpLine->pclDestFieldLen, 0, ";", "\0", "\0");
+    TrimRight(rpLine->pclDestFieldLen);
+    get_item(11, pclLine, rpLine->pclDestFieldType, 0, ";", "\0", "\0");
+    TrimRight(rpLine->pclDestFieldType);
+    get_item(12, pclLine, rpLine->pclDestFieldOperator, 0, ";", "\0", "\0");
+    TrimRight(rpLine->pclDestFieldOperator);
+    get_item(13, pclLine, rpLine->pclCond1, 0, ";", "\0", "\0");
+    TrimRight(rpLine->pclCond1);
+    get_item(14, pclLine, rpLine->pclCond2, 0, ";", "\0", "\0");
+    TrimRight(rpLine->pclCond2);
+}
+
+static void getOneline(_RULE *rpLine, char * pcpLine)
 {
     char pclFunc[] = "showRule:";
 
