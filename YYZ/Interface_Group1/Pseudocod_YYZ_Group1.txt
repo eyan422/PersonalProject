@@ -19,13 +19,13 @@ Chanllenge:	Generality and modulization
 	
 	0>	Collect all interested source fields from configuration file, and put them into a container. - done
 
-	1>	Getting notice the update from action and parse the information properly, especially the fields related to time and date （UTC vs LOC）
+	1>	Getting notice the update from action and parse the information properly, especially the fields related to time and date （UTC vs LOC） - done
 
-	2>	Check the time window which is set in configuration file - make the refered field configurable
+	2>	Check the time window which is set in configuration file - make the refered field configurable - done
 			if in, then proceed with followed logic
 			eles, abandon it
 
-	3>	Differtiate the various group based on ADID and source table
+	3>	Differtiate the various group based on ADID and source table 
 		<
 		For example:
 		If source table=AFTTAB and ADID=A, then forward to arr table - group 1

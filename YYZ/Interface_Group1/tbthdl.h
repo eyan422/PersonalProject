@@ -1,5 +1,6 @@
 /*fya v0.1*/
 
+#define TIMEFORMAT 16
 #define MAX_XML_LINES 4000
 
 typedef struct

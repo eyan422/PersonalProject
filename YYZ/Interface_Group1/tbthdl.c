@@ -105,6 +105,8 @@ static int igTotalLineOfRule;
 static char pcgFiledSet[2048];
 static char pcgConflictFiledSet[2048];
 static char pcgTimeWindowRefField[8];
+static int igTimeWindowUpperLimit;
+static int igTimeWindowLowerLimit;
 
 /******************************************************************************/
 /* Function prototypes	                                                      */
@@ -132,6 +134,7 @@ static int collectFieldSet(char *pcpFiledSet, char * pcpConflictFiledSet, char *
 static int isDisabledLine(char *pcpLine);
 static int isCommentLine(char *pcpLine);
 static int extractTimeWindowRefField(char *pcpFieldVal, char *pcpFieldName, char *pcpFields, char *pcpNewData);
+static int isInTimeWindow(char *pcpTimeVal, int ilTimeWindowUpperLimit, int ilTimeWindowLowerLimit);
 /******************************************************************************/
 /*                                                                            */
 /* The MAIN program                                                           */
@@ -690,7 +693,7 @@ static int HandleData(EVENT *prpEvent)
 
     char *pclTmpPtr=NULL;
     char pclUrnoSelection[50] = "\0";
-    char pclTimeWindowRefFieldVal = "\0";
+    char pclTimeWindowRefFieldVal[32] = "\0";
     char pclNewData[512000] = "\0";
     char pclOldData[512000] = "\0";
 
@@ -742,21 +745,27 @@ static int HandleData(EVENT *prpEvent)
 	/****************************************/
 	dbg(TRACE,"==========  END  <%10.10d> ==========",lgEvtCnt);
 
-    ilRc = extractTimeWindowRefField(pclTimeWindowRefFieldVal, pcgTimeWindowRefField, pclFields, pclNewData);
-    if (ilRc == RC_FAIL)
+    if (strcmp(prlCmdblk->command,"INI") == 0)
     {
-        return RC_FAIL;
-    }
 
-    ilRc = isInTimeWindow(pclTimeWindowRefFieldVal);
-    if(ilRc == RC_FAIL)
-    {
-        dbg(TRACE,"%s The value <%s> of field <%s> is out of range", pclFunc, pclTimeWindowRefFieldVal, pcgTimeWindowRefField);
-        return RC_FAIL;
     }
-    else
+    else if (strcmp(prlCmdblk->command,"RFH") == 0)
     {
-        dbg(TRACE,"%s The value <%s> of field <%s> is in range", pclFunc, pclTimeWindowRefFieldVal, pcgTimeWindowRefField);
+
+    }
+    else /*The normal DFR, IFR and UFR command*/
+    {
+        ilRc = extractTimeWindowRefField(pclTimeWindowRefFieldVal, pcgTimeWindowRefField, pclFields, pclNewData);
+        if (ilRc == RC_FAIL)
+        {
+            return RC_FAIL;
+        }
+
+        ilRc = isInTimeWindow(pclTimeWindowRefFieldVal, igTimeWindowUpperLimit, igTimeWindowLowerLimit);
+        if(ilRc == RC_FAIL)
+        {
+            return RC_FAIL;
+        }
     }
 
 	return(RC_SUCCESS);
@@ -823,23 +832,25 @@ static int getConfig()
     ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","TIME_WINDOW_LOWER_LIMIT",CFG_STRING,pclTmpBuf);
     if (ilRC == RC_SUCCESS)
     {
-        dbg(DEBUG,"ig<%s>",pcgTimeWindowRefField);
+        igTimeWindowLowerLimit = atoi(pclTmpBuf);
+        dbg(DEBUG,"igTimeWindowLowerLimit<%d>",igTimeWindowLowerLimit);
     }
     else
     {
-        strcpy(pcgTimeWindowRefField,"STOA");
-        dbg(DEBUG,"pcgTimeWindowRefField<%s>",pcgTimeWindowRefField);
+        igTimeWindowLowerLimit = -1;
+        dbg(DEBUG,"Default igTimeWindowLowerLimit<%s>",igTimeWindowLowerLimit);
     }
 
     ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","TIME_WINDOW_UPPER_LIMIT",CFG_STRING,pclTmpBuf);
     if (ilRC == RC_SUCCESS)
     {
-        dbg(DEBUG,"pcgTimeWindowRefField<%s>",pcgTimeWindowRefField);
+        igTimeWindowUpperLimit = atoi(pclTmpBuf);
+        dbg(DEBUG,"igTimeWindowUpperLimit<%d>",igTimeWindowUpperLimit);
     }
     else
     {
-        strcpy(pcgTimeWindowRefField,"STOA");
-        dbg(DEBUG,"pcgTimeWindowRefField<%s>",pcgTimeWindowRefField);
+        igTimeWindowUpperLimit = -1;
+        dbg(DEBUG,"Default igTimeWindowUpperLimit<%s>",igTimeWindowUpperLimit);
     }
 
     /* Get Client and Server chars */
@@ -1186,6 +1197,8 @@ static int extractTimeWindowRefField(char *pcpFieldVal, char *pcpFieldName, char
 {
     char *pclFunc = "extractTimeWindowRefField";
 
+    int ilItemNo = 0;
+
     ilItemNo = get_item_no(pcpFields, pcpFieldName, 5) + 1;
     if (ilItemNo <= 0)
     {
@@ -1207,9 +1220,34 @@ static int extractTimeWindowRefField(char *pcpFieldVal, char *pcpFieldName, char
     }
 }
 
-static void isInTimeWindow(char *pcpTimeVal)
+static int isInTimeWindow(char *pcpTimeVal, int igTimeWindowUpperLimit, int igTimeWindowLowerLimit)
 {
     char *pclFunc = "isInTimeWindow";
 
+    char pclTimeLowerLimit[TIMEFORMAT] = "\0";
+    char pclTimeUpperLimit[TIMEFORMAT] = "\0";
+    char pclTimeNow[TIMEFORMAT] = "\0";
 
+    GetServerTimeStamp( "UTC", 1, 0, pclTimeNow);
+    dbg(TRACE,"<%s> Currnt time is <%s>",pclFunc, pclTimeNow);
+
+    strcpy(pclTimeLowerLimit,pclTimeNow);
+    AddSecondsToCEDATime(pclTimeLowerLimit, igTimeWindowLowerLimit * 24 * 60 * 60, 1);
+
+    strcpy(pclTimeUpperLimit,pclTimeNow);
+    AddSecondsToCEDATime(pclTimeUpperLimit, igTimeWindowUpperLimit * 24 * 60 * 60, 1);
+
+    dbg(TRACE,"The time range is <%s> ~ <%s>", pclTimeLowerLimit, pclTimeUpperLimit);
+
+    if ( strcmp(pcpTimeVal,pclTimeLowerLimit) >= 0 && strcmp(pcpTimeVal,pclTimeLowerLimit) <= 0)
+    {
+        dbg(TRACE,"%s <%s> is in the range", pclFunc, pcpTimeVal);
+
+        return RC_SUCCESS;
+    }
+    else
+    {
+        dbg(TRACE,"%s <%s> is out of the range", pclFunc, pcpTimeVal);
+        return RC_FAIL;
+    }
 }
