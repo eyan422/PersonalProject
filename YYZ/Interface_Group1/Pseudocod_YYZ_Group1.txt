@@ -1,0 +1,59 @@
+/*
+The pseudocode for YYZ project 1st group interfaces
+
+Version:	0.1
+Author:		FYA
+Overall purpose: Mapping the ceda update of selected fields from action process into two new created tables which are retrieved by external subsystems
+Chanllenge:	Generality and modulization
+*/
+
+//Process design
+
+1)	The existed initialization part for db and IPC queue - done
+2)	The new format of configuration file - refering to exchdl csv file: Global varibles - struct array
+
+	Init
+
+3)	The modification on action configuration file
+4)	Program structure
+	
+	0>	Collect all interested fields from configuration file, and put them into a container.
+
+	1>	Getting notice the update from action and parse the information properly, especially the fields related to time and date （UTC vs LOC）
+
+	2>	Check the time window which is set in configuration file - make the refered field configurable
+			if in, then proceed with followed logic
+			eles, abandon it
+
+	3>	Differtiate the various group based on ADID and source table
+		<
+		For example:
+		If source table=AFTTAB and ADID=A, then forward to arr table - group 1
+		else source table!=AFTTAB and ADID!=A, then forward to dep table - group 2
+		>
+
+	4>	if command!=INI or RFH, Retrieve the data from source table
+
+			Building the AFTTAB sql query field list including all from the set <Field list is Common part>
+			Building the AFTTAB sql query where clause on URNO
+			Running the query and record each value
+			
+			For each field:
+				Implementing the convertion based on matched single rule - Operator 
+				There are listed cases:
+				1-Manipulation on existed value
+				2-Getting the value from another table
+				<
+				For example:
+					According to marked conditions in one rule and defined conversion method, the AFTTAB field is modofied properly
+				>
+				And filling the targeted value in struct array - Destfld
+
+		else if command=INI, initial populate the  whole target table for Time window
+		else if command=RFH, add the new record in time window and del the record out of time window in target table
+
+	5>	To check if the received flight indentification URNO existed in destination tables
+	if yes, check if the data is changed
+		if yes, then the command is update
+		else, abandon the change
+	else, insert is adopted

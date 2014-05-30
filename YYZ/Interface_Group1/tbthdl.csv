@@ -1,0 +1,3 @@
+#ACTIVE;RulGrp;Srctab;SrcKey;Srcfld;Srctyp;Destab;DesKey;Desfld;Deslen;Destyp;Operate;Con1;Con2
+Y;1;AFTTAB;URNO;URNO;NUMB;ARR_TAB;AID;AID;;STR;;;
+N;1;AFTTAB;URNO;STOA;DATE;ARR_TAB;AID;STD;8;DATELOC;SUBS;1;7
