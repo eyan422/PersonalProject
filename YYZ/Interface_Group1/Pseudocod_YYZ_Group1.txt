@@ -10,14 +10,14 @@ Chanllenge:	Generality and modulization
 //Process design
 
 1)	The existed initialization part for db and IPC queue - done
-2)	The new format of configuration file - refering to exchdl csv file: Global varibles - struct array
+2)	The new format of configuration file - refering to exchdl csv file: Global varibles - struct array - done
 
-	Init
+	Init - done
 
-3)	The modification on action configuration file
+3)	The modification on action configuration file - done
 4)	Program structure
 	
-	0>	Collect all interested fields from configuration file, and put them into a container.
+	0>	Collect all interested source fields from configuration file, and put them into a container. - done
 
 	1>	Getting notice the update from action and parse the information properly, especially the fields related to time and date （UTC vs LOC）
 

@@ -101,6 +101,10 @@ static char pcgUfisConfigFile[512];
 
 /*fya 0.1*/
 _RULE rgRule;
+static int igTotalLineOfRule;
+static char pcgFiledSet[2048];
+static char pcgConflictFiledSet[2048];
+static char pcgTimeWindowRefField[8];
 
 /******************************************************************************/
 /* Function prototypes	                                                      */
@@ -118,10 +122,16 @@ static int	HandleData(EVENT *prpEvent);       /* Handles event data     */
 static int  GetCommand(char *pcpCommand, int *pipCmd);
 
 /*fya 0.1*/
-static int GetConfig();
+static int getConfig();
 static int GetRuleSchema(_RULE *rpRule);
 static void getOneline(_LINE *rpLine, char *pcpLine);
 static void showLine(_LINE *rpLine);
+static void showRule(_RULE *rpRule, int ipTotalLineOfRule);
+static void storeRule(_LINE *rpRuleLine, _LINE *rpSingleLine);
+static int collectFieldSet(char *pcpFiledSet, char * pcpConflictFiledSet, char *pcpSourceField, int ipCount);
+static int isDisabledLine(char *pcpLine);
+static int isCommentLine(char *pcpLine);
+static int extractTimeWindowRefField(char *pcpFieldVal, char *pcpFieldName, char *pcpFields, char *pcpNewData);
 /******************************************************************************/
 /*                                                                            */
 /* The MAIN program                                                           */
@@ -251,7 +261,7 @@ MAIN
 
 		if( ilRc == RC_SUCCESS )
 		{
-			lgEvtCnt++;
+			//lgEvtCnt++;
 
 			switch( prgEvent->command )
 			{
@@ -403,7 +413,7 @@ static int Init_Process()
 	}
 
 	/*fya 0.1*/
-    if (ilRc = GetConfig() == RC_FAIL)
+    if (ilRc = getConfig() == RC_FAIL)
 	{
 		dbg(TRACE,"<%s>: Configuration error, terminating",pclFunc);
 		Terminate(30);
@@ -666,7 +676,7 @@ static void HandleQueues()
 static int HandleData(EVENT *prpEvent)
 {
 	int	   ilRc           = RC_SUCCESS;			/* Return code */
-	int      ilCmd          = 0;
+	int    ilCmd          = 0;
 
 	BC_HEAD *prlBchead       = NULL;
 	CMDBLK  *prlCmdblk       = NULL;
@@ -678,41 +688,86 @@ static int HandleData(EVENT *prpEvent)
 	char 		clTable[34];
 	int			ilUpdPoolJob = TRUE;
 
+    char *pclTmpPtr=NULL;
+    char pclUrnoSelection[50] = "\0";
+    char pclTimeWindowRefFieldVal = "\0";
+    char pclNewData[512000] = "\0";
+    char pclOldData[512000] = "\0";
+
+	char pclTimeWindowRefField[8] = "\0";
+
 	prlBchead    = (BC_HEAD *) ((char *)prpEvent + sizeof(EVENT));
 	prlCmdblk    = (CMDBLK *)  ((char *)prlBchead->data);
 	pclSelection = prlCmdblk->data;
 	pclFields    = pclSelection + strlen(pclSelection) + 1;
 	pclData      = pclFields + strlen(pclFields) + 1;
 
+    pclTmpPtr = strstr(pclSelection, "\n");
+ 	if (pclTmpPtr != NULL)
+ 	{
+        *pclTmpPtr = '\0';
+        pclTmpPtr++;
+        strcpy(pclUrnoSelection, pclTmpPtr);
+    }
+
+    strcpy(pclNewData, pclData);
+
+    pclTmpPtr = strstr(pclNewData, "\n");
+    if (pclTmpPtr != NULL)
+    {
+        *pclTmpPtr = '\0';
+        pclTmpPtr++;
+        strcpy(pclOldData, pclTmpPtr);
+    }
 
 	strcpy(clTable,prlCmdblk->obj_name);
-
 	dbg(TRACE,"========== START <%10.10d> ==========",lgEvtCnt);
 
 	/****************************************/
-	DebugPrintBchead(TRACE,prlBchead);
-	DebugPrintCmdblk(TRACE,prlCmdblk);
+	//DebugPrintBchead(TRACE,prlBchead);
+	//DebugPrintCmdblk(TRACE,prlCmdblk);
 	/* 20030630 JIM: may core!: dbg(TRACE,"Command: <%s>,prlCmdblk->command"); */
 	dbg(TRACE,"Command: <%s>",prlCmdblk->command);
-	dbg(TRACE,"originator follows event = %p ",prpEvent);
+	dbg(TRACE,"Originator follows event = %p ",prpEvent);
 
-	dbg(TRACE,"originator<%d>",prpEvent->originator);
-	dbg(TRACE,"selection follows Selection = %p ",pclSelection);
-	dbg(TRACE,"selection <%s>",pclSelection);
-	dbg(TRACE,"fields    <%s>",pclFields);
-	dbg(TRACE,"data      <%s>",pclData);
+	dbg(TRACE,"Originator<%d>",prpEvent->originator);
+	//dbg(TRACE,"selection follows Selection = %p ",pclSelection);
+	dbg(DEBUG,"Selection: <%s> URNO<%s>",pclSelection,pclUrnoSelection);
+	dbg(TRACE,"Fields    <%s>",pclFields);
+	dbg(DEBUG,"New Data:  <%s>",pclNewData);
+	dbg(DEBUG,"Old Data:  <%s>",pclOldData);
+
+	lgEvtCnt++;
+
 	/****************************************/
 	dbg(TRACE,"==========  END  <%10.10d> ==========",lgEvtCnt);
+
+    ilRc = extractTimeWindowRefField(pclTimeWindowRefFieldVal, pcgTimeWindowRefField, pclFields, pclNewData);
+    if (ilRc == RC_FAIL)
+    {
+        return RC_FAIL;
+    }
+
+    ilRc = isInTimeWindow(pclTimeWindowRefFieldVal);
+    if(ilRc == RC_FAIL)
+    {
+        dbg(TRACE,"%s The value <%s> of field <%s> is out of range", pclFunc, pclTimeWindowRefFieldVal, pcgTimeWindowRefField);
+        return RC_FAIL;
+    }
+    else
+    {
+        dbg(TRACE,"%s The value <%s> of field <%s> is in range", pclFunc, pclTimeWindowRefFieldVal, pcgTimeWindowRefField);
+    }
 
 	return(RC_SUCCESS);
 
 } /* end of HandleData */
 
 /* fya 0.1***************************************************************/
-/* Following the GetConfig function										*/
+/* Following the getConfig function										*/
 /* Reads the .cfg file and fill in the configuration structure			*/
 /* ******************************************************************** */
-static int GetConfig()
+static int getConfig()
 {
     int		ilRC = RC_SUCCESS;
     int		ilI;
@@ -723,7 +778,7 @@ static int GetConfig()
     char	pclBuffer[10];
     char	pclClieBuffer[100];
     char	pclServBuffer[100];
-    char *pclFunc = "GetConfig";
+    char *pclFunc = "getConfig";
     FILE	*fplFp;
 
     sprintf(pcgConfigFile,"%s/%s.cfg",getenv("CFG_PATH"),mod_name);
@@ -753,6 +808,39 @@ static int GetConfig()
         }
     }
     dbg(TRACE,"DEBUG_LEVEL = %s",pclDebugLevel);
+
+    ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","TIME_WINDOW_REFERENCE_FIELD",CFG_STRING,pcgTimeWindowRefField);
+    if (ilRC == RC_SUCCESS)
+    {
+        dbg(DEBUG,"pcgTimeWindowRefField<%s>",pcgTimeWindowRefField);
+    }
+    else
+    {
+        strcpy(pcgTimeWindowRefField,"STOA");
+        dbg(DEBUG,"pcgTimeWindowRefField<%s>",pcgTimeWindowRefField);
+    }
+
+    ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","TIME_WINDOW_LOWER_LIMIT",CFG_STRING,pclTmpBuf);
+    if (ilRC == RC_SUCCESS)
+    {
+        dbg(DEBUG,"ig<%s>",pcgTimeWindowRefField);
+    }
+    else
+    {
+        strcpy(pcgTimeWindowRefField,"STOA");
+        dbg(DEBUG,"pcgTimeWindowRefField<%s>",pcgTimeWindowRefField);
+    }
+
+    ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","TIME_WINDOW_UPPER_LIMIT",CFG_STRING,pclTmpBuf);
+    if (ilRC == RC_SUCCESS)
+    {
+        dbg(DEBUG,"pcgTimeWindowRefField<%s>",pcgTimeWindowRefField);
+    }
+    else
+    {
+        strcpy(pcgTimeWindowRefField,"STOA");
+        dbg(DEBUG,"pcgTimeWindowRefField<%s>",pcgTimeWindowRefField);
+    }
 
     /* Get Client and Server chars */
     sprintf(pcgUfisConfigFile,"%s/ufis_ceda.cfg",getenv("CFG_PATH"));
@@ -811,7 +899,7 @@ static int GetConfig()
     ilRC = GetRuleSchema(&rgRule);
 
     return RC_SUCCESS;
-} /* End of GetConfig() */
+} /* End of getConfig() */
 
 /* fya 0.1***************************************************************/
 /* Following the GetRuleSchema function										*/
@@ -860,10 +948,44 @@ static int GetRuleSchema(_RULE *rpRule)
             pclLine[strlen(pclLine) - 1] = '\0';
         }
 
-        ilNoLine++;
+        /*Ignore comment*/
+        if (isCommentLine(pclLine))
+        {
+            continue;
+        }
+
+        /*Ignore disabled rule line*/
+        if (isDisabledLine(pclLine))
+        {
+            continue;
+        }
+
+        if (pclLine[0] == '#')
+        {
+            dbg(DEBUG,"%s Comment Line -> Ignore & Continue", pclFunc);
+            continue;
+        }
+
+        if (pclLine[0] == 'N')
+        {
+            dbg(DEBUG,"%s Disabled Rule -> Ignore & Continue", pclFunc);
+            continue;
+        }
+
         getOneline(&rlLine, pclLine);
-        showLine(&rlLine);
+        //showLine(&rlLine);
+
+        collectFieldSet(pcgFiledSet, pcgConflictFiledSet, rlLine.pclSourceField, ilNoLine);
+
+        /*Copy to global structure*/
+        storeRule( &(rpRule->rlLine[ilNoLine++]), &rlLine);
     }
+    igTotalLineOfRule = ilNoLine;
+    showRule(rpRule, igTotalLineOfRule);
+
+    dbg(TRACE,"Source Field List <%s>", pcgFiledSet);
+    dbg(TRACE,"Conflicted Source Field List <%s>", pcgConflictFiledSet);
+
     fclose(fp);
 
     dbg(TRACE, "---------------------------------------------------------");
@@ -878,7 +1000,7 @@ static void getOneline(_LINE *rpLine, char *pcpLine)
 	int ilNoEle = 0;
 
 	ilNoEle = GetNoOfElements(pcpLine, ';');
-    dbg(DEBUG, "%s Current Line = (%d)<%s>", pclFunc, ilNoEle, pcpLine);
+    //dbg(DEBUG, "%s Current Line = (%d)<%s>", pclFunc, ilNoEle, pcpLine);
 
     get_item(ilNoEle, pcpLine, rpLine->pclActive, 0, ";", "\0", "\0");
     get_item(1, pcpLine, rpLine->pclActive, 0, ";", "\0", "\0");
@@ -931,5 +1053,163 @@ static void showLine(_LINE *rpLine)
     rpLine->pclDestFieldOperator,
     rpLine->pclCond1,
     rpLine->pclCond2);
+}
+
+static void storeRule(_LINE *rpRuleLine, _LINE *rpSingleLine)
+{
+    char pclFunc[] = "storeRule:";
+
+    memset(rpRuleLine,0x00,sizeof(rpRuleLine));
+
+    strcpy(rpRuleLine->pclActive, rpSingleLine->pclActive);
+    strcpy(rpRuleLine->pclRuleGroup, rpSingleLine->pclRuleGroup);
+    strcpy(rpRuleLine->pclSourceTable,rpSingleLine->pclSourceTable);
+    strcpy(rpRuleLine->pclSourceKey,rpSingleLine->pclSourceKey);
+    strcpy(rpRuleLine->pclSourceField,rpSingleLine->pclSourceField);
+    strcpy(rpRuleLine->pclSourceFieldType,rpSingleLine->pclSourceFieldType);
+    strcpy(rpRuleLine->pclDestTable,rpSingleLine->pclDestTable);
+    strcpy(rpRuleLine->pclDestKey,rpSingleLine->pclDestKey);
+    strcpy(rpRuleLine->pclDestField,rpSingleLine->pclDestField);
+    strcpy(rpRuleLine->pclDestFieldLen,rpSingleLine->pclDestFieldLen);
+    strcpy(rpRuleLine->pclDestFieldType,rpSingleLine->pclDestFieldType);
+    strcpy(rpRuleLine->pclDestFieldOperator,rpSingleLine->pclDestFieldOperator);
+    strcpy(rpRuleLine->pclCond1,rpSingleLine->pclCond1);
+    strcpy(rpRuleLine->pclCond2,rpSingleLine->pclCond2);
+}
+
+static void showRule(_RULE *rpRule, int ipTotalLineOfRule)
+{
+    char pclFunc[] = "storeRule:";
+
+    int ilCount = 0;
+
+    dbg(DEBUG,"%s There are <%d> lines", pclFunc, ipTotalLineOfRule);
+
+    for (ilCount = 0; ilCount < ipTotalLineOfRule; ilCount++)
+    {
+        dbg(DEBUG, "%s %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s", pclFunc,
+        rpRule->rlLine[ilCount].pclActive,
+        rpRule->rlLine[ilCount].pclRuleGroup,
+        rpRule->rlLine[ilCount].pclSourceTable,
+        rpRule->rlLine[ilCount].pclSourceKey,
+        rpRule->rlLine[ilCount].pclSourceField,
+        rpRule->rlLine[ilCount].pclSourceFieldType,
+        rpRule->rlLine[ilCount].pclDestTable,
+        rpRule->rlLine[ilCount].pclDestKey,
+        rpRule->rlLine[ilCount].pclDestField,
+        rpRule->rlLine[ilCount].pclDestFieldLen,
+        rpRule->rlLine[ilCount].pclDestFieldType,
+        rpRule->rlLine[ilCount].pclDestFieldOperator,
+        rpRule->rlLine[ilCount].pclCond1,
+        rpRule->rlLine[ilCount].pclCond2);
+    }
+}
+
+static int collectFieldSet(char *pcpFiledSet, char * pcpConflictFiledSet, char *pcpSourceField, int ipCount)
+{
+    char pclFunc[] = "collectFieldSet:";
+
+    if (strstr(pcpFiledSet, pcpSourceField) == 0)
+    {
+        /*
+        if (ipCount != 0)
+        {
+            strcat(pcpFiledSet, ",");
+        }
+        strcat(pcpFiledSet, pcpSourceField);
+        */
+        if (strlen(pcpFiledSet) == 0)
+        {
+            strcat(pcpFiledSet, pcpSourceField);
+        }
+        else
+        {
+            strcat(pcpFiledSet, ",");
+            strcat(pcpFiledSet, pcpSourceField);
+        }
+    }
+    else
+    {
+        dbg(TRACE,"%s pcpSourceField<%s> is already in pcpFiledSet<%s>", pclFunc, pcpSourceField, pcpFiledSet);
+
+        if (strlen(pcpConflictFiledSet) == 0)
+        {
+            strcat(pcpConflictFiledSet, pcpSourceField);
+        }
+        else
+        {
+            strcat(pcpConflictFiledSet, ",");
+            strcat(pcpConflictFiledSet, pcpSourceField);
+        }
+    }
+
+    return;
+}
+
+static int isCommentLine(char *pcpLine)
+{
+    int ilRC = FALSE;
+    char *pclFunc = "isCommentLine";
+
+    if (pcpLine[0] == '#')
+    {
+        dbg(TRACE,"%s <%s> Comment Line -> Ignore & Continue", pclFunc, pcpLine);
+        ilRC = TRUE;
+    }
+    else
+    {
+        ilRC = FALSE;
+    }
+
+    return ilRC;
+}
+
+static int isDisabledLine(char *pcpLine)
+{
+    int ilRC = FALSE;
+    char *pclFunc = "isDisabledLine";
+
+    if (pcpLine[0] == 'N')
+    {
+        dbg(TRACE,"%s <%s> Disabled Rule -> Ignore & Continue", pclFunc,pcpLine);
+        ilRC = TRUE;
+    }
+    else
+    {
+        ilRC = FALSE;
+    }
+
+    return ilRC;
+}
+
+static int extractTimeWindowRefField(char *pcpFieldVal, char *pcpFieldName, char *pcpFields, char *pcpNewData)
+{
+    char *pclFunc = "extractTimeWindowRefField";
+
+    ilItemNo = get_item_no(pcpFields, pcpFieldName, 5) + 1;
+    if (ilItemNo <= 0)
+    {
+        dbg(TRACE, "<%s> No <%s> Found in the field list, can't do anything", pclFunc, pcpFieldName);
+        return RC_FAIL;
+    }
+
+    get_real_item(pcpFieldVal, pcpNewData, ilItemNo);
+    dbg(DEBUG,"<%s> The New %s is <%s>", pclFunc, pcpFieldName, pcpFieldVal);
+
+    if ( atoi(pcpFieldVal) != 0 )
+    {
+        dbg(TRACE, "<%s> %s = %s", pclFunc, pcpFieldName, pcpFieldVal);
+        return RC_SUCCESS;
+    }
+    else
+    {
+        return RC_FAIL;
+    }
+}
+
+static void isInTimeWindow(char *pcpTimeVal)
+{
+    char *pclFunc = "isInTimeWindow";
+
 
 }
