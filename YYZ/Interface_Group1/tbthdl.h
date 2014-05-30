@@ -28,3 +28,16 @@ typedef struct
 typedef struct {
     _LINE rlLine[MAX_XML_LINES];
 } _RULE;
+
+static void TrimRight(char *pcpBuffer) {
+    char *pclBlank = &pcpBuffer[strlen(pcpBuffer) - 1];
+
+    if (strlen(pcpBuffer) == 0) {
+        strcpy(pcpBuffer, " ");
+    } else {
+        while (isspace(*pclBlank) && pclBlank != pcpBuffer) {
+            *pclBlank = '\0';
+            pclBlank--;
+        }
+    }
+} /* End of TrimRight */

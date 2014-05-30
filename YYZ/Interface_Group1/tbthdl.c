@@ -34,6 +34,7 @@ static char sccs_version[] ="@(#) UFIS44 (c) ABB AAT/I skeleton.c 44.1.0 / 11.12
 #include <string.h>
 #include <errno.h>
 #include <signal.h>
+#include <unistd.h>
 #include "ugccsma.h"
 #include "msgno.h"
 #include "glbdef.h"
@@ -50,6 +51,15 @@ static char sccs_version[] ="@(#) UFIS44 (c) ABB AAT/I skeleton.c 44.1.0 / 11.12
 #include "db_if.h"
 #include <time.h>
 #include <cedatime.h>
+#include <stdarg.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/time.h>
+#include <netdb.h>
+#include "tools.h"
+#include "helpful.h"
+#include "timdef.h"
+#include "urno_fn.h"
 
 /*fya 0.1*/
 #include "tbthdl.h"
@@ -80,8 +90,17 @@ static char  cgTabEnd[8] ="\0";                       /* default table extension
 
 static long lgEvtCnt = 0;
 
+/*entry's from configfile*/
+static char pcgConfigFile[512];
+static char pcgCfgBuffer[512];
+static char pcgCurrentTime[32];
+static int igDiffUtcToLocal;
+static char pcgServerChars[110];
+static char pcgClientChars[110];
+static char pcgUfisConfigFile[512];
+
 /*fya 0.1*/
-RULE rgRule;
+_RULE rgRule;
 
 /******************************************************************************/
 /* Function prototypes	                                                      */
@@ -100,8 +119,9 @@ static int  GetCommand(char *pcpCommand, int *pipCmd);
 
 /*fya 0.1*/
 static int GetConfig();
-static int GetRuleSchema(RULE *rpRule);
-static void getOneline(_RULE *rpLine, char * pcpLine);
+static int GetRuleSchema(_RULE *rpRule);
+static void getOneline(_LINE *rpLine, char *pcpLine);
+static void showLine(_LINE *rpLine);
 /******************************************************************************/
 /*                                                                            */
 /* The MAIN program                                                           */
@@ -354,7 +374,7 @@ static int Init_Process()
  	short slCursor = 0;
 	short slSqlFunc = 0;
 	char  clBreak[24] = "\0";
-
+    char *pclFunc = "Init_Process";
 
 	if(ilRc == RC_SUCCESS)
 	{
@@ -640,9 +660,6 @@ static void HandleQueues()
 
 } /* end of HandleQueues */
 
-
-
-
 /******************************************************************************/
 /* The handle data routine                                                    */
 /******************************************************************************/
@@ -791,7 +808,7 @@ static int GetConfig()
         ilRC = RC_SUCCESS;
     }
 
-    ilRC = GetRuleSchema();
+    ilRC = GetRuleSchema(&rgRule);
 
     return RC_SUCCESS;
 } /* End of GetConfig() */
@@ -800,7 +817,7 @@ static int GetConfig()
 /* Following the GetRuleSchema function										*/
 /* Reads the .csv file and fill in the configuration structure			*/
 /* ******************************************************************** */
-static int GetRuleSchema(_RULE *rpRule);
+static int GetRuleSchema(_RULE *rpRule)
 {
     int ilRC = RC_SUCCESS;
     char pclFunc[] = "GetRuleSchema:";
@@ -844,8 +861,8 @@ static int GetRuleSchema(_RULE *rpRule);
         }
 
         ilNoLine++;
-        getOneline(rlLine, pclLine);
-        showRule(rlLine,ilNoLine);
+        getOneline(&rlLine, pclLine);
+        showLine(&rlLine);
     }
     fclose(fp);
 
@@ -854,67 +871,65 @@ static int GetRuleSchema(_RULE *rpRule);
     return ilRC;
 } /* End of GetRuleSchema */
 
-void getOneline(_RULE *rpLine, char * pcpLine)
+static void getOneline(_LINE *rpLine, char *pcpLine)
 {
 	char *pclFunc = "getOneline";
 
 	int ilNoEle = 0;
 
-	ilNoEle = GetNoOfElements(pclLine, ';');
-    dbg(DEBUG, "%s line<%d> Current Line = (%d)<%s>", pclFunc, ilNoLine++, ilNoEle, pclLine);
+	ilNoEle = GetNoOfElements(pcpLine, ';');
+    dbg(DEBUG, "%s Current Line = (%d)<%s>", pclFunc, ilNoEle, pcpLine);
 
-    get_item(ilNoEle, pclLine, rpLine->pclActive, 0, ";", "\0", "\0");
-    get_item(1, pclLine, rpLine->pclActive, 0, ";", "\0", "\0");
+    get_item(ilNoEle, pcpLine, rpLine->pclActive, 0, ";", "\0", "\0");
+    get_item(1, pcpLine, rpLine->pclActive, 0, ";", "\0", "\0");
     TrimRight(rpLine->pclActive);
 
-    get_item(2, pclLine, rpLine->pclRuleGroup, 0, ";", "\0", "\0");
+    get_item(2, pcpLine, rpLine->pclRuleGroup, 0, ";", "\0", "\0");
     TrimRight(rpLine->pclRuleGroup);
-    get_item(3, pclLine, rpLine->pclSourceTable, 0, ";", "\0", "\0");
+    get_item(3, pcpLine, rpLine->pclSourceTable, 0, ";", "\0", "\0");
     TrimRight(rpLine->pclSourceTable);
-    get_item(4, pclLine, rpLine->pclSourceKey, 0, ";", "\0", "\0");
+    get_item(4, pcpLine, rpLine->pclSourceKey, 0, ";", "\0", "\0");
     TrimRight(rpLine->pclSourceKey);
-    get_item(5, pclLine, rpLine->pclSourceField, 0, ";", "\0", "\0");
+    get_item(5, pcpLine, rpLine->pclSourceField, 0, ";", "\0", "\0");
     TrimRight(rpLine->pclSourceField);
-    get_item(6, pclLine, rpLine->pclSourceFieldType, 0, ";", "\0", "\0");
+    get_item(6, pcpLine, rpLine->pclSourceFieldType, 0, ";", "\0", "\0");
     TrimRight(rpLine->pclSourceFieldType);
-    get_item(7, pclLine, rpLine->pclDestTable, 0, ";", "\0", "\0");
+    get_item(7, pcpLine, rpLine->pclDestTable, 0, ";", "\0", "\0");
     TrimRight(rpLine->pclDestTable);
-    get_item(8, pclLine, rpLine->pclDestKey, 0, ";", "\0", "\0");
+    get_item(8, pcpLine, rpLine->pclDestKey, 0, ";", "\0", "\0");
     TrimRight(rpLine->pclDestKey);
-    get_item(9, pclLine, rpLine->pclDestField, 0, ";", "\0", "\0");
-    TrimRightrpLine->(pclDestField);
-    get_item(10, pclLine, rpLine->pclDestFieldLen, 0, ";", "\0", "\0");
+    get_item(9, pcpLine, rpLine->pclDestField, 0, ";", "\0", "\0");
+    TrimRight(rpLine->pclDestField);
+    get_item(10, pcpLine, rpLine->pclDestFieldLen, 0, ";", "\0", "\0");
     TrimRight(rpLine->pclDestFieldLen);
-    get_item(11, pclLine, rpLine->pclDestFieldType, 0, ";", "\0", "\0");
+    get_item(11, pcpLine, rpLine->pclDestFieldType, 0, ";", "\0", "\0");
     TrimRight(rpLine->pclDestFieldType);
-    get_item(12, pclLine, rpLine->pclDestFieldOperator, 0, ";", "\0", "\0");
+    get_item(12, pcpLine, rpLine->pclDestFieldOperator, 0, ";", "\0", "\0");
     TrimRight(rpLine->pclDestFieldOperator);
-    get_item(13, pclLine, rpLine->pclCond1, 0, ";", "\0", "\0");
+    get_item(13, pcpLine, rpLine->pclCond1, 0, ";", "\0", "\0");
     TrimRight(rpLine->pclCond1);
-    get_item(14, pclLine, rpLine->pclCond2, 0, ";", "\0", "\0");
+    get_item(14, pcpLine, rpLine->pclCond2, 0, ";", "\0", "\0");
     TrimRight(rpLine->pclCond2);
 }
 
-static void getOneline(_RULE *rpLine, char * pcpLine)
+static void showLine(_LINE *rpLine)
 {
-    char pclFunc[] = "showRule:";
+    char pclFunc[] = "showLine:";
 
-    for (ilI = 0; ilI < ilNumOfRule; ilI++)
-    {
-        dbg(DEBUG, "%s %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s", pclFunc,
-        &rpRule.rlLine[ilI].pclActive,
-        &rpRule.rlLine[ilI].pclRuleGroup,
-        &rpRule.rlLine[ilI].pclSourceTable,
-        &rpRule.rlLine[ilI].pclSourceKey,
-        &rpRule.rlLine[ilI].pclSourceField,
-        &rpRule.rlLine[ilI].pclSourceFieldType,
-        &rpRule.rlLine[ilI].pclDestTable,
-        &rpRule.rlLine[ilI].pclDestKey,
-        &rpRule.rlLine[ilI].pclDestField,
-        &rpRule.rlLine[ilI].pclDestFieldLen,
-        &rpRule.rlLine[ilI].pclDestFieldType,
-        &rpRule.rlLine[ilI].pclDestFieldOperator,
-        &rpRule.rlLine[ilI].pclCond1,
-        &rpRule.rlLine[ilI].pclCond2);
-    }
+    dbg(DEBUG, "%s %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s", pclFunc,
+    rpLine->pclActive,
+    rpLine->pclRuleGroup,
+    rpLine->pclSourceTable,
+    rpLine->pclSourceKey,
+    rpLine->pclSourceField,
+    rpLine->pclSourceFieldType,
+    rpLine->pclDestTable,
+    rpLine->pclDestKey,
+    rpLine->pclDestField,
+    rpLine->pclDestFieldLen,
+    rpLine->pclDestFieldType,
+    rpLine->pclDestFieldOperator,
+    rpLine->pclCond1,
+    rpLine->pclCond2);
+
 }
