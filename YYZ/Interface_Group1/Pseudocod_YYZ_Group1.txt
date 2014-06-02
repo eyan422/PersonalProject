@@ -25,7 +25,7 @@ Chanllenge:	Generality and modulization
 			if in, then proceed with followed logic
 			eles, abandon it
 
-	3>	Differtiate the various group based on ADID and source table 
+	3>	Differtiate the various group based on ADID and source table - done
 		<
 		For example:
 		If source table=AFTTAB and ADID=A, then forward to arr table - group 1

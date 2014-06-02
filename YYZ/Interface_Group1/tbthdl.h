@@ -5,6 +5,8 @@
 #define LISTLEN     2048
 #define MAX_GROUP_LINES 4000
 
+#define FYA
+
 typedef struct
 {
     char pclActive[8];              /*ACTIVE*/
@@ -27,6 +29,10 @@ typedef struct
     char pclCond1[126];      /*Con1*/
     char pclCond2[126];      /*Con2*/
 }_LINE;
+
+typedef struct {
+    _LINE rlLine[MAX_GROUP_LINES];
+} _RULE;
 
 typedef struct {
     _LINE rlLine[MAX_GROUP_LINES];
