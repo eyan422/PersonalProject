@@ -102,11 +102,12 @@ static char pcgUfisConfigFile[512];
 /*fya 0.1*/
 _RULE rgRule;
 static int igTotalLineOfRule;
-static char pcgFiledSet[2048];
-static char pcgConflictFiledSet[2048];
+static char pcgFiledSet[GROUPNUMER][LISTLEN];
+static char pcgConflictFiledSet[GROUPNUMER][LISTLEN];
 static char pcgTimeWindowRefField[8];
 static int igTimeWindowUpperLimit;
 static int igTimeWindowLowerLimit;
+static int igGetDataFromSrcTable;
 
 /******************************************************************************/
 /* Function prototypes	                                                      */
@@ -130,11 +131,15 @@ static void getOneline(_LINE *rpLine, char *pcpLine);
 static void showLine(_LINE *rpLine);
 static void showRule(_RULE *rpRule, int ipTotalLineOfRule);
 static void storeRule(_LINE *rpRuleLine, _LINE *rpSingleLine);
-static int collectFieldSet(char *pcpFiledSet, char * pcpConflictFiledSet, char *pcpSourceField, int ipCount);
+//static int collectFieldSet(char *pcpFiledSet, char * pcpConflictFiledSet, char *pcpSourceField, int ipCount);
+static int collectFieldSet(char *pcpFiledSet, char * pcpConflictFiledSet, char *pcpSourceField, int ipCount, int ipGroupNumer);
 static int isDisabledLine(char *pcpLine);
 static int isCommentLine(char *pcpLine);
 static int extractTimeWindowRefField(char *pcpFieldVal, char *pcpFieldName, char *pcpFields, char *pcpNewData);
 static int isInTimeWindow(char *pcpTimeVal, int ilTimeWindowUpperLimit, int ilTimeWindowLowerLimit);
+static int toDetermineAppliedRuleGroup(char * pcpTable, char * pcpFields, char * pcpNewData);
+static void showFieldSetByGroup(char (*pcpFiledSet)[LISTLEN], char (*pcpConflictFiledSet)[LISTLEN]);
+static void appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData);
 /******************************************************************************/
 /*                                                                            */
 /* The MAIN program                                                           */
@@ -681,6 +686,9 @@ static int HandleData(EVENT *prpEvent)
 	int	   ilRc           = RC_SUCCESS;			/* Return code */
 	int    ilCmd          = 0;
 
+	int ilRuleGroup = 0;
+	char *pclFunc = "HandleData";
+
 	BC_HEAD *prlBchead       = NULL;
 	CMDBLK  *prlCmdblk       = NULL;
 	char    *pclSelection    = NULL;
@@ -739,6 +747,7 @@ static int HandleData(EVENT *prpEvent)
 	dbg(TRACE,"Fields    <%s>",pclFields);
 	dbg(DEBUG,"New Data:  <%s>",pclNewData);
 	dbg(DEBUG,"Old Data:  <%s>",pclOldData);
+    dbg(DEBUG,"Table:  <%s>",clTable);
 
 	lgEvtCnt++;
 
@@ -766,6 +775,32 @@ static int HandleData(EVENT *prpEvent)
         {
             return RC_FAIL;
         }
+
+        /*  fya 0.2
+            To determine the applied rule group
+        */
+        ilRuleGroup = toDetermineAppliedRuleGroup(clTable, pclFields, pclNewData);
+        if ( ilRuleGroup == 0 )
+        {
+            dbg(TRACE,"%s ilRuleGroup == 0 -> There is no applied rules", pclFunc);
+            return RC_FAIL;
+        }
+        else
+        {
+            dbg(TRACE,"%s Applied rule group is %d", pclFunc, ilRuleGroup);
+        }
+
+        /*if the required fields are not all filled: then either retrieve them from the source table, or leave them as blank*/
+        if ( igGetDataFromSrcTable == TRUE)
+        {
+
+        }
+        else
+        {
+
+        }
+
+        appliedRules( ilRuleGroup, pclFields, pclNewData);
     }
 
 	return(RC_SUCCESS);
@@ -851,6 +886,25 @@ static int getConfig()
     {
         igTimeWindowUpperLimit = -1;
         dbg(DEBUG,"Default igTimeWindowUpperLimit<%s>",igTimeWindowUpperLimit);
+    }
+
+    ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","GET_DATA_FROM_SOURCE_TABLE",CFG_STRING,pclTmpBuf);
+    if (ilRC == RC_SUCCESS)
+    {
+        if (strncmp(pclTmpBuf,"Y",1) == 0)
+        {
+            igGetDataFromSrcTable = TRUE;
+        }
+        else
+        {
+            igGetDataFromSrcTable = FALSE;
+        }
+        dbg(DEBUG,"igGetDataFromSrcTable<%d>",igGetDataFromSrcTable);
+    }
+    else
+    {
+        igGetDataFromSrcTable = FALSE;
+        dbg(DEBUG,"Default igGetDataFromSrcTable<%d>",igGetDataFromSrcTable);
     }
 
     /* Get Client and Server chars */
@@ -986,7 +1040,8 @@ static int GetRuleSchema(_RULE *rpRule)
         getOneline(&rlLine, pclLine);
         //showLine(&rlLine);
 
-        collectFieldSet(pcgFiledSet, pcgConflictFiledSet, rlLine.pclSourceField, ilNoLine);
+        /*store the required and conflicted field list group by group*/
+        collectFieldSet(pcgFiledSet[atoi(rlLine.pclRuleGroup)], pcgConflictFiledSet[atoi(rlLine.pclRuleGroup)], rlLine.pclSourceField, ilNoLine, atoi(rlLine.pclRuleGroup));
 
         /*Copy to global structure*/
         storeRule( &(rpRule->rlLine[ilNoLine++]), &rlLine);
@@ -994,9 +1049,7 @@ static int GetRuleSchema(_RULE *rpRule)
     igTotalLineOfRule = ilNoLine;
     showRule(rpRule, igTotalLineOfRule);
 
-    dbg(TRACE,"Source Field List <%s>", pcgFiledSet);
-    dbg(TRACE,"Conflicted Source Field List <%s>", pcgConflictFiledSet);
-
+    showFieldSetByGroup(pcgFiledSet, pcgConflictFiledSet);
     fclose(fp);
 
     dbg(TRACE, "---------------------------------------------------------");
@@ -1090,7 +1143,7 @@ static void storeRule(_LINE *rpRuleLine, _LINE *rpSingleLine)
 
 static void showRule(_RULE *rpRule, int ipTotalLineOfRule)
 {
-    char pclFunc[] = "storeRule:";
+    char pclFunc[] = "showRule:";
 
     int ilCount = 0;
 
@@ -1116,7 +1169,7 @@ static void showRule(_RULE *rpRule, int ipTotalLineOfRule)
     }
 }
 
-static int collectFieldSet(char *pcpFiledSet, char * pcpConflictFiledSet, char *pcpSourceField, int ipCount)
+static int collectFieldSet(char *pcpFiledSet, char * pcpConflictFiledSet, char *pcpSourceField, int ipCount, int ipGroupNumer)
 {
     char pclFunc[] = "collectFieldSet:";
 
@@ -1141,7 +1194,7 @@ static int collectFieldSet(char *pcpFiledSet, char * pcpConflictFiledSet, char *
     }
     else
     {
-        dbg(TRACE,"%s pcpSourceField<%s> is already in pcpFiledSet<%s>", pclFunc, pcpSourceField, pcpFiledSet);
+        dbg(TRACE,"%s GROUP<%d> pcpSourceField<%s> is already in pcpFiledSet<%s>", pclFunc, ipGroupNumer, pcpSourceField, pcpFiledSet);
 
         if (strlen(pcpConflictFiledSet) == 0)
         {
@@ -1153,7 +1206,6 @@ static int collectFieldSet(char *pcpFiledSet, char * pcpConflictFiledSet, char *
             strcat(pcpConflictFiledSet, pcpSourceField);
         }
     }
-
     return;
 }
 
@@ -1251,3 +1303,68 @@ static int isInTimeWindow(char *pcpTimeVal, int igTimeWindowUpperLimit, int igTi
         return RC_FAIL;
     }
 }
+
+static int toDetermineAppliedRuleGroup(char * pcpTable, char * pcpFields, char * pcpData)
+{
+    int ilRuleNumber = 0;
+    int ilItemNo = 0;
+    char *pclFunc = "toDetermineAppliedRuleGroup";
+    char pclADID[16] = "\0";
+
+    ilItemNo = get_item_no(pcpFields, "ADID", 5) + 1;
+    if (ilItemNo <= 0)
+    {
+        dbg(TRACE, "<%s> No <%s> Found in the field list, can't do anything", pclFunc, "ADID");
+        return RC_FAIL;
+    }
+    get_real_item(pclADID, pcpData, ilItemNo);
+    dbg(DEBUG,"<%s> The New ADID is <%s>", pclFunc, pclADID);
+
+    if ( strcmp(pcpTable,"AFTTAB") == 0 )
+    {
+        if (strcmp(pclADID, "A") == 0 )
+        {
+            ilRuleNumber = 1;
+        }
+        else if (strcmp(pclADID, "D") == 0 )
+        {
+            ilRuleNumber = 2;
+        }
+    }
+    else if ( strcmp(pcpTable,"CCATAB") == 0 )
+    {
+        ilRuleNumber = 3;
+    }
+
+    return ilRuleNumber;
+}
+
+static void appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData)
+{
+    char *pclFunc = "appliedRules";
+
+    /*
+    for each item in the field list:
+    1 search for the single rule in the applied group using source field
+    2 check the concrete data type using source filed type
+    3 manipulate the source value according to operator with con1 & con2
+    4 store the operated destination field into a list
+    */
+}
+
+//static void showFieldSetByGroup(char ** pcpFiledSet, char ** pcpConflictFiledSet)
+static void showFieldSetByGroup(char (*pcpFiledSet)[LISTLEN], char (*pcpConflictFiledSet)[LISTLEN])
+{
+    int ilCount = 0;
+    char *pclFunc = "showFieldSetByGroup";
+
+    for (ilCount = 0; ilCount < GROUPNUMER; ilCount++)
+    {
+        if (strlen(pcpFiledSet[ilCount]) > 0)
+        {
+            dbg(TRACE,"%s Group[%d] Source Field List <%s>", pclFunc, ilCount, (pcpFiledSet+ilCount)[0]);
+            dbg(TRACE,"%s Group[%d] Conflicted Source Field List <%s>\n", pclFunc, ilCount, (pcpConflictFiledSet+ilCount)[0]);
+        }
+    }
+}
+

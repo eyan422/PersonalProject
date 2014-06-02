@@ -1,7 +1,9 @@
 /*fya v0.1*/
 
-#define TIMEFORMAT 16
-#define MAX_XML_LINES 4000
+#define GROUPNUMER  16
+#define TIMEFORMAT  16
+#define LISTLEN     2048
+#define MAX_GROUP_LINES 4000
 
 typedef struct
 {
@@ -27,7 +29,7 @@ typedef struct
 }_LINE;
 
 typedef struct {
-    _LINE rlLine[MAX_XML_LINES];
+    _LINE rlLine[MAX_GROUP_LINES];
 } _RULE;
 
 static void TrimRight(char *pcpBuffer) {
