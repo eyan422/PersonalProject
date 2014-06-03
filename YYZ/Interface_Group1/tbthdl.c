@@ -1615,14 +1615,18 @@ static int convertSrcValToDestVal(char *pcpSourceFieldName, char *pcpSourceField
 
         if ( strcmp(pclOperator,"SUBS") == 0)
         {
-            /*
-            dbg(TRACE, "%s The con1<%s> and con2<%s> -> getting the substring",pclFunc);
+            dbg(TRACE, "%s The con1<%s> and con2<%s> -> getting the substring",pclFunc, rpLine->pclCond1, rpLine->pclCond2);
 
             if( atoi(rpLine->pclDestFieldLen) == (atoi(rpLine->pclCond2) - atoi(rpLine->pclCond1) + 1) )
             {
-                strncpy(pcpDestFieldValue, pcpSourceFieldValue + atoi(rpLine->pclCond1), atoi(rpLine->pclDestFieldLen));
+                dbg(TRACE,"<%d>==<%d>", atoi(rpLine->pclDestFieldLen), atoi(rpLine->pclCond2) - atoi(rpLine->pclCond1) + 1);
+                strncpy(pcpDestFieldValue, pcpSourceFieldValue+atoi(rpLine->pclCond1), atoi(rpLine->pclDestFieldLen));
             }
-            */
+            else
+            {
+                dbg(TRACE,"<%d>!=<%d>", atoi(rpLine->pclDestFieldLen), atoi(rpLine->pclCond2) - atoi(rpLine->pclCond1) + 1);
+            }
+
             ilRC = RC_SUCCESS;
         }
         else if ( strcmp(pclOperator,"DEP") == 0)
