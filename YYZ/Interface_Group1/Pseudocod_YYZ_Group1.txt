@@ -41,7 +41,7 @@ Chanllenge:	Generality and modulization
 			For each field:
 				Implementing the convertion based on matched single rule - Operator 
 				There are listed cases:
-				1-Manipulation on existed value
+				1-Manipulation on existed value - done
 				2-Getting the value from another table
 				<
 				For example:

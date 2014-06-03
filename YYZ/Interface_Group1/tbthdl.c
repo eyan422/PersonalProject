@@ -2,7 +2,7 @@
 #ifndef _DEF_mks_version
   #define _DEF_mks_version
   #include "ufisvers.h" /* sets UFIS_VERSION, must be done before mks_version */
-  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/tbthdl.c 0.2 2014/06/02 17:00:14SGT fya Exp  $";
+  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/tbthdl.c 0.4 2014/06/03 15:27:14SGT fya Exp  $";
 #endif /* _DEF_mks_version */
 /******************************************************************************/
 /*                                                                            */
@@ -104,7 +104,8 @@ _RULE rgRule;
 static int igTotalLineOfRule;
 
 static char pcgSourceFiledSet[GROUPNUMER][LISTLEN];
-static char pcgDestFiledSet[GROUPNUMER][LISTLEN];
+static char pcgSourceFiledList[GROUPNUMER][LISTLEN];
+static char pcgDestFiledList[GROUPNUMER][LISTLEN];
 static char pcgSourceConflictFiledSet[GROUPNUMER][LISTLEN];
 
 static char pcgTimeWindowRefField[8];
@@ -136,17 +137,18 @@ static void showRule(_RULE *rpRule, int ipTotalLineOfRule);
 static void storeRule(_LINE *rpRuleLine, _LINE *rpSingleLine);
 //static int collectSourceFieldSet(char *pcpFiledSet, char * pcpConflictFiledSet, char *pcpSourceField, int ipCount);
 static int collectSourceFieldSet(char *pcpFiledSet, char * pcpConflictFiledSet, char *pcpSourceField, int ipGroupNumer);
-static int collectDestFieldSet(char *pcpFiledSet, char *pcpSourceField, int ipGroupNumer);
+static int collectFieldList(char *pcpFiledSet, char *pcpDestField, int ipGroupNumer);
 static int isDisabledLine(char *pcpLine);
 static int isCommentLine(char *pcpLine);
 static int extractTimeWindowRefField(char *pcpFieldVal, char *pcpFieldName, char *pcpFields, char *pcpNewData);
 static int isInTimeWindow(char *pcpTimeVal, int ilTimeWindowUpperLimit, int ilTimeWindowLowerLimit);
 static int toDetermineAppliedRuleGroup(char * pcpTable, char * pcpFields, char * pcpNewData);
-static void showFieldSetByGroup(char (*pcpSourceFiledSet)[LISTLEN], char (*pcpConflictFiledSet)[LISTLEN], char (* pcpDestFiledSet)[LISTLEN]);
-static void appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData);
+static void showFieldByGroup(char (*pcpSourceFiledSet)[LISTLEN], char (*pcpConflictFiledSet)[LISTLEN], char (* pcpSourceFiledList)[LISTLEN], char (* pcpDestFiledSet)[LISTLEN]);
+static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *pcpSourceFiledList, char *pcpDestFiledList, _RULE *rpRule, int ipTotalLineOfRule);
 static int matchFieldListOnGroup(int ilRuleGroup, char *pcpSourceFieldList);
 static int getSourceFieldData(char *pclTable, char * pcpSourceFieldList, char * pcpSelection, char * pclSourceDataList);
 static void buildQuery(char *pcpSqlBuf, char * pcpTable, char * pcpSourceFieldList, char * pcpSelection);
+static int convertSrcValToDestVal(char *pcpSourceFieldName, char *pcpSourceFieldValue, char *pcpDestFieldName, _LINE * rpLine, char * pcpDestFieldValue);
 /******************************************************************************/
 /*                                                                            */
 /* The MAIN program                                                           */
@@ -816,19 +818,23 @@ static int HandleData(EVENT *prpEvent)
             if (ilRc == RC_FAIL)
             {
                 dbg(TRACE,"%s The source field data is not found - using the original field and data list", pclFunc);
-                appliedRules( ilRuleGroup, pclFields, pclNewData);
+                appliedRules( ilRuleGroup, pclFields, pclNewData, pcgSourceFiledList[ilRuleGroup], pcgDestFiledList[ilRuleGroup], &rgRule, igTotalLineOfRule);
             }
             else
             {
-                dbg(TRACE,"%s The source field list is found", pclFunc, pclSourceFieldList);
-                appliedRules( ilRuleGroup, pclSourceFieldList, pclSourceFieldList);
+                dbg(TRACE,"%s The source field list is found <%s>", pclFunc, pclSourceFieldList);
+
+                dbg(DEBUG,"%s pcgSourceFiledList[%d] <%s>", pclFunc, ilRuleGroup, pcgSourceFiledList[ilRuleGroup]);
+                dbg(DEBUG,"%s pcgDestFiledList[%d] <%s>", pclFunc, ilRuleGroup, pcgDestFiledList[ilRuleGroup]);
+
+                appliedRules( ilRuleGroup, pclSourceFieldList, pclSourceDataList, pcgSourceFiledList[ilRuleGroup], pcgDestFiledList[ilRuleGroup], &rgRule, igTotalLineOfRule);
             }
         }
         else
         {
             /*using the original field and data list*/
             dbg(TRACE,"%s The getting source data config option is not set - using the original field and data list", pclFunc);
-            appliedRules( ilRuleGroup, pclFields, pclNewData);
+            appliedRules( ilRuleGroup, pclFields, pclNewData, pcgSourceFiledList[ilRuleGroup], pcgDestFiledList[ilRuleGroup], &rgRule, igTotalLineOfRule);
         }
     }
 
@@ -945,8 +951,7 @@ static int getConfig()
                 CFG_STRING, pclClieBuffer);
     if (ilRC == RC_SUCCESS)
     {
-        ilRC = iGetConfigEntry(pcgUfisConfigFile,"CHAR_PATCH","SERVER_CHARS",
-                CFG_STRING, pclServBuffer);
+        ilRC = iGetConfigEntry(pcgUfisConfigFile,"CHAR_PATCH","SERVER_CHARS",CFG_STRING, pclServBuffer);
         if (ilRC == RC_SUCCESS)
         {
             ilI = GetNoOfElements(pclClieBuffer,',');
@@ -1074,7 +1079,9 @@ static int GetRuleSchema(_RULE *rpRule)
 
         /*store the required and conflicted field list group by group*/
         collectSourceFieldSet(pcgSourceFiledSet[atoi(rlLine.pclRuleGroup)], pcgSourceConflictFiledSet[atoi(rlLine.pclRuleGroup)], rlLine.pclSourceField, atoi(rlLine.pclRuleGroup));
-        collectDestFieldSet  (pcgDestFiledSet[atoi(rlLine.pclRuleGroup)], rlLine.pclDestField, atoi(rlLine.pclRuleGroup));
+
+        collectFieldList(pcgSourceFiledList[atoi(rlLine.pclRuleGroup)], rlLine.pclSourceField, atoi(rlLine.pclRuleGroup));
+        collectFieldList(pcgDestFiledList[atoi(rlLine.pclRuleGroup)], rlLine.pclDestField, atoi(rlLine.pclRuleGroup));
 
         /*Copy to global structure*/
         storeRule( &(rpRule->rlLine[ilNoLine++]), &rlLine);
@@ -1082,7 +1089,7 @@ static int GetRuleSchema(_RULE *rpRule)
     igTotalLineOfRule = ilNoLine;
     showRule(rpRule, igTotalLineOfRule);
 
-    showFieldSetByGroup(pcgSourceFiledSet, pcgSourceConflictFiledSet, pcgDestFiledSet);
+    showFieldByGroup(pcgSourceFiledSet, pcgSourceConflictFiledSet, pcgSourceFiledList, pcgDestFiledList);
     fclose(fp);
 
     dbg(TRACE, "---------------------------------------------------------");
@@ -1097,7 +1104,7 @@ static void getOneline(_LINE *rpLine, char *pcpLine)
 	int ilNoEle = 0;
 
 	ilNoEle = GetNoOfElements(pcpLine, ';');
-    //dbg(DEBUG, "%s Current Line = (%d)<%s>", pclFunc, ilNoEle, pcpLine);
+    /*dbg(DEBUG, "%s Current Line = (%d)<%s>", pclFunc, ilNoEle, pcpLine);*/
 
     get_item(ilNoEle, pcpLine, rpLine->pclActive, 0, ";", "\0", "\0");
     get_item(1, pcpLine, rpLine->pclActive, 0, ";", "\0", "\0");
@@ -1202,9 +1209,9 @@ static void showRule(_RULE *rpRule, int ipTotalLineOfRule)
     }
 }
 
-static int collectDestFieldSet(char *pcpFiledSet, char *pcpDestField, int ipGroupNumer)
+static int collectFieldList(char *pcpFiledSet, char *pcpDestField, int ipGroupNumer)
 {
-    char pclFunc[] = "collectDestFieldSet:";
+    char pclFunc[] = "collectFieldList:";
 
     if (strlen(pcpFiledSet) == 0)
     {
@@ -1362,7 +1369,7 @@ static int toDetermineAppliedRuleGroup(char * pcpTable, char * pcpFields, char *
     ilItemNo = get_item_no(pcpFields, "ADID", 5) + 1;
     if (ilItemNo <= 0)
     {
-        dbg(TRACE, "<%s> No <%s> Found in the field list, can't do anything", pclFunc, "ADID");
+        dbg(TRACE, "<%s> No <%s> Not found in the field list, can't do anything", pclFunc, "ADID");
         return RC_FAIL;
     }
     get_real_item(pclADID, pcpData, ilItemNo);
@@ -1387,9 +1394,21 @@ static int toDetermineAppliedRuleGroup(char * pcpTable, char * pcpFields, char *
     return ilRuleNumber;
 }
 
-static void appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData)
+static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *pcpSourceFiledList, char *pcpDestFiledList, _RULE *rpRule, int ipTotalLineOfRule)
 {
+    int ilRC = RC_SUCCESS;
+    int ilItemNo = 0;
+    int ilEleCount = 0;
+    int ilRuleCount = 0;
+    int ilNoEleSource = 0;
+    int ilNoEleDest = 0;
     char *pclFunc = "appliedRules";
+    char pclTmpSourceFieldName[256] = "\0";
+    char pclTmpDestFieldName[256] = "\0";
+
+    char pclTmpSourceFieldValue[256] = "\0";
+    char pclTmpDestFieldValue[256] = "\0";
+    char pclDestDataList[256] = "\0";
 
     /*
     for each item in the field list:
@@ -1403,20 +1422,97 @@ static void appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData)
     getting one from the source and dest list, then applying the operation based on condition
     */
 
+	ilNoEleSource = GetNoOfElements(pcpSourceFiledList, ',');
+	ilNoEleDest   = GetNoOfElements(pcpDestFiledList, ',');
+
+	dbg(TRACE,"%s The number of source and dest list are <%d> and <%d>", pclFunc, ilNoEleSource, ilNoEleDest);
+
+	if (ilNoEleDest == ilNoEleSource)
+	{
+	    dbg(TRACE,"%s The number of source and dest list euqals <%d>==<%d>", pclFunc, ilNoEleSource, ilNoEleDest);
+
+        for(ilEleCount = 1; ilEleCount <= ilNoEleDest; ilEleCount++)
+        {
+            get_item(ilEleCount, pcpSourceFiledList, pclTmpSourceFieldName, 0, ",", "\0", "\0");
+            TrimRight(pclTmpSourceFieldName);
+
+            get_item(ilEleCount, pcpDestFiledList, pclTmpDestFieldName, 0, ",", "\0", "\0");
+            TrimRight(pclTmpDestFieldName);
+
+            dbg(DEBUG,"%s <%d> The filed from source is <%s> - from dest is <%s>",pclFunc, ilEleCount, pclTmpSourceFieldName, pclTmpDestFieldName);
+
+            for (ilRuleCount = 0; ilRuleCount <= ipTotalLineOfRule; ilRuleCount++)
+            {
+                /*matched the group number*/
+                if ( atoi(rpRule->rlLine[ilRuleCount].pclRuleGroup) == ipRuleGroup)
+                {
+                    if (strcmp(rpRule->rlLine[ilRuleCount].pclDestField, pclTmpDestFieldName) == 0)
+                    {
+                        ilItemNo = get_item_no(pcpFields, pclTmpSourceFieldName, 5) + 1;
+                        if (ilItemNo <= 0 )
+                        {
+                            dbg(TRACE, "<%s> No <%s> Not found in the field list, can't do anything", pclFunc, pclTmpSourceFieldName);
+                            return RC_FAIL;
+                        }
+                        get_real_item(pclTmpSourceFieldValue, pcpData, ilItemNo);
+                        dbg(DEBUG,"<%s> Source - The value for %s is <%s>", pclFunc, pclTmpSourceFieldName, pclTmpSourceFieldValue);
+
+                        /*getting the operator and condition*/
+                        dbg(TRACE,"%s The operator is <%s> and con1<%s>, con2<%s>",pclFunc, rpRule->rlLine[ilRuleCount].pclDestFieldOperator,
+                        rpRule->rlLine[ilRuleCount].pclCond1, rpRule->rlLine[ilRuleCount].pclCond2);
+
+                        convertSrcValToDestVal(pclTmpSourceFieldName, pclTmpSourceFieldValue, pclTmpDestFieldName, rpRule->rlLine+ilRuleCount, pclTmpDestFieldValue);
+
+                        if ( strlen(pclDestDataList) == 0 )
+                        {
+                            strcat(pclDestDataList,pclTmpDestFieldValue);
+                        }
+                        else
+                        {
+                            strcat(pclDestDataList,",");
+                            strcat(pclDestDataList,pclTmpDestFieldValue);
+                        }
+                    }
+                }
+                else
+                {
+                    //dbg(DEBUG,"%s The group number is not matched - ipRuleGroup<%d> and <%d>",pclFunc, ipRuleGroup, atoi(rpRule->rlLine[ilRuleCount].pclRuleGroup));
+                    continue;
+                }
+            }
+        }
+        dbg(TRACE, "%s The manipulated dest data list <%s> field number<%d>", pclFunc, pclDestDataList, GetNoOfElements(pclDestDataList,','));
+
+        if ( GetNoOfElements(pclDestDataList,',') != ilNoEleSource)
+        {
+            dbg(TRACE,"The number of field in dest data list and source field is not matched",pclFunc);
+        }
+
+        /*building dest table insert and update query clause*/
+
+	}
+	else
+	{
+        dbg(TRACE,"%s The number of source and dest list does not euqal <%d>!=<%d>", pclFunc, ilNoEleSource, ilNoEleDest);
+        ilRC = RC_FAIL;
+	}
+
+	return ilRC;
 }
 
-static void showFieldSetByGroup(char (*pcpSourceFiledSet)[LISTLEN], char (*pcpConflictFiledSet)[LISTLEN], char (* pcpDestFiledSet)[LISTLEN])
+static void showFieldByGroup(char (*pcpSourceFiledSet)[LISTLEN], char (*pcpConflictFiledSet)[LISTLEN], char (* pcpSourceFiledList)[LISTLEN], char (* pcpDestFiledSet)[LISTLEN])
 {
     int ilCount = 0;
-    char *pclFunc = "showFieldSetByGroup";
+    char *pclFunc = "showFieldByGroup";
 
     for (ilCount = 0; ilCount < GROUPNUMER; ilCount++)
     {
         if (strlen(pcpSourceFiledSet[ilCount]) > 0)
         {
-            dbg(TRACE,"%s Group[%d] Source Field List <%s>", pclFunc, ilCount, (pcpSourceFiledSet+ilCount)[0]);
+            dbg(TRACE,"%s Group[%d] Source Field Set <%s>", pclFunc, ilCount, (pcpSourceFiledSet+ilCount)[0]);
             dbg(TRACE,"%s Group[%d] Conflicted Source Field List <%s>", pclFunc, ilCount, (pcpConflictFiledSet+ilCount)[0]);
-            dbg(TRACE,"%s Group[%d] Destination Field List <%s>", pclFunc, ilCount, (pcpDestFiledSet+ilCount)[0]);
+            dbg(TRACE,"%s Group[%d] Source Field List <%s>", pclFunc, ilCount, (pcpSourceFiledList+ilCount)[0]);
+            dbg(TRACE,"%s Group[%d] Destination Field List <%s>\n", pclFunc, ilCount, (pcpDestFiledSet+ilCount)[0]);
         }
     }
 }
@@ -1487,10 +1583,68 @@ static void buildQuery(char *pcpSqlBuf, char * pcpTable, char * pcpSourceFieldLi
 
     strcat(pcpSqlBuf,"SELECT ");
     strcat(pcpSqlBuf, pcpSourceFieldList);
-    strcat(pcpSqlBuf, " FROM");
+    strcat(pcpSqlBuf, " FROM ");
     strcat(pcpSqlBuf, pcpTable);
     strcat(pcpSqlBuf, " ");
     strcat(pcpSqlBuf, pcpSelection);
 
     dbg(TRACE,"%s pcpSqlBuf<%s>",pclFunc, pcpSqlBuf);
+}
+
+static int convertSrcValToDestVal(char *pcpSourceFieldName, char *pcpSourceFieldValue, char *pcpDestFieldName, _LINE * rpLine, char * pcpDestFieldValue)
+{
+    int ilRC = RC_SUCCESS;
+    char *pclFunc = "convertSrcValToDestVal";
+    char pclOperator[16] = "\0";
+
+    memset(pcpDestFieldValue,0,sizeof(pcpDestFieldValue));
+
+    strcpy(pclOperator,rpLine->pclDestFieldOperator);
+    TrimRight(pclOperator);
+
+    if ( strlen(pclOperator) == 0 || pclOperator[0] == ' ')
+    {
+        /*operator is blank, so, using the original value as the dest one*/
+        dbg(TRACE, "%s The operator is blank",pclFunc);
+        strcpy(pcpDestFieldValue, pcpSourceFieldValue);
+        ilRC = RC_SUCCESS;
+    }
+    else
+    {
+        dbg(TRACE, "%s The operator is <%s>",pclFunc, pclOperator);
+
+        if ( strcmp(pclOperator,"SUBS") == 0)
+        {
+            /*
+            dbg(TRACE, "%s The con1<%s> and con2<%s> -> getting the substring",pclFunc);
+
+            if( atoi(rpLine->pclDestFieldLen) == (atoi(rpLine->pclCond2) - atoi(rpLine->pclCond1) + 1) )
+            {
+                strncpy(pcpDestFieldValue, pcpSourceFieldValue + atoi(rpLine->pclCond1), atoi(rpLine->pclDestFieldLen));
+            }
+            */
+            ilRC = RC_SUCCESS;
+        }
+        else if ( strcmp(pclOperator,"DEP") == 0)
+        {
+            strcpy(pcpDestFieldValue, pcpSourceFieldValue);
+            ilRC = RC_SUCCESS;
+        }
+        else if ( strcmp(pclOperator,"ARR") == 0)
+        {
+            strcpy(pcpDestFieldValue, pcpSourceFieldValue);
+            ilRC = RC_SUCCESS;
+        }
+        else
+        {
+            /*unknown operator -> treat it as default action*/
+            strcpy(pcpDestFieldValue, pcpSourceFieldValue);
+            ilRC = RC_FAIL;
+        }
+    }
+
+    dbg(TRACE,"SourceField<%s> SourceValue<%s> DestinationField<%s> DestinationValue<%s>",
+        pcpSourceFieldName, pcpSourceFieldValue, pcpDestFieldName, pcpDestFieldValue);
+
+    return ilRC;
 }
