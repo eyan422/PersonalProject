@@ -59,7 +59,7 @@ static char sccs_version[] ="@(#) UFIS44 (c) ABB AAT/I skeleton.c 44.1.0 / 11.12
 #include "tools.h"
 #include "helpful.h"
 #include "timdef.h"
-#include "urno_fn.h"
+//#include "urno_fn.h"
 
 /*fya 0.1*/
 #include "tbthdl.h"
@@ -1604,10 +1604,11 @@ static int convertSrcValToDestVal(char *pcpSourceFieldName, char *pcpSourceField
 
     if ( strlen(pclOperator) == 0 || pclOperator[0] == ' ')
     {
-        /*operator is blank, so, using the original value as the dest one*/
+        /*operator is blank, so, using the original value as the dest one
         dbg(TRACE, "%s The operator is blank",pclFunc);
         strcpy(pcpDestFieldValue, pcpSourceFieldValue);
         ilRC = RC_SUCCESS;
+        */
     }
     else
     {
