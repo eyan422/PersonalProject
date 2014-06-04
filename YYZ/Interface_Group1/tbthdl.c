@@ -2,7 +2,7 @@
 #ifndef _DEF_mks_version
   #define _DEF_mks_version
   #include "ufisvers.h" /* sets UFIS_VERSION, must be done before mks_version */
-  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/tbthdl.c 0.4 2014/06/03 15:27:14SGT fya Exp  $";
+  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/tbthdl.c 0.5 2014/06/04 16:50:14SGT fya Exp  $";
 #endif /* _DEF_mks_version */
 /******************************************************************************/
 /*                                                                            */
@@ -63,6 +63,7 @@ static char sccs_version[] ="@(#) UFIS44 (c) ABB AAT/I skeleton.c 44.1.0 / 11.12
 
 /*fya 0.1*/
 #include "tbthdl.h"
+#include "tbthdl_sub.c"
 
 #if defined(_HPUX_SOURCE)  || defined(_AIX)
 	extern int daylight;
@@ -144,11 +145,15 @@ static int extractTimeWindowRefField(char *pcpFieldVal, char *pcpFieldName, char
 static int isInTimeWindow(char *pcpTimeVal, int ilTimeWindowUpperLimit, int ilTimeWindowLowerLimit);
 static int toDetermineAppliedRuleGroup(char * pcpTable, char * pcpFields, char * pcpNewData);
 static void showFieldByGroup(char (*pcpSourceFiledSet)[LISTLEN], char (*pcpConflictFiledSet)[LISTLEN], char (* pcpSourceFiledList)[LISTLEN], char (* pcpDestFiledSet)[LISTLEN]);
-static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *pcpSourceFiledList, char *pcpDestFiledList, _RULE *rpRule, int ipTotalLineOfRule);
+static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *pcpSourceFiledList, char *pcpDestFiledList,
+                        _RULE *rpRule, int ipTotalLineOfRule, char * pcpSelection);
 static int matchFieldListOnGroup(int ilRuleGroup, char *pcpSourceFieldList);
 static int getSourceFieldData(char *pclTable, char * pcpSourceFieldList, char * pcpSelection, char * pclSourceDataList);
-static void buildQuery(char *pcpSqlBuf, char * pcpTable, char * pcpSourceFieldList, char * pcpSelection);
+static void buildSelQuery(char *pcpSqlBuf, char * pcpTable, char * pcpSourceFieldList, char * pcpSelection);
 static int convertSrcValToDestVal(char *pcpSourceFieldName, char *pcpSourceFieldValue, char *pcpDestFieldName, _LINE * rpLine, char * pcpDestFieldValue);
+static void buildInsertQuery(char *pcpSqlBuf, char * pcpTable, char * pcpDestFieldList, char *pcpDestFieldData);
+static void buildUpdateQuery(char *pcpSqlBuf, char * pcpTable, char * pcpDestFieldList, char *pcpDestFieldData, char * pcpSelection);
+static void buildDestTabWhereClause( char *pcpSelection, char *pcpDestKey, char *pcpDestFiledList, char *pclDestDataList);
 /******************************************************************************/
 /*                                                                            */
 /* The MAIN program                                                           */
@@ -818,7 +823,7 @@ static int HandleData(EVENT *prpEvent)
             if (ilRc == RC_FAIL)
             {
                 dbg(TRACE,"%s The source field data is not found - using the original field and data list", pclFunc);
-                appliedRules( ilRuleGroup, pclFields, pclNewData, pcgSourceFiledList[ilRuleGroup], pcgDestFiledList[ilRuleGroup], &rgRule, igTotalLineOfRule);
+                appliedRules( ilRuleGroup, pclFields, pclNewData, pcgSourceFiledList[ilRuleGroup], pcgDestFiledList[ilRuleGroup], &rgRule, igTotalLineOfRule, pclSelection);
             }
             else
             {
@@ -827,14 +832,14 @@ static int HandleData(EVENT *prpEvent)
                 dbg(DEBUG,"%s pcgSourceFiledList[%d] <%s>", pclFunc, ilRuleGroup, pcgSourceFiledList[ilRuleGroup]);
                 dbg(DEBUG,"%s pcgDestFiledList[%d] <%s>", pclFunc, ilRuleGroup, pcgDestFiledList[ilRuleGroup]);
 
-                appliedRules( ilRuleGroup, pclSourceFieldList, pclSourceDataList, pcgSourceFiledList[ilRuleGroup], pcgDestFiledList[ilRuleGroup], &rgRule, igTotalLineOfRule);
+                appliedRules( ilRuleGroup, pclSourceFieldList, pclSourceDataList, pcgSourceFiledList[ilRuleGroup], pcgDestFiledList[ilRuleGroup], &rgRule, igTotalLineOfRule, pclSelection);
             }
         }
         else
         {
             /*using the original field and data list*/
             dbg(TRACE,"%s The getting source data config option is not set - using the original field and data list", pclFunc);
-            appliedRules( ilRuleGroup, pclFields, pclNewData, pcgSourceFiledList[ilRuleGroup], pcgDestFiledList[ilRuleGroup], &rgRule, igTotalLineOfRule);
+            appliedRules( ilRuleGroup, pclFields, pclNewData, pcgSourceFiledList[ilRuleGroup], pcgDestFiledList[ilRuleGroup], &rgRule, igTotalLineOfRule, pclSelection);
         }
     }
 
@@ -1394,7 +1399,8 @@ static int toDetermineAppliedRuleGroup(char * pcpTable, char * pcpFields, char *
     return ilRuleNumber;
 }
 
-static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *pcpSourceFiledList, char *pcpDestFiledList, _RULE *rpRule, int ipTotalLineOfRule)
+static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *pcpSourceFiledList, char *pcpDestFiledList,
+                        _RULE *rpRule, int ipTotalLineOfRule, char * pcpSelection)
 {
     int ilRC = RC_SUCCESS;
     int ilItemNo = 0;
@@ -1410,6 +1416,10 @@ static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *
     char pclTmpDestFieldValue[256] = "\0";
     char pclDestDataList[256] = "\0";
 
+    char pclSelection[256] = "\0";
+    char pclSqlBuf[4096] = "\0";
+    char pclSqlUpdateBuf[4096] = "\0";
+    char pclSqlInsertBuf[4096] = "\0";
     /*
     for each item in the field list:
     1 search for the single rule in the applied group using source field
@@ -1487,9 +1497,70 @@ static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *
         {
             dbg(TRACE,"The number of field in dest data list and source field is not matched",pclFunc);
         }
+        else
+        {
+             /*
+             building dest table insert and update query clause
+             0-prepare the update and insert query - done
+             1-select the dest table
+             2-if found, update
+             3-else, insert
+             */
 
-        /*building dest table insert and update query clause*/
+            buildDestTabWhereClause( pclSelection, rpRule->rlLine[ilRuleCount].pclDestKey, pcpDestFiledList, pclDestDataList);
 
+            if ( strlen(pclSelection) > 0 )
+            {
+                buildSelQuery(pclSqlBuf, rpRule->rlLine[ilRuleCount].pclDestTable, pcpDestFiledList, pclSelection);
+                dbg(TRACE, "%s select<%s>", pclFunc, pclSqlBuf);
+
+                /*
+                ilRC = RunSQL(pclSqlBuf, pclSqlData);
+                if (ilRC != DB_SUCCESS)
+                {
+                    dbg(TRACE, "<%s>: Retrieving dest data - Fails", pclFunc);
+                    return RC_FAIL;
+                }
+                */
+                ilRC = NOTFOUND;
+
+                switch(ilRC)
+                {
+                    case NOTFOUND:
+                        dbg(TRACE, "<%s> Retrieving dest data - Not Found -> Insert Record", pclFunc);ilRC = RC_FAIL;
+
+                        buildInsertQuery(pclSqlInsertBuf, rpRule->rlLine[ilRuleCount].pclDestTable, pcpDestFiledList, pclDestDataList);
+                        dbg(DEBUG, "%s insert<%s>", pclFunc, pclSqlInsertBuf);
+
+                        strcpy(pclSqlBuf,pclSqlInsertBuf);
+
+                        break;
+                    default:
+                        dbg(TRACE, "<%s> Retrieving dest data - Found -> Update Record\n <%s>", pclFunc, pclSqlData);
+
+                        buildUpdateQuery(pclSqlUpdateBuf, rpRule->rlLine[ilRuleCount].pclDestTable, pcpDestFiledList, pclDestDataList, pclSelection);
+                        dbg(DEBUG, "%s update<%s>", pclFunc, pclSqlUpdateBuf);
+
+                        strcpy(pclSqlBuf,pclSqlUpdateBuf);
+
+                        break;
+                }
+
+                /*
+                ilRC = RunSQL(pclSqlBuf, pclSqlData);
+                if (ilRC != DB_SUCCESS)
+                {
+                    dbg(TRACE, "<%s>: Modifying dest data - Fails", pclFunc);
+                    return RC_FAIL;
+                }
+                */
+            }
+            else
+            {
+
+            }
+
+        }
 	}
 	else
 	{
@@ -1553,7 +1624,7 @@ static int getSourceFieldData(char *pclTable, char * pcpSourceFieldList, char * 
     char pclSqlBuf[4096] = "\0";
     char pclSqlData[4096] = "\0";
 
-    buildQuery(pclSqlBuf, pclTable, pcpSourceFieldList, pcpSelection);
+    buildSelQuery(pclSqlBuf, pclTable, pcpSourceFieldList, pcpSelection);
 
     ilRC = RunSQL(pclSqlBuf, pclSqlData);
     if (ilRC != DB_SUCCESS)
@@ -1577,18 +1648,97 @@ static int getSourceFieldData(char *pclTable, char * pcpSourceFieldList, char * 
     return ilRC;
 }
 
-static void buildQuery(char *pcpSqlBuf, char * pcpTable, char * pcpSourceFieldList, char * pcpSelection)
+static void buildSelQuery(char *pcpSqlBuf, char * pcpTable, char * pcpSourceFieldList, char * pcpSelection)
 {
-    char *pclFunc = "buildQuery";
+    char *pclFunc = "buildSelQuery";
 
-    strcat(pcpSqlBuf,"SELECT ");
-    strcat(pcpSqlBuf, pcpSourceFieldList);
-    strcat(pcpSqlBuf, " FROM ");
-    strcat(pcpSqlBuf, pcpTable);
-    strcat(pcpSqlBuf, " ");
-    strcat(pcpSqlBuf, pcpSelection);
-
+    sprintf(pcpSqlBuf,"SELECT %s FROM %s %s", pcpSourceFieldList, pcpTable, pcpSelection);
     dbg(TRACE,"%s pcpSqlBuf<%s>",pclFunc, pcpSqlBuf);
+}
+
+static void buildDestTabWhereClause( char *pcpSelection, char *pcpDestKey, char *pcpDestFiledList, char *pclDestDataList)
+{
+    int ilRC = RC_SUCCESS;
+    char *pclFunc = "buildDestTabWhereClause";
+
+    char pclTmpField[256] = "\0";
+    char pclTmpData[256] = "\0";
+
+    memset(pcpSelection,0,sizeof(pcpSelection));
+
+    sprinf(pcpSelection, "WHERE %=", pcpDestKey);
+
+    for (ilCount = 1; ilCount <= GetNoOfElements(pclDestDataList,','); ilCount++)
+    {
+
+        memset(pclTmpField, 0, sizeof(pclTmpField));
+        memset(pclTmpData, 0, sizeof(pclTmpData));
+
+        get_item(ilCount, pcpDestFieldList, pcpDestFiledList, 0, ",", "\0", "\0");
+        TrimRight(pclTmpField);
+
+        get_item(ilCount, pcpDestFieldData, pclDestDataList, 0, ",", "\0", "\0");
+        TrimRight(pclTmpData);
+
+        if ( strcmp(pclTmpField, pcpDestKey) == 0)
+        {
+            dbg(TRACE,"%s The key value is found", pclFunc);
+            strcat(pcpSelection, pclTmpData);
+            break;
+        }
+    }
+
+    if(strlen(pcpSelection) > 0)
+    {
+        dbg(TRACE,"%s pcpSelection<%s>", pclFunc, pcpSelection);
+    }
+}
+
+static void buildInsertQuery(char *pcpSqlBuf, char * pcpTable, char * pcpDestFieldList, char *pcpDestFieldData)
+{
+    char *pclFunc = "buildInsertQuery";
+
+    sprintf(pcpSqlBuf,"INSERT INTO %s FIELDS(%s) VALUES(%s)", pcpTable, pcpDestFieldList, pcpDestFieldData);
+}
+
+static void buildUpdateQuery(char *pcpSqlBuf, char * pcpTable, char * pcpDestFieldList, char *pcpDestFieldData, char * pcpSelection)
+{
+    int ilCount = 0;
+    char *pclFunc = "buildupdateQuery";
+    char pclString[2048] = "\0";
+
+    char pclTmp[256] = "\0";
+
+    char pclTmpField[256] = "\0";
+    char pclTmpData[256] = "\0";
+
+    /*ilCount = GetNoOfElements(pcpDestFieldList,',');*/
+
+    for (ilCount = 1; ilCount <= GetNoOfElements(pcpDestFieldData,','); ilCount++)
+    {
+        memset(pclTmpField, 0, sizeof(pclTmpField));
+        memset(pclTmpData, 0, sizeof(pclTmpData));
+
+        get_item(ilCount, pcpDestFieldList, pclTmpField, 0, ",", "\0", "\0");
+        TrimRight(pclTmpField);
+
+        get_item(ilCount, pcpDestFieldData, pclTmpData, 0, ",", "\0", "\0");
+        TrimRight(pclTmpData);
+
+        if ( ilCount == 1)
+        {
+            sprintf(pclTmp, "%s=%s", pclTmpField, pclTmpData);
+            strcat(pclString, pclTmp);
+        }
+        else
+        {
+            strcat(pclString, ",");
+            sprintf(pclTmp, "%s=%s", pclTmpField, pclTmpData);
+            strcat(pclString, pclTmp);
+        }
+    }
+
+    sprintf(pcpSqlBuf,"UPDATE %s SET %s %s", pcpTable, pclString, pcpSelection);
 }
 
 static int convertSrcValToDestVal(char *pcpSourceFieldName, char *pcpSourceFieldValue, char *pcpDestFieldName, _LINE * rpLine, char * pcpDestFieldValue)
@@ -1597,45 +1747,39 @@ static int convertSrcValToDestVal(char *pcpSourceFieldName, char *pcpSourceField
     char *pclFunc = "convertSrcValToDestVal";
     char pclOperator[16] = "\0";
 
+    char pclTest[16] = "XYZ";
+
     memset(pcpDestFieldValue,0,sizeof(pcpDestFieldValue));
 
     strcpy(pclOperator,rpLine->pclDestFieldOperator);
     TrimRight(pclOperator);
 
-    if ( strlen(pclOperator) == 0 || pclOperator[0] == ' ')
+    if ( strlen(pclOperator) == 0 || pclOperator[0] == ' ' )
     {
-        /*operator is blank, so, using the original value as the dest one
-        dbg(TRACE, "%s The operator is blank",pclFunc);
-        strcpy(pcpDestFieldValue, pcpSourceFieldValue);
-        ilRC = RC_SUCCESS;
+        /*
+        operator is blank, so, using the original value as the dest one
         */
+
+        ilRC = defaultOperator(pcpDestFieldValue, pcpSourceFieldValue);
     }
     else
     {
         dbg(TRACE, "%s The operator is <%s>",pclFunc, pclOperator);
 
-        if ( strcmp(pclOperator,"SUBS") == 0)
+        if ( strcmp(pclOperator,"SUBS") == 0 )
         {
-            dbg(TRACE, "%s The con1<%s> and con2<%s> -> getting the substring",pclFunc, rpLine->pclCond1, rpLine->pclCond2);
-
-            if( atoi(rpLine->pclDestFieldLen) == (atoi(rpLine->pclCond2) - atoi(rpLine->pclCond1) + 1) )
-            {
-                dbg(TRACE,"<%d>==<%d>", atoi(rpLine->pclDestFieldLen), atoi(rpLine->pclCond2) - atoi(rpLine->pclCond1) + 1);
-                strncpy(pcpDestFieldValue, pcpSourceFieldValue+atoi(rpLine->pclCond1), atoi(rpLine->pclDestFieldLen));
-            }
-            else
-            {
-                dbg(TRACE,"<%d>!=<%d>", atoi(rpLine->pclDestFieldLen), atoi(rpLine->pclCond2) - atoi(rpLine->pclCond1) + 1);
-            }
-
-            ilRC = RC_SUCCESS;
+            sub(pcpDestFieldValue, pcpSourceFieldValue, rpLine->pclCond1, rpLine->pclCond2, rpLine->pclDestFieldLen);
         }
-        else if ( strcmp(pclOperator,"DEP") == 0)
+        else if ( strcmp(pclOperator,"CAT") == 0 )
+        {
+            cat(pcpDestFieldValue, pcpSourceFieldValue, pclTest, rpLine->pclDestFieldLen);
+        }
+        else if ( strcmp(pclOperator,"DEP") == 0 )
         {
             strcpy(pcpDestFieldValue, pcpSourceFieldValue);
             ilRC = RC_SUCCESS;
         }
-        else if ( strcmp(pclOperator,"ARR") == 0)
+        else if ( strcmp(pclOperator,"ARR") == 0 )
         {
             strcpy(pcpDestFieldValue, pcpSourceFieldValue);
             ilRC = RC_SUCCESS;
