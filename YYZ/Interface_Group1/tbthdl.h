@@ -1,5 +1,5 @@
 /*fya v0.1*/
-
+#define ARRAYNUMBER 16
 #define GROUPNUMER  16
 #define TIMEFORMAT  16
 #define LISTLEN     2048

@@ -2,7 +2,7 @@
 #ifndef _DEF_mks_version
   #define _DEF_mks_version
   #include "ufisvers.h" /* sets UFIS_VERSION, must be done before mks_version */
-  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/tbthdl.c 0.5 2014/06/04 16:50:14SGT fya Exp  $";
+  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/tbthdl.c 0.6 2014/06/06 16:50:14SGT fya Exp  $";
 #endif /* _DEF_mks_version */
 /******************************************************************************/
 /*                                                                            */
@@ -141,7 +141,7 @@ static int collectSourceFieldSet(char *pcpFiledSet, char * pcpConflictFiledSet, 
 static int collectFieldList(char *pcpFiledSet, char *pcpDestField, int ipGroupNumer);
 static int isDisabledLine(char *pcpLine);
 static int isCommentLine(char *pcpLine);
-static int extractTimeWindowRefField(char *pcpFieldVal, char *pcpFieldName, char *pcpFields, char *pcpNewData);
+static int extractField(char *pcpFieldVal, char *pcpFieldName, char *pcpFields, char *pcpNewData);
 static int isInTimeWindow(char *pcpTimeVal, int ilTimeWindowUpperLimit, int ilTimeWindowLowerLimit);
 static int toDetermineAppliedRuleGroup(char * pcpTable, char * pcpFields, char * pcpNewData);
 static void showFieldByGroup(char (*pcpSourceFiledSet)[LISTLEN], char (*pcpConflictFiledSet)[LISTLEN], char (* pcpSourceFiledList)[LISTLEN], char (* pcpDestFiledSet)[LISTLEN]);
@@ -154,6 +154,8 @@ static int convertSrcValToDestVal(char *pcpSourceFieldName, char *pcpSourceField
 static void buildInsertQuery(char *pcpSqlBuf, char * pcpTable, char * pcpDestFieldList, char *pcpDestFieldData);
 static void buildUpdateQuery(char *pcpSqlBuf, char * pcpTable, char * pcpDestFieldList, char *pcpDestFieldData, char * pcpSelection);
 static void buildDestTabWhereClause( char *pcpSelection, char *pcpDestKey, char *pcpDestFiledList, char *pclDestDataList);
+static int getRotationFlightData(char *pcpTable, char *pcpUrnoSelection, char *pcpFields, char (*pcpRotationData)[LISTLEN], char *pcpAdid);
+static void showRotationFlight(char (*pclRotationData)[LISTLEN]);
 /******************************************************************************/
 /*                                                                            */
 /* The MAIN program                                                           */
@@ -713,6 +715,9 @@ static int HandleData(EVENT *prpEvent)
 	char 	clTable[34];
 	int		ilUpdPoolJob = TRUE;
 
+    char pclAdidValue[2] = "\0";
+	char pclTimeWindowRefField[8] = "\0";
+
     char pclSourceFieldList[2048] = "\0";
     char pclSourceDataList[2048] = "\0";
     char pclWhereClaues[2048] = "\0";
@@ -722,14 +727,13 @@ static int HandleData(EVENT *prpEvent)
     char pclTimeWindowRefFieldVal[32] = "\0";
     char pclNewData[512000] = "\0";
     char pclOldData[512000] = "\0";
-
-	char pclTimeWindowRefField[8] = "\0";
+    char pclRotationData[16][LISTLEN] = {"\0", "\0"};
 
 	prlBchead    = (BC_HEAD *) ((char *)prpEvent + sizeof(EVENT));
 	prlCmdblk    = (CMDBLK *)  ((char *)prlBchead->data);
 	pclSelection = prlCmdblk->data;
-	pclFields    = pclSelection + strlen(pclSelection) + 1;
-	pclData      = pclFields + strlen(pclFields) + 1;
+	pclFields    = (char *)pclSelection + strlen(pclSelection) + 1;
+	pclData      = (char *)pclFields + strlen(pclFields) + 1;
 
     pclTmpPtr = strstr(pclSelection, "\n");
  	if (pclTmpPtr != NULL)
@@ -779,10 +783,40 @@ static int HandleData(EVENT *prpEvent)
     }
     else /*The normal DFR, IFR and UFR command*/
     {
-        ilRc = extractTimeWindowRefField(pclTimeWindowRefFieldVal, pcgTimeWindowRefField, pclFields, pclNewData);
+        ilRc = extractField(pclAdidValue, "ADID", pclFields, pclNewData);
+        if (ilRc == RC_FAIL)
+        {
+            dbg(TRACE,"%s The ADID value<%s> is invalid", pclFunc, pclAdidValue);
+            return RC_FAIL;
+        }
+        else
+        {
+            dbg(TRACE,"%s The ADID value<%s> is valid", pclFunc, pclAdidValue);
+        }
+
+        ilRc = getRotationFlightData(clTable, pclUrnoSelection, pclFields, pclRotationData, pclAdidValue);
+        if (ilRc == RC_SUCCESS)
+        {
+            showRotationFlight(pclRotationData);
+        }
+
+        #ifndef FYA
+        ilRc = extractField(pclTimeWindowRefFieldVal, pcgTimeWindowRefField, pclFields, pclNewData);
         if (ilRc == RC_FAIL)
         {
             return RC_FAIL;
+        }
+        else
+        {
+            if ( atoi(pclTimeWindowRefFieldVal) != 0 )
+            {
+                dbg(TRACE, "<%s> %s = %s", pclFunc, pcgTimeWindowRefField, pclTimeWindowRefFieldVal);
+            }
+            else
+            {
+                dbg(TRACE,"%s The refered time value is invalid", pclFunc);
+                return RC_FAIL;
+            }
         }
 
         ilRc = isInTimeWindow(pclTimeWindowRefFieldVal, igTimeWindowUpperLimit, igTimeWindowLowerLimit);
@@ -842,6 +876,7 @@ static int HandleData(EVENT *prpEvent)
             dbg(TRACE,"%s The getting source data config option is not set - using the original field and data list", pclFunc);
             appliedRules( ilRuleGroup, pclFields, pclNewData, pcgSourceFiledList[ilRuleGroup], pcgDestFiledList[ilRuleGroup], &rgRule, igTotalLineOfRule, pclSelection);
         }
+        #endif
     }
 
     /****************************************/
@@ -1307,9 +1342,9 @@ static int isDisabledLine(char *pcpLine)
     return ilRC;
 }
 
-static int extractTimeWindowRefField(char *pcpFieldVal, char *pcpFieldName, char *pcpFields, char *pcpNewData)
+static int extractField(char *pcpFieldVal, char *pcpFieldName, char *pcpFields, char *pcpNewData)
 {
-    char *pclFunc = "extractTimeWindowRefField";
+    char *pclFunc = "extractField";
 
     int ilItemNo = 0;
 
@@ -1323,15 +1358,7 @@ static int extractTimeWindowRefField(char *pcpFieldVal, char *pcpFieldName, char
     get_real_item(pcpFieldVal, pcpNewData, ilItemNo);
     dbg(DEBUG,"<%s> The New %s is <%s>", pclFunc, pcpFieldName, pcpFieldVal);
 
-    if ( atoi(pcpFieldVal) != 0 )
-    {
-        dbg(TRACE, "<%s> %s = %s", pclFunc, pcpFieldName, pcpFieldVal);
-        return RC_SUCCESS;
-    }
-    else
-    {
-        return RC_FAIL;
-    }
+    return RC_SUCCESS;
 }
 
 static int isInTimeWindow(char *pcpTimeVal, int igTimeWindowUpperLimit, int igTimeWindowLowerLimit)
@@ -1798,4 +1825,77 @@ static int convertSrcValToDestVal(char *pcpSourceFieldName, char *pcpSourceField
         pcpSourceFieldName, pcpSourceFieldValue, pcpDestFieldName, pcpDestFieldValue);
 
     return ilRC;
+}
+
+static int getRotationFlightData(char *pcpTable, char *pcpUrnoSelection, char *pcpFields, char (*pcpRotationData)[LISTLEN], char *pcpAdid)
+{
+    int ilCount = 0;
+    int ilRC = RC_FAIL;
+    short slLocalCursor = 0, slFuncCode = 0;
+    char *pclFunc = "getRotationFlightData";
+    char pclAdidTmp[2] = "\0";
+    char pclSqlBuf[2048] = "\0",pclSqlData[4096] = "\0",pclWhere[2048] = "\0";
+
+    if( strncmp(pcpAdid,"A",1) != 0 && strncmp(pcpAdid,"D",1) != 0 )
+    {
+        dbg(TRACE, "%s The adid is neither A nor D", pclFunc);
+        return ilRC;
+    }
+
+    sprintf(pclWhere, "WHERE RKEY = %s ", pcpUrnoSelection);
+
+    if( strncmp(pcpAdid, "A", 1) == 0 )
+    {
+        strcpy(pclAdidTmp,"AND ADID='D'");
+    }
+    else
+    {
+        strcpy(pclAdidTmp,"AND ADID='A'");
+    }
+    strcat(pclWhere, pclAdidTmp);
+
+    /*
+    1-build select query
+    2-store the found rotation flight data
+    */
+
+    buildSelQuery(pclSqlBuf, pcpTable, pcpFields, pclWhere);
+    /*dbg(TRACE, "%s select<%s>", pclFunc, pclSqlBuf);*/
+
+    slLocalCursor = 0;
+	slFuncCode = START;
+    while( sql_if(slFuncCode, &slLocalCursor, pclSqlBuf, pclSqlData) == DB_SUCCESS )
+    {
+        slFuncCode = NEXT;
+
+        dbg(TRACE,"%s pclSqlData<%s>", pclFunc, pclSqlData);
+
+        if (ilCount < ARRAYNUMBER)
+        {
+            strcpy(pcpRotationData[ilCount],pclSqlData);
+        }
+        else
+        {
+            dbg(TRACE,"%s The number of rotation flights exceeds the array", pclFunc);
+            break;
+        }
+        ilCount++;
+    }
+    close_my_cursor(&slLocalCursor);
+
+    return RC_SUCCESS;
+}
+
+static void showRotationFlight(char (*pclRotationData)[LISTLEN])
+{
+    int ilCount = 0;
+    char *pclFunc = "showRotationFlight";
+
+    for(ilCount = 0; ilCount < ARRAYNUMBER; ilCount++)
+    {
+        if (strlen(pclRotationData[ilCount]) > 0)
+        {
+            dbg(DEBUG,"%s <%d> Rotation Flight<%s>", pclFunc, ilCount, pclRotationData[ilCount]);
+        }
+    }
 }
