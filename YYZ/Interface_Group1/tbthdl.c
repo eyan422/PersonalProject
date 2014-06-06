@@ -156,6 +156,7 @@ static void buildUpdateQuery(char *pcpSqlBuf, char * pcpTable, char * pcpDestFie
 static void buildDestTabWhereClause( char *pcpSelection, char *pcpDestKey, char *pcpDestFiledList, char *pclDestDataList);
 static int getRotationFlightData(char *pcpTable, char *pcpUrnoSelection, char *pcpFields, char (*pcpRotationData)[LISTLEN], char *pcpAdid);
 static void showRotationFlight(char (*pclRotationData)[LISTLEN]);
+static int mapping(char *pcpTable, char *pcpFields, char *pcpNewData, char *pcpSelection);
 /******************************************************************************/
 /*                                                                            */
 /* The MAIN program                                                           */
@@ -701,8 +702,6 @@ static int HandleData(EVENT *prpEvent)
 {
 	int	   ilRc           = RC_SUCCESS;			/* Return code */
 	int    ilCmd          = 0;
-
-	int ilRuleGroup = 0;
 	char *pclFunc = "HandleData";
 
 	BC_HEAD *prlBchead       = NULL;
@@ -717,14 +716,10 @@ static int HandleData(EVENT *prpEvent)
 
     char pclAdidValue[2] = "\0";
 	char pclTimeWindowRefField[8] = "\0";
-
-    char pclSourceFieldList[2048] = "\0";
-    char pclSourceDataList[2048] = "\0";
     char pclWhereClaues[2048] = "\0";
 
     char *pclTmpPtr = NULL;
     char pclUrnoSelection[50] = "\0";
-    char pclTimeWindowRefFieldVal[32] = "\0";
     char pclNewData[512000] = "\0";
     char pclOldData[512000] = "\0";
     char pclRotationData[16][LISTLEN] = {"\0", "\0"};
@@ -800,90 +795,14 @@ static int HandleData(EVENT *prpEvent)
             showRotationFlight(pclRotationData);
         }
 
-        #ifndef FYA
-        ilRc = extractField(pclTimeWindowRefFieldVal, pcgTimeWindowRefField, pclFields, pclNewData);
-        if (ilRc == RC_FAIL)
-        {
-            return RC_FAIL;
-        }
-        else
-        {
-            if ( atoi(pclTimeWindowRefFieldVal) != 0 )
-            {
-                dbg(TRACE, "<%s> %s = %s", pclFunc, pcgTimeWindowRefField, pclTimeWindowRefFieldVal);
-            }
-            else
-            {
-                dbg(TRACE,"%s The refered time value is invalid", pclFunc);
-                return RC_FAIL;
-            }
-        }
-
-        ilRc = isInTimeWindow(pclTimeWindowRefFieldVal, igTimeWindowUpperLimit, igTimeWindowLowerLimit);
-        if(ilRc == RC_FAIL)
-        {
-            return RC_FAIL;
-        }
-
-        /*  fya 0.2
-            To determine the applied rule group
-        */
-
-        ilRuleGroup = toDetermineAppliedRuleGroup(clTable, pclFields, pclNewData);
-        if ( ilRuleGroup == 0 )
-        {
-            dbg(TRACE,"%s ilRuleGroup == 0 -> There is no applied rules", pclFunc);
-            ilRc = RC_FAIL;
-        }
-        else
-        {
-            dbg(TRACE,"%s Applied rule group is %d", pclFunc, ilRuleGroup);
-        }
-
-        /*if the required fields are not all filled: then either retrieve them from the source table, or leave them as blank*/
-        if ( igGetDataFromSrcTable == TRUE)
-        {
-            ilRc = matchFieldListOnGroup(ilRuleGroup, pclSourceFieldList);
-            if (ilRc == RC_FAIL)
-            {
-                dbg(TRACE,"%s The source field list is invalid", pclFunc);
-                return RC_FAIL;
-            }
-            else
-            {
-                dbg(TRACE,"%s The source field list is <%s>", pclFunc, pclSourceFieldList);
-            }
-
-            ilRc = getSourceFieldData(clTable, pclSourceFieldList, pclSelection, pclSourceDataList);
-            if (ilRc == RC_FAIL)
-            {
-                dbg(TRACE,"%s The source field data is not found - using the original field and data list", pclFunc);
-                appliedRules( ilRuleGroup, pclFields, pclNewData, pcgSourceFiledList[ilRuleGroup], pcgDestFiledList[ilRuleGroup], &rgRule, igTotalLineOfRule, pclSelection);
-            }
-            else
-            {
-                dbg(TRACE,"%s The source field list is found <%s>", pclFunc, pclSourceFieldList);
-
-                dbg(DEBUG,"%s pcgSourceFiledList[%d] <%s>", pclFunc, ilRuleGroup, pcgSourceFiledList[ilRuleGroup]);
-                dbg(DEBUG,"%s pcgDestFiledList[%d] <%s>", pclFunc, ilRuleGroup, pcgDestFiledList[ilRuleGroup]);
-
-                appliedRules( ilRuleGroup, pclSourceFieldList, pclSourceDataList, pcgSourceFiledList[ilRuleGroup], pcgDestFiledList[ilRuleGroup], &rgRule, igTotalLineOfRule, pclSelection);
-            }
-        }
-        else
-        {
-            /*using the original field and data list*/
-            dbg(TRACE,"%s The getting source data config option is not set - using the original field and data list", pclFunc);
-            appliedRules( ilRuleGroup, pclFields, pclNewData, pcgSourceFiledList[ilRuleGroup], pcgDestFiledList[ilRuleGroup], &rgRule, igTotalLineOfRule, pclSelection);
-        }
-        #endif
+        mapping(clTable, pclFields, pclNewData, pclSelection);
     }
 
     /****************************************/
 	dbg(TRACE,"==========  END  <%10.10d> ==========",lgEvtCnt);
     lgEvtCnt++;
 
-	return ilRc;
+	return RC_SUCCESS;
 
 } /* end of HandleData */
 
@@ -1897,5 +1816,93 @@ static void showRotationFlight(char (*pclRotationData)[LISTLEN])
         {
             dbg(DEBUG,"%s <%d> Rotation Flight<%s>", pclFunc, ilCount, pclRotationData[ilCount]);
         }
+    }
+}
+
+static int mapping(char *pcpTable, char *pcpFields, char *pcpNewData, char *pcpSelection)
+{
+
+    int ilRc = 0;
+    int ilRuleGroup = 0;
+    char pclTimeWindowRefFieldVal[32] = "\0";
+    char *pclFunc = "mapping";
+
+    char pclSourceFieldList[2048] = "\0";
+    char pclSourceDataList[2048] = "\0";
+
+    ilRc = extractField(pclTimeWindowRefFieldVal, pcgTimeWindowRefField, pcpFields, pcpNewData);
+    if (ilRc == RC_FAIL)
+    {
+        return RC_FAIL;
+    }
+    else
+    {
+        if ( atoi(pclTimeWindowRefFieldVal) != 0 )
+        {
+            dbg(TRACE, "<%s> %s = %s", pclFunc, pcgTimeWindowRefField, pclTimeWindowRefFieldVal);
+        }
+        else
+        {
+            dbg(TRACE,"%s The refered time value is invalid", pclFunc);
+            return RC_FAIL;
+        }
+    }
+
+    ilRc = isInTimeWindow(pclTimeWindowRefFieldVal, igTimeWindowUpperLimit, igTimeWindowLowerLimit);
+    if(ilRc == RC_FAIL)
+    {
+        return RC_FAIL;
+    }
+
+    /*  fya 0.2
+        To determine the applied rule group
+    */
+
+    ilRuleGroup = toDetermineAppliedRuleGroup(pcpTable, pcpFields, pcpNewData);
+    if ( ilRuleGroup == 0 )
+    {
+        dbg(TRACE,"%s ilRuleGroup == 0 -> There is no applied rules", pclFunc);
+        ilRc = RC_FAIL;
+    }
+    else
+    {
+        dbg(TRACE,"%s Applied rule group is %d", pclFunc, ilRuleGroup);
+    }
+
+    /*if the required fields are not all filled: then either retrieve them from the source table, or leave them as blank*/
+    if ( igGetDataFromSrcTable == TRUE)
+    {
+        ilRc = matchFieldListOnGroup(ilRuleGroup, pclSourceFieldList);
+        if (ilRc == RC_FAIL)
+        {
+            dbg(TRACE,"%s The source field list is invalid", pclFunc);
+            return RC_FAIL;
+        }
+        else
+        {
+            dbg(TRACE,"%s The source field list is <%s>", pclFunc, pclSourceFieldList);
+        }
+
+        ilRc = getSourceFieldData(pcpTable, pclSourceFieldList, pcpSelection, pclSourceDataList);
+        if (ilRc == RC_FAIL)
+        {
+            dbg(TRACE,"%s The source field data is not found - using the original field and data list", pclFunc);
+            appliedRules( ilRuleGroup, pcpFields, pcpNewData, pcgSourceFiledList[ilRuleGroup], pcgDestFiledList[ilRuleGroup], &rgRule, igTotalLineOfRule, pcpSelection);
+        }
+        else
+        {
+            dbg(TRACE,"%s The source field list is found <%s>", pclFunc, pclSourceFieldList);
+
+            dbg(DEBUG,"%s pcgSourceFiledList[%d] <%s>", pclFunc, ilRuleGroup, pcgSourceFiledList[ilRuleGroup]);
+            dbg(DEBUG,"%s pcgDestFiledList[%d] <%s>", pclFunc, ilRuleGroup, pcgDestFiledList[ilRuleGroup]);
+
+            appliedRules( ilRuleGroup, pclSourceFieldList, pclSourceDataList, pcgSourceFiledList[ilRuleGroup], pcgDestFiledList[ilRuleGroup], &rgRule, igTotalLineOfRule, pcpSelection);
+        }
+    }
+    else
+    {
+        /*using the original field and data list*/
+        dbg(TRACE,"%s The getting source data config option is not set - using the original field and data list", pclFunc);
+        appliedRules( ilRuleGroup, pcpFields, pcpNewData, pcgSourceFiledList[ilRuleGroup], pcgDestFiledList[ilRuleGroup], &rgRule, igTotalLineOfRule, pcpSelection);
     }
 }
