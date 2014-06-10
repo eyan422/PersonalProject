@@ -1,0 +1,6 @@
+# depslib dependency file v1.0
+1402382129 source:d:\git\personalproject\vial\main.c
+	<stdio.h>
+	<stdlib.h>
+	<string.h>
+

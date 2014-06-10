@@ -1,0 +1,6 @@
+# depslib dependency file v1.0
+1402288564 source:d:\git\personalproject\functionpointerarray\main.c
+	<stdio.h>
+	<stdlib.h>
+	<string.h>
+

@@ -1,0 +1,6 @@
+# depslib dependency file v1.0
+1402289655 source:d:\git\personalproject\structarray\main.c
+	<stdio.h>
+	<stdlib.h>
+	<string.h>
+
