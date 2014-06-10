@@ -15,9 +15,9 @@ int main()
     char pclBuffer[4096] = "\0";
 
     char *pclVial = NULL;
-    pclVial= pcgVial1;
+    //pclVial= pcgVial1;
     //pclVial= pcgVial2;
-    //pclVial= pcgVial3;
+    pclVial= pcgVial3;
 
     strcpy(pclBuffer, pclVial+1);
 
@@ -28,21 +28,8 @@ int main()
 
     for (ilCount = 0; ilCount <= ilNO; ilCount++)
     {
-        if (ilCount == 0)
-        {
-            strncpy(pclTmp,pclVial+1,3);
-            printf("%d pclTmp<%s>\n",ilCount,pclTmp);
-        }
-        else if (ilCount == 1)
-        {
-            strncpy(pclTmp,pclVial+ilCount*121,3);
-            printf("%d pclTmp<%s>\n",ilCount,pclTmp);
-        }
-        else
-        {
-            strncpy(pclTmp,pclVial+ilCount*121 -1,3);
-            printf("%d pclTmp<%s>\n",ilCount,pclTmp);
-        }
+        strncpy(pclTmp,pclBuffer+ilCount*120,3);
+        printf("%d pclTmp<%s>\n",ilCount,pclTmp);
     }
 
     return 0;
