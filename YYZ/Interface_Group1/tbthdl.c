@@ -790,8 +790,11 @@ static int HandleData(EVENT *prpEvent)
             getCodeShare(pclFields,pclNewData,pclCodeShare);
         }
 
-        #ifdef FYA
+        #ifndef FYA
+        /*master flight*/
         mapping(clTable, pclFields, pclNewData, pclSelection, pclAdidValue);
+
+        /*codeshare flights*/
 
         ilRc = extractField(pclAdidValue, "ADID", pclFields, pclNewData);
         if (ilRc == RC_FAIL)
@@ -805,7 +808,6 @@ static int HandleData(EVENT *prpEvent)
         }
 
         /*getting the roataion flight data beforehand, optimize this part later*/
-
         ilRc = getRotationFlightData(clTable, pclUrnoSelection, pclFields, pclRotationData, pclAdidValue);
         if (ilRc == RC_SUCCESS)
         {
@@ -817,7 +819,11 @@ static int HandleData(EVENT *prpEvent)
                 if (strlen(pclRotationData[ilCount]) > 0)
                 {
                     dbg(DEBUG,"%s <%d> Rotation Flight<%s>", pclFunc, ilCount, pclRotationData[ilCount]);
+
+                    /*master flight*/
                     mapping(clTable, pclFields, pclRotationData[ilCount], pclSelection, pclAdidValue);
+
+                    /*codeshare flights*/
                 }
             }
         }

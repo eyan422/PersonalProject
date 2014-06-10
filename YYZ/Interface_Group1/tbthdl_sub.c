@@ -15,6 +15,34 @@ extern void buildSelQuery(char *pcpSqlBuf, char * pcpTable, char * pcpSourceFiel
 extern int getRotationFlightData(char *pcpTable, char *pcpUrnoSelection, char *pcpFields, char (*pcpRotationData)[LISTLEN], char *pcpAdid);
 extern void showRotationFlight(char (*pclRotationData)[LISTLEN]);
 
+int zon(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpSelection, char *pcpAdid)
+{
+    int ilRC = RC_FAIL;
+    char *pclFunc = "zon";
+
+    strncpy(pcpDestValue, " ", 1);
+
+    if(strlen(pcpAdid) == 0 || strncmp(pcpAdid," ",1) ==0 )
+    {
+        dbg(TRACE,"%s pcpAdid<%s> is invalid",pclFunc,pcpAdid);
+        return ilRC;
+    }
+
+    if(strncmp(pcpAdid,"A",1) != 0 && strncmp(pcpAdid,"D",1) != 0 )
+    {
+        dbg(TRACE,"%s pcpAdid<%s> is invalid",pclFunc,pcpAdid);
+        return ilRC;
+    }
+
+    if( strncmp(pcpAdid,"A",1) == 0 )
+    {
+        strncpy(pcpDestValue, pcpSourceValue);
+        ilRC = RC_SUCCESS;
+    }
+
+    return ilRC;
+}
+
 int getVial(char *pcpVial, char (*pcpVialArray)[LISTLEN])
 {
     int ilNO=0;
@@ -365,6 +393,8 @@ CODEFUNC[OPER_CODE] =
     {"REF",refTable},
     {"ROTATION",rotation},
     {"VIA",via},
-    {"VIAREF",viaref}
+    {"VIAREF",viaref},
+    {"ZON",zon}
+    }
     /*{"",}*/
 };
