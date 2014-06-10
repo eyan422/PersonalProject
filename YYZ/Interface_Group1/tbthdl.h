@@ -9,23 +9,23 @@
 
 typedef struct
 {
-    char pclActive[8];              /*ACTIVE*/
-    char pclRuleGroup[8];           /*RulGrp*/
+    char pclActive[64];              /*ACTIVE*/
+    char pclRuleGroup[64];           /*RulGrp*/
 
     char pclSourceTable[64];         /*SrcTab*/
-    char pclSourceKey[8];           /*SrcKey*/
-    char pclSourceField[8];         /*SrcFld*/
+    char pclSourceKey[64];           /*SrcKey*/
+    char pclSourceField[64];         /*SrcFld*/
     //char pclSourceFieldValue[126];  /*SrcFldVal*/
-    char pclSourceFieldType[8];     /*SrcTyp*/
+    char pclSourceFieldType[64];     /*SrcTyp*/
 
     char pclDestTable[64];           /*Destab*/
-    char pclDestKey[8];             /*DesKey*/
-    char pclDestField[8];           /*Desfld*/
+    char pclDestKey[64];             /*DesKey*/
+    char pclDestField[64];           /*Desfld*/
     //char pclDestFieldValue[126];    /*DesfldVal*/
-    char pclDestFieldLen[8];        /*Deslen*/
-    char pclDestFieldType[8];       /*Destyp*/
+    char pclDestFieldLen[64];        /*Deslen*/
+    char pclDestFieldType[64];       /*Destyp*/
 
-    char pclDestFieldOperator[8];   /*Operate*/
+    char pclDestFieldOperator[64];   /*Operate*/
     char pclCond1[128];      /*Con1*/
     char pclCond2[128];      /*Con2*/
 }_LINE;

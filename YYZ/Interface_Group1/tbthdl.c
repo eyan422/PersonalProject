@@ -2,7 +2,7 @@
 #ifndef _DEF_mks_version
   #define _DEF_mks_version
   #include "ufisvers.h" /* sets UFIS_VERSION, must be done before mks_version */
-  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/tbthdl.c 0.6 2014/06/06 16:50:14SGT fya Exp  $";
+  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/tbthdl.c 0.9 2014/06/09 16:50:14SGT fya Exp  $";
 #endif /* _DEF_mks_version */
 /******************************************************************************/
 /*                                                                            */
@@ -64,6 +64,7 @@ static char sccs_version[] ="@(#) UFIS44 (c) ABB AAT/I skeleton.c 44.1.0 / 11.12
 /*fya 0.1*/
 #include "tbthdl.h"
 #include "tbthdl_sub.c"
+#include "tbthdl_customized.c"
 
 #if defined(_HPUX_SOURCE)  || defined(_AIX)
 	extern int daylight;
@@ -113,7 +114,8 @@ static char pcgTimeWindowRefField[8];
 static int igTimeWindowUpperLimit;
 static int igTimeWindowLowerLimit;
 static int igGetDataFromSrcTable;
-
+static int igEnableCodeshare;
+int igTimeDifference;
 /******************************************************************************/
 /* Function prototypes	                                                      */
 /******************************************************************************/
@@ -140,23 +142,23 @@ static void storeRule(_LINE *rpRuleLine, _LINE *rpSingleLine);
 static int collectSourceFieldSet(char *pcpFiledSet, char * pcpConflictFiledSet, char *pcpSourceField, int ipGroupNumer);
 static int collectFieldList(char *pcpFiledSet, char *pcpDestField, int ipGroupNumer);
 static int isDisabledLine(char *pcpLine);
+int extractField(char *pcpFieldVal, char *pcpFieldName, char *pcpFields, char *pcpNewData);
 static int isCommentLine(char *pcpLine);
-static int extractField(char *pcpFieldVal, char *pcpFieldName, char *pcpFields, char *pcpNewData);
 static int isInTimeWindow(char *pcpTimeVal, int ilTimeWindowUpperLimit, int ilTimeWindowLowerLimit);
 static int toDetermineAppliedRuleGroup(char * pcpTable, char * pcpFields, char * pcpNewData);
 static void showFieldByGroup(char (*pcpSourceFiledSet)[LISTLEN], char (*pcpConflictFiledSet)[LISTLEN], char (* pcpSourceFiledList)[LISTLEN], char (* pcpDestFiledSet)[LISTLEN]);
 static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *pcpSourceFiledList, char *pcpDestFiledList,
-                        _RULE *rpRule, int ipTotalLineOfRule, char * pcpSelection);
+                        _RULE *rpRule, int ipTotalLineOfRule, char * pcpSelection, char *pcpAdid);
 static int matchFieldListOnGroup(int ilRuleGroup, char *pcpSourceFieldList);
 static int getSourceFieldData(char *pclTable, char * pcpSourceFieldList, char * pcpSelection, char * pclSourceDataList);
-static void buildSelQuery(char *pcpSqlBuf, char * pcpTable, char * pcpSourceFieldList, char * pcpSelection);
-static int convertSrcValToDestVal(char *pcpSourceFieldName, char *pcpSourceFieldValue, char *pcpDestFieldName, _LINE * rpLine, char * pcpDestFieldValue);
+void buildSelQuery(char *pcpSqlBuf, char * pcpTable, char * pcpSourceFieldList, char * pcpSelection);
+static int convertSrcValToDestVal(char *pcpSourceFieldName, char *pcpSourceFieldValue, char *pcpDestFieldName, _LINE * rpLine, char * pcpDestFieldValue, char * pcpSelection, char *pcpAdid);
 static void buildInsertQuery(char *pcpSqlBuf, char * pcpTable, char * pcpDestFieldList, char *pcpDestFieldData);
 static void buildUpdateQuery(char *pcpSqlBuf, char * pcpTable, char * pcpDestFieldList, char *pcpDestFieldData, char * pcpSelection);
 static void buildDestTabWhereClause( char *pcpSelection, char *pcpDestKey, char *pcpDestFiledList, char *pclDestDataList);
-static int getRotationFlightData(char *pcpTable, char *pcpUrnoSelection, char *pcpFields, char (*pcpRotationData)[LISTLEN], char *pcpAdid);
-static void showRotationFlight(char (*pclRotationData)[LISTLEN]);
-static int mapping(char *pcpTable, char *pcpFields, char *pcpNewData, char *pcpSelection);
+int getRotationFlightData(char *pcpTable, char *pcpUrnoSelection, char *pcpFields, char (*pcpRotationData)[LISTLEN], char *pcpAdid);
+void showRotationFlight(char (*pclRotationData)[LISTLEN]);
+static int mapping(char *pcpTable, char *pcpFields, char *pcpNewData, char *pcpSelection, char *pcpAdid);
 /******************************************************************************/
 /*                                                                            */
 /* The MAIN program                                                           */
@@ -714,15 +716,18 @@ static int HandleData(EVENT *prpEvent)
 	char 	clTable[34];
 	int		ilUpdPoolJob = TRUE;
 
+	int ilCount = 0;
+
     char pclAdidValue[2] = "\0";
 	char pclTimeWindowRefField[8] = "\0";
     char pclWhereClaues[2048] = "\0";
 
     char *pclTmpPtr = NULL;
-    char pclUrnoSelection[50] = "\0";
+    char pclUrnoSelection[64] = "\0";
     char pclNewData[512000] = "\0";
     char pclOldData[512000] = "\0";
-    char pclRotationData[16][LISTLEN] = {"\0", "\0"};
+    char pclCodeShare[ARRAYNUMBER][LISTLEN];
+    char pclRotationData[ARRAYNUMBER][LISTLEN] = {"\0", "\0"};
 
 	prlBchead    = (BC_HEAD *) ((char *)prpEvent + sizeof(EVENT));
 	prlCmdblk    = (CMDBLK *)  ((char *)prlBchead->data);
@@ -778,6 +783,16 @@ static int HandleData(EVENT *prpEvent)
     }
     else /*The normal DFR, IFR and UFR command*/
     {
+        /*handle code-share flight*/
+        if( igEnableCodeshare == TRUE )
+        {
+            /*buildCodeShare(pclNewData,pclCodeShare);*/
+            getCodeShare(pclFields,pclNewData,pclCodeShare);
+        }
+
+        #ifdef FYA
+        mapping(clTable, pclFields, pclNewData, pclSelection, pclAdidValue);
+
         ilRc = extractField(pclAdidValue, "ADID", pclFields, pclNewData);
         if (ilRc == RC_FAIL)
         {
@@ -789,13 +804,24 @@ static int HandleData(EVENT *prpEvent)
             dbg(TRACE,"%s The ADID value<%s> is valid", pclFunc, pclAdidValue);
         }
 
+        /*getting the roataion flight data beforehand, optimize this part later*/
+
         ilRc = getRotationFlightData(clTable, pclUrnoSelection, pclFields, pclRotationData, pclAdidValue);
         if (ilRc == RC_SUCCESS)
         {
             showRotationFlight(pclRotationData);
-        }
 
-        mapping(clTable, pclFields, pclNewData, pclSelection);
+            /*handle rotation data*/
+            for(ilCount = 0; ilCount < ARRAYNUMBER; ilCount++)
+            {
+                if (strlen(pclRotationData[ilCount]) > 0)
+                {
+                    dbg(DEBUG,"%s <%d> Rotation Flight<%s>", pclFunc, ilCount, pclRotationData[ilCount]);
+                    mapping(clTable, pclFields, pclRotationData[ilCount], pclSelection, pclAdidValue);
+                }
+            }
+        }
+        #endif
     }
 
     /****************************************/
@@ -904,6 +930,37 @@ static int getConfig()
     {
         igGetDataFromSrcTable = FALSE;
         dbg(DEBUG,"Default igGetDataFromSrcTable<%d>",igGetDataFromSrcTable);
+    }
+
+    ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","TIME_DIFFERENCE",CFG_STRING,pclTmpBuf);
+    if (ilRC == RC_SUCCESS)
+    {
+        igTimeDifference = atoi(pclTmpBuf);
+        dbg(DEBUG,"igTimeDifference<%d>",igTimeDifference);
+    }
+    else
+    {
+        igTimeDifference = 0;
+        dbg(DEBUG,"Default igTimeDifference<%d>",igTimeDifference);
+    }
+
+    ilRC = iGetConfigEntry(pcgConfigFile,"CUSTOM","ENABLE_CODESHARE",CFG_STRING,pclTmpBuf);
+    if (ilRC == RC_SUCCESS)
+    {
+        if (strncmp(pclTmpBuf,"Y",1) == 0)
+        {
+            igEnableCodeshare = TRUE;
+        }
+        else
+        {
+            igEnableCodeshare = FALSE;
+        }
+        dbg(DEBUG,"igEnableCodeshare<%d>",igEnableCodeshare);
+    }
+    else
+    {
+        igEnableCodeshare = FALSE;
+        dbg(DEBUG,"Default igEnableCodeshare<%d>",igEnableCodeshare);
     }
 
     /* Get Client and Server chars */
@@ -1261,7 +1318,7 @@ static int isDisabledLine(char *pcpLine)
     return ilRC;
 }
 
-static int extractField(char *pcpFieldVal, char *pcpFieldName, char *pcpFields, char *pcpNewData)
+int extractField(char *pcpFieldVal, char *pcpFieldName, char *pcpFields, char *pcpNewData)
 {
     char *pclFunc = "extractField";
 
@@ -1348,7 +1405,7 @@ static int toDetermineAppliedRuleGroup(char * pcpTable, char * pcpFields, char *
 }
 
 static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *pcpSourceFiledList, char *pcpDestFiledList,
-                        _RULE *rpRule, int ipTotalLineOfRule, char * pcpSelection)
+                        _RULE *rpRule, int ipTotalLineOfRule, char * pcpSelection, char *pcpAdid)
 {
     int ilRC = RC_SUCCESS;
     int ilItemNo = 0;
@@ -1403,6 +1460,8 @@ static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *
 
             for (ilRuleCount = 0; ilRuleCount <= ipTotalLineOfRule; ilRuleCount++)
             {
+                memset(pclTmpSourceFieldValue,0,sizeof(pclTmpSourceFieldValue));
+
                 /*matched the group number*/
                 if ( atoi(rpRule->rlLine[ilRuleCount].pclRuleGroup) == ipRuleGroup)
                 {
@@ -1414,23 +1473,46 @@ static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *
                             dbg(TRACE, "<%s> No <%s> Not found in the field list, can't do anything", pclFunc, pclTmpSourceFieldName);
                             return RC_FAIL;
                         }
-                        get_real_item(pclTmpSourceFieldValue, pcpData, ilItemNo);
-                        dbg(DEBUG,"<%s> Source - The value for %s is <%s>", pclFunc, pclTmpSourceFieldName, pclTmpSourceFieldValue);
-
-                        /*getting the operator and condition*/
-                        dbg(TRACE,"%s The operator is <%s> and con1<%s>, con2<%s>",pclFunc, rpRule->rlLine[ilRuleCount].pclDestFieldOperator,
-                        rpRule->rlLine[ilRuleCount].pclCond1, rpRule->rlLine[ilRuleCount].pclCond2);
-
-                        convertSrcValToDestVal(pclTmpSourceFieldName, pclTmpSourceFieldValue, pclTmpDestFieldName, rpRule->rlLine+ilRuleCount, pclTmpDestFieldValue);
-
-                        if ( strlen(pclDestDataList) == 0 )
-                        {
-                            strcat(pclDestDataList,pclTmpDestFieldValue);
-                        }
                         else
                         {
-                            strcat(pclDestDataList,",");
-                            strcat(pclDestDataList,pclTmpDestFieldValue);
+                            get_real_item(pclTmpSourceFieldValue, pcpData, ilItemNo);
+                        }
+                        dbg(DEBUG,"<%s> Source - The value for <%s> is <%s>", pclFunc, pclTmpSourceFieldName, pclTmpSourceFieldValue);
+
+                        /*getting the operator and condition*/
+                        /*dbg(TRACE,"%s The operator is <%s> and con1<%s>, con2<%s>",pclFunc, rpRule->rlLine[ilRuleCount].pclDestFieldOperator,
+                        rpRule->rlLine[ilRuleCount].pclCond1, rpRule->rlLine[ilRuleCount].pclCond2);*/
+
+                        ilRC = convertSrcValToDestVal(pclTmpSourceFieldName, pclTmpSourceFieldValue, pclTmpDestFieldName, rpRule->rlLine+ilRuleCount, pclTmpDestFieldValue, pcpSelection, pcpAdid);
+
+                        /*NUMBER*/
+                        if(ilRC == RC_NUMBER)
+                        {
+                            if ( strlen(pclDestDataList) == 0 )
+                            {
+                                strcat(pclDestDataList, pclTmpDestFieldValue);
+                            }
+                            else
+                            {
+                                strcat(pclDestDataList,",");
+                                strcat(pclDestDataList, pclTmpDestFieldValue);
+                            }
+                        }/*CHAR*/
+                        else
+                        {
+                            if ( strlen(pclDestDataList) == 0 )
+                            {
+                                strcat(pclDestDataList, "'");
+                                strcat(pclDestDataList, pclTmpDestFieldValue);
+                                strcat(pclDestDataList, "'");
+                            }
+                            else
+                            {
+                                strcat(pclDestDataList,",");
+                                strcat(pclDestDataList, "'");
+                                strcat(pclDestDataList, pclTmpDestFieldValue);
+                                strcat(pclDestDataList, "'");
+                            }
                         }
                     }
                 }
@@ -1564,10 +1646,13 @@ static int matchFieldListOnGroup(int ilRuleGroup, char *pcpSourceFieldList)
 static int getSourceFieldData(char *pclTable, char * pcpSourceFieldList, char * pcpSelection, char * pcpSourceDataList)
 {
     int ilRC = RC_SUCCESS;
+    int ilNoEle = 0;
     char *pclFunc = "getSourceFieldData";
 
     char pclSqlBuf[4096] = "\0";
     char pclSqlData[4096] = "\0";
+
+    ilNoEle = GetNoOfElements(pcpSourceFieldList, ',');
 
     buildSelQuery(pclSqlBuf, pclTable, pcpSourceFieldList, pcpSelection);
 
@@ -1586,6 +1671,7 @@ static int getSourceFieldData(char *pclTable, char * pcpSourceFieldList, char * 
             break;
         default:
             dbg(TRACE, "<%s> Retrieving source data - Found\n <%s>", pclFunc, pclSqlData);
+            BuildItemBuffer(pclSqlData, NULL, ilNoEle, ",");
             strcpy(pcpSourceDataList, pclSqlData);
             ilRC = RC_SUCCESS;
             break;
@@ -1593,7 +1679,7 @@ static int getSourceFieldData(char *pclTable, char * pcpSourceFieldList, char * 
     return ilRC;
 }
 
-static void buildSelQuery(char *pcpSqlBuf, char * pcpTable, char * pcpSourceFieldList, char * pcpSelection)
+void buildSelQuery(char *pcpSqlBuf, char * pcpTable, char * pcpSourceFieldList, char * pcpSelection)
 {
     char *pclFunc = "buildSelQuery";
 
@@ -1689,54 +1775,25 @@ static void buildUpdateQuery(char *pcpSqlBuf, char * pcpTable, char * pcpDestFie
     sprintf(pcpSqlBuf,"UPDATE %s SET %s %s", pcpTable, pclString, pcpSelection);
 }
 
-static int convertSrcValToDestVal(char *pcpSourceFieldName, char *pcpSourceFieldValue, char *pcpDestFieldName, _LINE * rpLine, char * pcpDestFieldValue)
+static int convertSrcValToDestVal(char *pcpSourceFieldName, char *pcpSourceFieldValue, char *pcpDestFieldName, _LINE * rpLine, char * pcpDestFieldValue, char * pcpSelection, char *pcpAdid)
 {
     int ilRC = RC_SUCCESS;
+    int ilCount = 0;
     char *pclFunc = "convertSrcValToDestVal";
     char pclOperator[16] = "\0";
-
-    char pclTest[16] = "XYZ";
 
     memset(pcpDestFieldValue,0,sizeof(pcpDestFieldValue));
 
     strcpy(pclOperator,rpLine->pclDestFieldOperator);
     TrimRight(pclOperator);
 
-    if ( strlen(pclOperator) == 0 || pclOperator[0] == ' ' )
+    /*Changing it binary search later*/
+    for (ilCount = 0; ilCount < OPER_CODE; ilCount++)
     {
-        /*
-        operator is blank, so, using the original value as the dest one
-        */
-
-        ilRC = defaultOperator(pcpDestFieldValue, pcpSourceFieldValue);
-    }
-    else
-    {
-        dbg(TRACE, "%s The operator is <%s>",pclFunc, pclOperator);
-
-        if ( strcmp(pclOperator,"SUBS") == 0 )
+        if( strcmp(pclOperator, CODEFUNC[ilCount].pclOperCode) == 0 )
         {
-            sub(pcpDestFieldValue, pcpSourceFieldValue, rpLine->pclCond1, rpLine->pclCond2, rpLine->pclDestFieldLen);
-        }
-        else if ( strcmp(pclOperator,"CAT") == 0 )
-        {
-            cat(pcpDestFieldValue, pcpSourceFieldValue, pclTest, rpLine->pclDestFieldLen);
-        }
-        else if ( strcmp(pclOperator,"DEP") == 0 )
-        {
-            strcpy(pcpDestFieldValue, pcpSourceFieldValue);
-            ilRC = RC_SUCCESS;
-        }
-        else if ( strcmp(pclOperator,"ARR") == 0 )
-        {
-            strcpy(pcpDestFieldValue, pcpSourceFieldValue);
-            ilRC = RC_SUCCESS;
-        }
-        else
-        {
-            /*unknown operator -> treat it as default action*/
-            strcpy(pcpDestFieldValue, pcpSourceFieldValue);
-            ilRC = RC_FAIL;
+            dbg(TRACE,"%s pclOperCode[%d] - <%s>", pclFunc, ilCount, strncmp(CODEFUNC[ilCount].pclOperCode," ",1) == 0 ? "DefaultCopy" : CODEFUNC[ilCount].pclOperCode);
+            ilRC = (CODEFUNC[ilCount].pflOpeFunc)(pcpDestFieldValue, pcpSourceFieldValue, rpLine, pcpSelection, pcpAdid);
         }
     }
 
@@ -1746,7 +1803,7 @@ static int convertSrcValToDestVal(char *pcpSourceFieldName, char *pcpSourceField
     return ilRC;
 }
 
-static int getRotationFlightData(char *pcpTable, char *pcpUrnoSelection, char *pcpFields, char (*pcpRotationData)[LISTLEN], char *pcpAdid)
+int getRotationFlightData(char *pcpTable, char *pcpUrnoSelection, char *pcpFields, char (*pcpRotationData)[LISTLEN], char *pcpAdid)
 {
     int ilCount = 0;
     int ilRC = RC_FAIL;
@@ -1779,7 +1836,7 @@ static int getRotationFlightData(char *pcpTable, char *pcpUrnoSelection, char *p
     */
 
     buildSelQuery(pclSqlBuf, pcpTable, pcpFields, pclWhere);
-    /*dbg(TRACE, "%s select<%s>", pclFunc, pclSqlBuf);*/
+    dbg(TRACE, "%s select<%s>", pclFunc, pclSqlBuf);
 
     slLocalCursor = 0;
 	slFuncCode = START;
@@ -1805,7 +1862,7 @@ static int getRotationFlightData(char *pcpTable, char *pcpUrnoSelection, char *p
     return RC_SUCCESS;
 }
 
-static void showRotationFlight(char (*pclRotationData)[LISTLEN])
+void showRotationFlight(char (*pclRotationData)[LISTLEN])
 {
     int ilCount = 0;
     char *pclFunc = "showRotationFlight";
@@ -1819,7 +1876,7 @@ static void showRotationFlight(char (*pclRotationData)[LISTLEN])
     }
 }
 
-static int mapping(char *pcpTable, char *pcpFields, char *pcpNewData, char *pcpSelection)
+static int mapping(char *pcpTable, char *pcpFields, char *pcpNewData, char *pcpSelection, char *pcpAdidValue)
 {
 
     int ilRc = 0;
@@ -1887,7 +1944,7 @@ static int mapping(char *pcpTable, char *pcpFields, char *pcpNewData, char *pcpS
         if (ilRc == RC_FAIL)
         {
             dbg(TRACE,"%s The source field data is not found - using the original field and data list", pclFunc);
-            appliedRules( ilRuleGroup, pcpFields, pcpNewData, pcgSourceFiledList[ilRuleGroup], pcgDestFiledList[ilRuleGroup], &rgRule, igTotalLineOfRule, pcpSelection);
+            appliedRules( ilRuleGroup, pcpFields, pcpNewData, pcgSourceFiledList[ilRuleGroup], pcgDestFiledList[ilRuleGroup], &rgRule, igTotalLineOfRule, pcpSelection,pcpAdidValue);
         }
         else
         {
@@ -1896,13 +1953,13 @@ static int mapping(char *pcpTable, char *pcpFields, char *pcpNewData, char *pcpS
             dbg(DEBUG,"%s pcgSourceFiledList[%d] <%s>", pclFunc, ilRuleGroup, pcgSourceFiledList[ilRuleGroup]);
             dbg(DEBUG,"%s pcgDestFiledList[%d] <%s>", pclFunc, ilRuleGroup, pcgDestFiledList[ilRuleGroup]);
 
-            appliedRules( ilRuleGroup, pclSourceFieldList, pclSourceDataList, pcgSourceFiledList[ilRuleGroup], pcgDestFiledList[ilRuleGroup], &rgRule, igTotalLineOfRule, pcpSelection);
+            appliedRules( ilRuleGroup, pclSourceFieldList, pclSourceDataList, pcgSourceFiledList[ilRuleGroup], pcgDestFiledList[ilRuleGroup], &rgRule, igTotalLineOfRule, pcpSelection,pcpAdidValue);
         }
     }
     else
     {
         /*using the original field and data list*/
         dbg(TRACE,"%s The getting source data config option is not set - using the original field and data list", pclFunc);
-        appliedRules( ilRuleGroup, pcpFields, pcpNewData, pcgSourceFiledList[ilRuleGroup], pcgDestFiledList[ilRuleGroup], &rgRule, igTotalLineOfRule, pcpSelection);
+        appliedRules( ilRuleGroup, pcpFields, pcpNewData, pcgSourceFiledList[ilRuleGroup], pcgDestFiledList[ilRuleGroup], &rgRule, igTotalLineOfRule, pcpSelection,pcpAdidValue);
     }
 }
