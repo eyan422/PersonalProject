@@ -16,7 +16,7 @@ extern void buildSelQuery(char *pcpSqlBuf, char * pcpTable, char * pcpSourceFiel
 extern int getRotationFlightData(char *pcpTable, char *pcpUrnoSelection, char *pcpFields, char (*pcpRotationData)[LISTLEN], char *pcpAdid);
 extern void showRotationFlight(char (*pclRotationData)[LISTLEN]);
 /*extern int getCodeShare(char *pcpFields, char *pcpData, char (*pcpCodeShare)[LISTLEN]);*/
-extern int getCodeShare(char *pcpFields, char *pcpData, _VIAL *pcpCodeShare, char *pcpFormat);
+extern int getCodeShare(char *pcpFields, char *pcpData, _VIAL *pcpCodeShare, char *pcpFormat, char *pcpOption);
 
 int codeshareFormat(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpSelection, char *pcpAdid)
 {
@@ -29,7 +29,7 @@ int codeshareFormat(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, ch
     char pcpFormat[LISTLEN] = "\0";
     _VIAL pclCodeShare[ARRAYNUMBER];
 
-    strncpy(pcpDestValue, " ", 1);
+    strncpy(pcpDestValue, "", 1);
 
     if(strlen(pcpSourceValue) == 0 || strncmp(pcpSourceValue," ",1) == 0 )
     {
@@ -49,7 +49,7 @@ int codeshareFormat(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, ch
     strcat(pclFields,"JFNO");
     sprintf(pclData,"%d,%s", ilJcnt, pcpSourceValue);
 
-    ilCount = getCodeShare(pclFields,pclData,pclCodeShare,pcpFormat);
+    ilCount = getCodeShare(pclFields,pclData,pclCodeShare,pcpFormat,"ALC3");
     dbg(DEBUG,"%s ilCount<%d> pcpFormat<%s>",pclFunc,ilCount, pcpFormat);
     /*
     for(ili = 0; ili < ilCount; ili++)
@@ -66,7 +66,7 @@ int zon(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpSele
     int ilRC = RC_FAIL;
     char *pclFunc = "zon";
 
-    strncpy(pcpDestValue, " ", 1);
+    strncpy(pcpDestValue, "", 1);
 
     if(strlen(pcpAdid) == 0 || strncmp(pcpAdid," ",1) ==0 )
     {
@@ -107,7 +107,7 @@ int getVial(char *pcpVial, char (*pcpVialArray)[LISTLEN])
 
     for (ilCount = 0; ilCount <= ilNO; ilCount++)
     {
-        strncpy(pclTmp,pclBuffer + ilCount * (VIAL_LEN-1), 3);
+        strncpy(pclTmp, pclBuffer + ilCount * (VIAL_LEN - 1), 3);
         dbg(DEBUG,"%s %d pclTmp<%s>\n",ilCount,pclTmp);
 
         strcpy(pcpVialArray[ilCount], pclTmp);
@@ -128,7 +128,7 @@ int viaref(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpS
     char pclSelection[1024] = "\0";
     char pclVial[ARRAYNUMBER][LISTLEN] = {"\0"};
 
-    strncpy(pcpDestValue, " ", 1);
+    strncpy(pcpDestValue, "", 1);
 
     if(strlen(pcpSourceValue) == 0 || strncmp(pcpSourceValue," ",1) == 0 )
     {
@@ -180,7 +180,7 @@ int via(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpSele
 
     char pclVial[ARRAYNUMBER][LISTLEN] = {"\0"};
 
-    strncpy(pcpDestValue, " ", 1);
+    strncpy(pcpDestValue, "", 1);
 
     if(strlen(pcpSourceValue) == 0 || strncmp(pcpSourceValue," ",1) == 0 )
     {
@@ -206,13 +206,23 @@ int rotation(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pc
     char *pclTmp = NULL;
     char pclTmpSelection[64] = "\0";
     char pclUrnoSelection[64] = "\0";
-    char pclRotationData[ARRAYNUMBER][LISTLEN] = {"\0", "\0"};
+    char pclRotationData[ARRAYNUMBER][LISTLEN] = {"\0"};
 
-    strcpy(pclTmpSelection,pcpSelection);
-    pclTmp = strstr(pclTmpSelection,"=")+1;
-    strcpy(pclUrnoSelection,pclTmp);
 
-    strncpy(pcpDestValue, " ", 1);
+    dbg(DEBUG,"%s ++++++++++++++++++",pclFunc);
+
+    strcpy(pclTmpSelection, pcpSelection);
+    dbg(DEBUG,"%s pclTmpSelection<%s>",pclFunc,pclTmpSelection);
+
+    pclTmp = strstr(pclTmpSelection, "=");
+
+    dbg(DEBUG,"%s pclTmp<%s>",pclFunc,pclTmp);
+
+    strcpy(pclUrnoSelection, pclTmp+1);
+
+    dbg(DEBUG,"%s pclUrnoSelection<%s>",pclFunc,pclUrnoSelection);
+
+    strncpy(pcpDestValue, "", 1);
 
     ilRC = getRotationFlightData(rpLine->pclSourceTable, pclUrnoSelection, rpLine->pclSourceField, pclRotationData, pcpAdid);
     if (ilRC == RC_SUCCESS)
@@ -244,13 +254,21 @@ int refTable(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pc
     char pclSqlData[1024] = "\0";
     char pclSelection[1024] = "\0";
 
-    sprintf(pclSelection, "WHERE %s=%s", rpLine->pclCond1, pcpSourceValue);
+    if ( strcmp(rpLine->pclSourceFieldType, "NUMBER") == 0 )
+    {
+        sprintf(pclSelection, "WHERE %s=%s", rpLine->pclCond1, pcpSourceValue);
+    }
+    else
+    {
+        sprintf(pclSelection, "WHERE %s='%s'", rpLine->pclCond1, pcpSourceValue);
+    }
+
     buildSelQuery(pclSqlBuf, rpLine->pclSourceTable, rpLine->pclCond2, pclSelection);
     ilRC = RunSQL(pclSqlBuf, pclSqlData);
     if (ilRC != DB_SUCCESS)
     {
         dbg(TRACE, "<%s>: Retrieving source data - Fails", pclFunc);
-        strncpy(pcpDestValue," ",1);
+        strncpy(pcpDestValue,"",1);
         return RC_FAIL;
     }
 
@@ -298,11 +316,13 @@ int dateLoc(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcp
     strcpy(pclTmpTime, pcpSourceValue);
     AddSecondsToCEDATime(pclTmpTime, igTimeDifference * MIN, 1);
 
+    /*
     if (strlen(pclTmpTime) > atoi(rpLine->pclDestFieldLen))
     {
         strncpy(pcpDestValue, pclTmpTime, atoi(rpLine->pclDestFieldLen));
     }
     else
+    */
     {
         strcpy(pcpDestValue, pclTmpTime);
     }
@@ -321,11 +341,13 @@ int number(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpS
 
     if (atoi(pcpSourceValue) > 0)
     {
+        /*
         if (strlen(pcpSourceValue) > atoi(rpLine->pclDestFieldLen))
         {
             strncpy(pcpDestValue, pcpSourceValue, atoi(rpLine->pclDestFieldLen));
         }
         else
+        */
         {
             strcpy(pcpDestValue, pcpSourceValue);
         }
@@ -379,11 +401,13 @@ int timeFormat(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * 
         sprintf(pclTmp,"%s%s",pclHour,pclMin);
     }
 
+    /*
     if (strlen(pcpSourceValue) > atoi(rpLine->pclDestFieldLen))
     {
         strncpy(pcpDestValue, pclTmp, atoi(rpLine->pclDestFieldLen));
     }
     else
+    */
     {
         strcpy(pcpDestValue, pclTmp);
     }
@@ -402,12 +426,13 @@ int defaultOperator(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, ch
 
     if (strlen(pcpSourceValue) == 0)
         return RC_FAIL;
-
+    /*
     if(sizeof(pcpSourceValue) > atoi(rpLine->pclDestFieldLen))
     {
         strncpy(pcpDestValue, pcpSourceValue, atoi(rpLine->pclDestFieldLen));
     }
     else
+    */
     {
         strcpy(pcpDestValue, pcpSourceValue);
     }
@@ -421,6 +446,16 @@ int defaultOperator(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, ch
     }
     */
     return ilRC;
+}
+
+int getUrno(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpSelection, char *pcpAdid)
+{
+
+}
+
+int getCurrentTime(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpSelection, char *pcpAdid)
+{
+
 }
 
 struct codeFunc
@@ -441,6 +476,8 @@ CODEFUNC[OPER_CODE] =
     {"VIA",via},
     {"VIAREF",viaref},
     {"ZON",zon},
-    {"CODESHAREFORMAT",codeshareFormat}
+    {"CODESHAREFORMAT",codeshareFormat},
+    {"URNO",getUrno},
+    {"CURRENTTIME",getCurrentTime}
     /*{"",}*/
 };

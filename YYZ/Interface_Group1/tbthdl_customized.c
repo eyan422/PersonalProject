@@ -4,7 +4,7 @@ tbthdl_customized.c
 extern int extractField(char *pcpFieldVal, char *pcpFieldName, char *pcpFields, char *pcpNewData);
 
 /*int getCodeShare(char *pcpFields, char *pcpData, char (*pcpCodeShare)[LISTLEN])*/
-int getCodeShare(char *pcpFields, char *pcpData, _VIAL *pcpCodeShare, char *pcpFormat)
+int getCodeShare(char *pcpFields, char *pcpData, _VIAL *pcpCodeShare, char *pcpFormat, char *pcpOption)
 {
     int ili = 0;
     int ilj = 0;
@@ -103,7 +103,7 @@ int getCodeShare(char *pcpFields, char *pcpData, _VIAL *pcpCodeShare, char *pcpF
 	    dbg(DEBUG,"++++++++ALC2<%s>ALC3<%s>",pclTmpALC2,pclTmp);
 
 	    /*pclPointer += 4;*/
-	    strncpy(pclTmpFLNO,pclPointer+3,6);
+	    strncpy(pclTmpFLNO,pclPointer+3,5);
 
 		dbg(DEBUG,"calling TrimRight(pclTmpFLNO)");
 		TrimRight(pclTmpFLNO);
@@ -114,15 +114,15 @@ int getCodeShare(char *pcpFields, char *pcpData, _VIAL *pcpCodeShare, char *pcpF
 	    if(strncmp(pclTmpALC2," ",1) != 0 || strncmp(pclTmpFLNO," ",1) != 0 ||
 	       strncmp(pclTmp," ",1) != 0)
         {
-            dbg(DEBUG,"pclTmp last letter<%c>",pclTmp[strlen(pclTmp)-1]);
+            /*dbg(DEBUG,"pclTmp last letter<%c>",pclTmp[strlen(pclTmp)-1]);*/
             /*ALC2->ALC3*/
             if( pclTmp[strlen(pclTmp)-1] == ' ' )
             {
 				memset(pclTmpALC3,0,sizeof(pclTmpALC3));
                 ilRC = syslibSearchDbData("ALTTAB","ALC2",pclTmpALC2,"ALC3",pclTmpALC3,&ilCount,"\n");
 
-                dbg(TRACE,"**************The return value of syslibSearchDbData ilRC<%d> ilCount<%d>",ilRC,ilCount);
-                dbg(TRACE,"**************Getting ALC3 from basic data <%s>",pclTmpALC3);
+                /*dbg(TRACE,"**************The return value of syslibSearchDbData ilRC<%d> ilCount<%d>",ilRC,ilCount);
+                dbg(TRACE,"**************Getting ALC3 from basic data <%s>",pclTmpALC3);*/
 
                 if (ilCount > 1)
                 {
@@ -226,17 +226,14 @@ int getCodeShare(char *pcpFields, char *pcpData, _VIAL *pcpCodeShare, char *pcpF
                 {
                     /*sprintf(pclTmpALC2Pack,"\n\t<ALC3>%s</ALC3>\n",pclTmpALC3);*/
 
-                    /*
-                    if( strcmp(pcpOption,"ALC3") == 0 )*/
+                    if( strcmp(pcpOption,"ALC3") == 0 )
                     {
                         strcat(pclTmpALC2Pack,pclTmpALC3);
                     }
-                    /*
                     else if( strcmp(pcpOption,"ALC2") == 0 )
                     {
                         strcat(pclTmpALC2Pack,pclTmpALC2);
                     }
-                    */
 
                     dbg(DEBUG,"syslibSearchDbData succed, use ALC3-----ALC2<%s>ALC3<%s>",pclTmpALC2,pclTmpALC3);
 
@@ -313,7 +310,7 @@ int getCodeShare(char *pcpFields, char *pcpData, _VIAL *pcpCodeShare, char *pcpF
         }
     }
     strcpy(pcpFormat,pclXML);
-    dbg(DEBUG,"\n+++<%s>-<%d>+++",pcpFormat, ilj);
+    dbg(DEBUG,"+++<%s>-<%d>+++",pcpFormat, ilj);
     /*
   	strcat(pclXML,"\t</codeshare>\n");
   	dbg(DEBUG,"\n+++<%s>+++",pclXML);
