@@ -5,15 +5,61 @@ For subroutine
 */
 
 #define RC_NUMBER 7
-#define OPER_CODE 10
+#define OPER_CODE 64
 #define OPER_LEN  64
 #define MIN 60
 #define VIAL_LEN 121
+#define CODESHARE_LEN 9
 
 extern int igTimeDifference;
 extern void buildSelQuery(char *pcpSqlBuf, char * pcpTable, char * pcpSourceFieldList, char * pcpSelection);
 extern int getRotationFlightData(char *pcpTable, char *pcpUrnoSelection, char *pcpFields, char (*pcpRotationData)[LISTLEN], char *pcpAdid);
 extern void showRotationFlight(char (*pclRotationData)[LISTLEN]);
+/*extern int getCodeShare(char *pcpFields, char *pcpData, char (*pcpCodeShare)[LISTLEN]);*/
+extern int getCodeShare(char *pcpFields, char *pcpData, _VIAL *pcpCodeShare, char *pcpFormat);
+
+int codeshareFormat(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpSelection, char *pcpAdid)
+{
+    int ilRC = RC_FAIL;
+    char *pclFunc = "codeshareFormat";
+    int ilJcnt = 0;
+    int ilCount =0;
+    char pclFields[LISTLEN] = "\0";
+    char pclData[LISTLEN] = "\0";
+    char pcpFormat[LISTLEN] = "\0";
+    _VIAL pclCodeShare[ARRAYNUMBER];
+
+    strncpy(pcpDestValue, " ", 1);
+
+    if(strlen(pcpSourceValue) == 0 || strncmp(pcpSourceValue," ",1) == 0 )
+    {
+        dbg(TRACE,"%s pcpSourceValue<%s> is invalid",pclFunc,pcpSourceValue);
+        return ilRC;
+    }
+
+    /*
+    build field and data list for getCodeShare function
+    1-JCNT
+    2-JFNO
+    */
+    ilJcnt = strlen(pcpSourceValue) / CODESHARE_LEN;
+    dbg(DEBUG,"len<%d> ilNo<%d>\n", strlen(pcpSourceValue),ilJcnt);
+
+    strcat(pclFields,"JCNT");
+    strcat(pclFields,"JFNO");
+    sprintf(pclData,"%d,%s", ilJcnt, pcpSourceValue);
+
+    ilCount = getCodeShare(pclFields,pclData,pclCodeShare,pcpFormat);
+    dbg(DEBUG,"%s ilCount<%d> pcpFormat<%s>",pclFunc,ilCount, pcpFormat);
+    /*
+    for(ili = 0; ili < ilCount; ili++)
+    {
+        dbg(DEBUG,"%s ili<%d>",pclFunc,ili);
+        dbg(DEBUG,"%s ALC2<%s> ALC3<%s> FLNO<%s>",pclFunc,pclCodeShare[ili].pclAlc2, pclCodeShare[ili].pclAlc3, pclCodeShare[ili].pclFlno);
+    }
+    */
+    strcpy(pcpDestValue, pcpFormat);
+}
 
 int zon(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpSelection, char *pcpAdid)
 {
@@ -36,7 +82,7 @@ int zon(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpSele
 
     if( strncmp(pcpAdid,"A",1) == 0 )
     {
-        strncpy(pcpDestValue, pcpSourceValue);
+        strcpy(pcpDestValue, pcpSourceValue);
         ilRC = RC_SUCCESS;
     }
 
@@ -394,7 +440,7 @@ CODEFUNC[OPER_CODE] =
     {"ROTATION",rotation},
     {"VIA",via},
     {"VIAREF",viaref},
-    {"ZON",zon}
-    }
+    {"ZON",zon},
+    {"CODESHAREFORMAT",codeshareFormat}
     /*{"",}*/
 };

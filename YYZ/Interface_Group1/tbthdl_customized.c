@@ -3,7 +3,8 @@ tbthdl_customized.c
 */
 extern int extractField(char *pcpFieldVal, char *pcpFieldName, char *pcpFields, char *pcpNewData);
 
-int getCodeShare(char *pcpFields, char *pcpData, char (*pcpCodeShare)[LISTLEN])
+/*int getCodeShare(char *pcpFields, char *pcpData, char (*pcpCodeShare)[LISTLEN])*/
+int getCodeShare(char *pcpFields, char *pcpData, _VIAL *pcpCodeShare, char *pcpFormat)
 {
     int ili = 0;
     int ilj = 0;
@@ -34,7 +35,8 @@ int getCodeShare(char *pcpFields, char *pcpData, char (*pcpCodeShare)[LISTLEN])
 
     char pclXML[1024] = "\0";
 
-    /**/
+    /*
+    */
     char pclJCNT[8] = "\0";
     char pclJFNO[LISTLEN] = "\0";
 
@@ -79,7 +81,7 @@ int getCodeShare(char *pcpFields, char *pcpData, char (*pcpCodeShare)[LISTLEN])
     ilJCNT = atoi(pclJCNT);
     pclPointer = pclJFNO;
 
-    //test
+    /*test*/
     /*
     ilJCNT = 7;
     strcpy(rpAftrec.JFNO,"AMV4071  AZ 3925  ME 6637  NZ 4255  OA 8055           VA 7455");
@@ -88,12 +90,13 @@ int getCodeShare(char *pcpFields, char *pcpData, char (*pcpCodeShare)[LISTLEN])
 
     dbg(DEBUG,"pclPointer<%s>",pclPointer);
 
-    strcat(pclXML,"\t<codeshare>\n");
+    /*strcat(pclXML,"\t<codeshare>\n");*/
     for(ili=0; ili < ilJCNT;ili++)
   	{
 	    memset(pclTmpALC2,0,sizeof(pclTmpALC2));
 	    memset(pclTmpFLNO,0,sizeof(pclTmpFLNO));
 	    memset(pclTmpflightNo,0,sizeof(pclTmpflightNo));
+        memset(pclTmpALC2Pack,0,sizeof(pclTmpALC2Pack));
 
 	    strncpy(pclTmpALC2,pclPointer,2);
 	    strncpy(pclTmp,pclPointer,3);
@@ -188,11 +191,11 @@ int getCodeShare(char *pcpFields, char *pcpData, char (*pcpCodeShare)[LISTLEN])
                             }
                             else
                             {
-                            dbg(TRACE,"<%s> VPTO is null -> Valid", pclFunc, pclVpto);
-                            ilRC = RC_SUCCESS;
-                            memset(pclTmpALC3,0,sizeof(pclTmpALC3));
-                            strncpy(pclTmpALC3,pclAlc3,strlen(pclAlc3));
-                            break;
+                                dbg(TRACE,"<%s> VPTO is null -> Valid", pclFunc, pclVpto);
+                                ilRC = RC_SUCCESS;
+                                memset(pclTmpALC3,0,sizeof(pclTmpALC3));
+                                strncpy(pclTmpALC3,pclAlc3,strlen(pclAlc3));
+                                break;
                             }
                         }
                     }
@@ -221,8 +224,24 @@ int getCodeShare(char *pcpFields, char *pcpData, char (*pcpCodeShare)[LISTLEN])
 
                 if( ilRC == 0 && strlen(pclTmpALC3) == 3 && pclTmpALC3[strlen(pclTmpALC3) - 1] != ' ' )
                 {
-                    sprintf(pclTmpALC2Pack,"\n\t<ALC3>%s</ALC3>\n",pclTmpALC3);
+                    /*sprintf(pclTmpALC2Pack,"\n\t<ALC3>%s</ALC3>\n",pclTmpALC3);*/
+
+                    /*
+                    if( strcmp(pcpOption,"ALC3") == 0 )*/
+                    {
+                        strcat(pclTmpALC2Pack,pclTmpALC3);
+                    }
+                    /*
+                    else if( strcmp(pcpOption,"ALC2") == 0 )
+                    {
+                        strcat(pclTmpALC2Pack,pclTmpALC2);
+                    }
+                    */
+
                     dbg(DEBUG,"syslibSearchDbData succed, use ALC3-----ALC2<%s>ALC3<%s>",pclTmpALC2,pclTmpALC3);
+
+                    strcpy((pcpCodeShare+ilj)->pclAlc2,pclTmpALC2);
+                    strcpy((pcpCodeShare+ilj)->pclAlc3,pclTmpALC3);
                 }
                 else
                 {
@@ -231,34 +250,73 @@ int getCodeShare(char *pcpFields, char *pcpData, char (*pcpCodeShare)[LISTLEN])
                     memset(pclTmpALC3,0,sizeof(pclTmpALC3));
                     strncpy(pclTmpALC3,pclTmpALC2,strlen(pclTmpALC2));
 
-                    sprintf(pclTmpALC2Pack,"\n\t<ALC3>%s</ALC3>\n",pclTmpALC3);
+                    /*sprintf(pclTmpALC2Pack,"\n\t<ALC3>%s</ALC3>\n",pclTmpALC3);*/
+                    strcat(pclTmpALC2Pack,pclTmpALC3);
+
+                    strcpy((pcpCodeShare+ilj)->pclAlc2,pclTmpALC2);
 
                     dbg(DEBUG,"######ALC2<%s>ALC3<%s>",pclTmpALC2,pclTmpALC3);
                 }
 
 
-                sprintf(pclTmpFLNOPack,"\t<FLNO>%s</FLNO>\n",pclTmpFLNO);
-                /*dbg(DEBUG,"three letter is <%s>\n",pclTmp);*/
+                /*sprintf(pclTmpFLNOPack,"\t<FLNO>%s</FLNO>\n",pclTmpFLNO);
+                dbg(DEBUG,"three letter is <%s>\n",pclTmp);
                 sprintf(pclTmpflightNo,"\t<flightNo%d>%s%s\t</flightNo%d>\n",ilj+1,pclTmpALC2Pack,pclTmpFLNOPack,ilj+1);
+                strcat(pclXML,pclTmpflightNo);*/
+
+                strcat(pclTmpALC2Pack," ");
+                strcat(pclTmpALC2Pack,pclTmpFLNO);
+
+                if (ilj == 0)
+                {
+                    strcat(pclTmpflightNo,pclTmpALC2Pack);
+                }
+                else
+                {
+                    strcat(pclTmpflightNo,"/");
+                    strcat(pclTmpflightNo,pclTmpALC2Pack);
+                }
                 strcat(pclXML,pclTmpflightNo);
+
+                strcpy((pcpCodeShare+ilj)->pclFlno,pclTmpFLNO);
 
                 ilj++;
 
             }
             else
             {/*ALC3*/
-                sprintf(pclTmpALC2Pack,"\n\t<ALC3>%s</ALC3>\n",pclTmp);
+
+                /*sprintf(pclTmpALC2Pack,"\n\t<ALC3>%s</ALC3>\n",pclTmp);
                 sprintf(pclTmpFLNOPack,"\t<FLNO>%s</FLNO>\n",pclTmpFLNO);
 
-                /*dbg(DEBUG,"three letter is <%s>\n",pclTmp);*/
+                dbg(DEBUG,"three letter is <%s>\n",pclTmp);
                 sprintf(pclTmpflightNo,"\t<flightNo%d>%s%s\t</flightNo%d>\n",ilj+1,pclTmpALC2Pack,pclTmpFLNOPack,ilj+1);
+                strcat(pclXML,pclTmpflightNo);*/
+
+                strcat(pclTmpALC2Pack,pclTmp);
+                strcat(pclTmpALC2Pack," ");
+                strcat(pclTmpALC2Pack,pclTmpFLNO);
+
+                if (ilj == 0)
+                {
+                    strcat(pclTmpflightNo,pclTmpALC2Pack);
+                }
+                else
+                {
+                    strcat(pclTmpflightNo,"/");
+                    strcat(pclTmpflightNo,pclTmpALC2Pack);
+                }
                 strcat(pclXML,pclTmpflightNo);
 
                 ilj++;
             }
         }
     }
+    strcpy(pcpFormat,pclXML);
+    dbg(DEBUG,"\n+++<%s>-<%d>+++",pcpFormat, ilj);
+    /*
   	strcat(pclXML,"\t</codeshare>\n");
   	dbg(DEBUG,"\n+++<%s>+++",pclXML);
-  	return RC_SUCCESS;
+  	*/
+  	return ilj;
 }

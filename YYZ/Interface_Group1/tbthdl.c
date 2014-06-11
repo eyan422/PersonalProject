@@ -145,7 +145,7 @@ static int isDisabledLine(char *pcpLine);
 int extractField(char *pcpFieldVal, char *pcpFieldName, char *pcpFields, char *pcpNewData);
 static int isCommentLine(char *pcpLine);
 static int isInTimeWindow(char *pcpTimeVal, int ilTimeWindowUpperLimit, int ilTimeWindowLowerLimit);
-static int toDetermineAppliedRuleGroup(char * pcpTable, char * pcpFields, char * pcpNewData);
+static int toDetermineAppliedRuleGroup(char * pcpTable, char * pcpFields, char * pcpData, char *pcpAdidValue);
 static void showFieldByGroup(char (*pcpSourceFiledSet)[LISTLEN], char (*pcpConflictFiledSet)[LISTLEN], char (* pcpSourceFiledList)[LISTLEN], char (* pcpDestFiledSet)[LISTLEN]);
 static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *pcpSourceFiledList, char *pcpDestFiledList,
                         _RULE *rpRule, int ipTotalLineOfRule, char * pcpSelection, char *pcpAdid);
@@ -159,6 +159,7 @@ static void buildDestTabWhereClause( char *pcpSelection, char *pcpDestKey, char 
 int getRotationFlightData(char *pcpTable, char *pcpUrnoSelection, char *pcpFields, char (*pcpRotationData)[LISTLEN], char *pcpAdid);
 void showRotationFlight(char (*pclRotationData)[LISTLEN]);
 static int mapping(char *pcpTable, char *pcpFields, char *pcpNewData, char *pcpSelection, char *pcpAdid);
+static int buildDataArray(char *pcpFields, char *pcpNewData, char (*pcpDatalist)[LISTLEN]);
 /******************************************************************************/
 /*                                                                            */
 /* The MAIN program                                                           */
@@ -726,7 +727,6 @@ static int HandleData(EVENT *prpEvent)
     char pclUrnoSelection[64] = "\0";
     char pclNewData[512000] = "\0";
     char pclOldData[512000] = "\0";
-    char pclCodeShare[ARRAYNUMBER][LISTLEN];
     char pclRotationData[ARRAYNUMBER][LISTLEN] = {"\0", "\0"};
 
 	prlBchead    = (BC_HEAD *) ((char *)prpEvent + sizeof(EVENT));
@@ -783,19 +783,6 @@ static int HandleData(EVENT *prpEvent)
     }
     else /*The normal DFR, IFR and UFR command*/
     {
-        /*handle code-share flight*/
-        if( igEnableCodeshare == TRUE )
-        {
-            /*buildCodeShare(pclNewData,pclCodeShare);*/
-            getCodeShare(pclFields,pclNewData,pclCodeShare);
-        }
-
-        #ifndef FYA
-        /*master flight*/
-        mapping(clTable, pclFields, pclNewData, pclSelection, pclAdidValue);
-
-        /*codeshare flights*/
-
         ilRc = extractField(pclAdidValue, "ADID", pclFields, pclNewData);
         if (ilRc == RC_FAIL)
         {
@@ -807,6 +794,10 @@ static int HandleData(EVENT *prpEvent)
             dbg(TRACE,"%s The ADID value<%s> is valid", pclFunc, pclAdidValue);
         }
 
+        /*original flight*/
+        mapping(clTable, pclFields, pclNewData, pclSelection, pclAdidValue);
+
+        #ifndef FYA
         /*getting the roataion flight data beforehand, optimize this part later*/
         ilRc = getRotationFlightData(clTable, pclUrnoSelection, pclFields, pclRotationData, pclAdidValue);
         if (ilRc == RC_SUCCESS)
@@ -1375,13 +1366,14 @@ static int isInTimeWindow(char *pcpTimeVal, int igTimeWindowUpperLimit, int igTi
     }
 }
 
-static int toDetermineAppliedRuleGroup(char * pcpTable, char * pcpFields, char * pcpData)
+static int toDetermineAppliedRuleGroup(char * pcpTable, char * pcpFields, char * pcpData, char *pcpAdidValue)
 {
     int ilRuleNumber = 0;
     int ilItemNo = 0;
     char *pclFunc = "toDetermineAppliedRuleGroup";
     char pclADID[16] = "\0";
 
+    /*
     ilItemNo = get_item_no(pcpFields, "ADID", 5) + 1;
     if (ilItemNo <= 0)
     {
@@ -1389,6 +1381,8 @@ static int toDetermineAppliedRuleGroup(char * pcpTable, char * pcpFields, char *
         return RC_FAIL;
     }
     get_real_item(pclADID, pcpData, ilItemNo);
+    */
+    strcpy(pclADID, pcpAdidValue);
     dbg(DEBUG,"<%s> The New ADID is <%s>", pclFunc, pclADID);
 
     if ( strcmp(pcpTable,"AFTTAB") == 0 )
@@ -1402,11 +1396,12 @@ static int toDetermineAppliedRuleGroup(char * pcpTable, char * pcpFields, char *
             ilRuleNumber = 2;
         }
     }
+    /*
     else if ( strcmp(pcpTable,"CCATAB") == 0 )
     {
         ilRuleNumber = 3;
     }
-
+    */
     return ilRuleNumber;
 }
 
@@ -1884,14 +1879,15 @@ void showRotationFlight(char (*pclRotationData)[LISTLEN])
 
 static int mapping(char *pcpTable, char *pcpFields, char *pcpNewData, char *pcpSelection, char *pcpAdidValue)
 {
-
     int ilRc = 0;
+    int ilDataListNo = 0;
+    int ilCount = 0;
     int ilRuleGroup = 0;
     char pclTimeWindowRefFieldVal[32] = "\0";
     char *pclFunc = "mapping";
-
     char pclSourceFieldList[2048] = "\0";
     char pclSourceDataList[2048] = "\0";
+    char pclDatalist[ARRAYNUMBER][LISTLEN] = {"\0"};
 
     ilRc = extractField(pclTimeWindowRefFieldVal, pcgTimeWindowRefField, pcpFields, pcpNewData);
     if (ilRc == RC_FAIL)
@@ -1921,7 +1917,7 @@ static int mapping(char *pcpTable, char *pcpFields, char *pcpNewData, char *pcpS
         To determine the applied rule group
     */
 
-    ilRuleGroup = toDetermineAppliedRuleGroup(pcpTable, pcpFields, pcpNewData);
+    ilRuleGroup = toDetermineAppliedRuleGroup(pcpTable, pcpFields, pcpNewData, pcpAdidValue);
     if ( ilRuleGroup == 0 )
     {
         dbg(TRACE,"%s ilRuleGroup == 0 -> There is no applied rules", pclFunc);
@@ -1950,7 +1946,13 @@ static int mapping(char *pcpTable, char *pcpFields, char *pcpNewData, char *pcpS
         if (ilRc == RC_FAIL)
         {
             dbg(TRACE,"%s The source field data is not found - using the original field and data list", pclFunc);
-            appliedRules( ilRuleGroup, pcpFields, pcpNewData, pcgSourceFiledList[ilRuleGroup], pcgDestFiledList[ilRuleGroup], &rgRule, igTotalLineOfRule, pcpSelection,pcpAdidValue);
+            ilDataListNo=buildDataArray(pcpFields, pcpNewData, pclDatalist);
+
+            //for(ilCount = 0; ilCount < ilDataListNo; ilCount++)
+            {
+                /*appliedRules( ilRuleGroup, pcpFields, pcpNewData, pcgSourceFiledList[ilRuleGroup], pcgDestFiledList[ilRuleGroup], &rgRule, igTotalLineOfRule,     pcpSelection,pcpAdidValue);*/
+                //appliedRules( ilRuleGroup, pcpFields, pclDatalist[ilCount], pcgSourceFiledList[ilRuleGroup], pcgDestFiledList[ilRuleGroup], &rgRule, igTotalLineOfRule, pcpSelection,pcpAdidValue);
+            }
         }
         else
         {
@@ -1958,14 +1960,122 @@ static int mapping(char *pcpTable, char *pcpFields, char *pcpNewData, char *pcpS
 
             dbg(DEBUG,"%s pcgSourceFiledList[%d] <%s>", pclFunc, ilRuleGroup, pcgSourceFiledList[ilRuleGroup]);
             dbg(DEBUG,"%s pcgDestFiledList[%d] <%s>", pclFunc, ilRuleGroup, pcgDestFiledList[ilRuleGroup]);
+            ilDataListNo = buildDataArray(pclSourceFieldList, pclSourceDataList, pclDatalist);
 
-            appliedRules( ilRuleGroup, pclSourceFieldList, pclSourceDataList, pcgSourceFiledList[ilRuleGroup], pcgDestFiledList[ilRuleGroup], &rgRule, igTotalLineOfRule, pcpSelection,pcpAdidValue);
+            //for(ilCount = 0; ilCount < ilDataListNo; ilCount++)
+            {
+                /*appliedRules( ilRuleGroup, pclSourceFieldList, pclSourceDataList, pcgSourceFiledList[ilRuleGroup], pcgDestFiledList[ilRuleGroup], &rgRule, igTotalLineOfRule, pcpSelection,pcpAdidValue);*/
+                //appliedRules( ilRuleGroup, pclSourceFieldList, pclDatalist[ilCount], pcgSourceFiledList[ilRuleGroup], pcgDestFiledList[ilRuleGroup], &rgRule, igTotalLineOfRule, pcpSelection,pcpAdidValue);
+            }
         }
     }
     else
     {
         /*using the original field and data list*/
         dbg(TRACE,"%s The getting source data config option is not set - using the original field and data list", pclFunc);
-        appliedRules( ilRuleGroup, pcpFields, pcpNewData, pcgSourceFiledList[ilRuleGroup], pcgDestFiledList[ilRuleGroup], &rgRule, igTotalLineOfRule, pcpSelection,pcpAdidValue);
+        ilDataListNo=buildDataArray(pcpFields, pcpNewData, pclDatalist);
+
+        //for(ilCount = 0; ilCount < ilDataListNo; ilCount++)
+        {
+            /*appliedRules( ilRuleGroup, pcpFields, pcpNewData, pcgSourceFiledList[ilRuleGroup], pcgDestFiledList[ilRuleGroup], &rgRule, igTotalLineOfRule,pcpSelection,pcpAdidValue);*/
+            //appliedRules( ilRuleGroup, pcpFields, pclDatalist[ilCount], pcgSourceFiledList[ilRuleGroup], pcgDestFiledList[ilRuleGroup], &rgRule, igTotalLineOfRule,pcpSelection,pcpAdidValue);
+        }
     }
+
+    return RC_SUCCESS;
+}
+
+static int buildDataArray(char *pcpFields, char *pcpNewData, char (*pcpDatalist)[LISTLEN])
+{
+    int ilRC = 1;
+    int ilCodeShareNo = 0;
+    int ilFieldListNo = 0;
+    int ilDataListNo = 0;
+    int ilEleCount = 0;
+    int ilCountCodeShare = 0;
+    char *pclFunc = "buildDataArray";
+    char pclTmpFieldName[64] = "\0";
+    char pclTmpData[64] = "\0";
+    char pclTmpDataList[LISTLEN] = "\0";
+    char pcpFormat[LISTLEN] = "\0";
+    _VIAL pclCodeShare[ARRAYNUMBER];
+
+    /*prepare the flight data list including the original one*/
+    strcpy(pcpDatalist[0],pcpNewData);
+
+    /*extract codeshare flight info*/
+    if( igEnableCodeshare == TRUE )
+    {
+        ilCodeShareNo = getCodeShare(pcpFields, pcpNewData, pclCodeShare, pcpFormat);
+
+        if (ilCodeShareNo == RC_FAIL)
+        {
+            return ilRC;
+        }
+
+        ilRC = ilCodeShareNo + 1;
+        dbg(DEBUG,"%s ilCodeShareNo<%d> ilRC<%d> pcpFormat<%s>",pclFunc,ilCodeShareNo, ilRC, pcpFormat);
+
+        ilFieldListNo = GetNoOfElements(pcpFields, ',');
+        ilDataListNo  = GetNoOfElements(pcpNewData, ',');
+
+        if (ilFieldListNo != ilDataListNo)
+        {
+            dbg(TRACE,"%s The data<%d> and field<%d> list number is not matched", pclFunc, ilDataListNo, ilFieldListNo);
+            return RC_FAIL;
+        }
+
+        for(ilCountCodeShare = 0; ilCountCodeShare < ilCodeShareNo; ilCountCodeShare++)
+        {
+            dbg(DEBUG,"%s <%d> ALC2<%s> ALC3<%s> FLNS<%s>",pclFunc,ilCodeShareNo, pclCodeShare[ilCountCodeShare].pclAlc2, pclCodeShare[ilCountCodeShare].pclAlc3, pclCodeShare[ilCountCodeShare].pclFlno);
+
+            memset(pclTmpFieldName,0,sizeof(pclTmpFieldName));
+            memset(pclTmpData,0,sizeof(pclTmpData));
+            /*memset(pclTmpDataList,0,sizeof(pclTmpDataList));*/
+
+            for(ilEleCount = 1; ilEleCount <= ilFieldListNo; ilEleCount++)
+            {
+                get_item(ilEleCount, pcpFields, pclTmpFieldName, 0, ",", "\0", "\0");
+                TrimRight(pclTmpFieldName);
+
+                get_item(ilEleCount, pcpNewData, pclTmpData, 0, ",", "\0", "\0");
+                TrimRight(pclTmpData);
+
+                if ( strncmp(pclTmpFieldName,"ALC2",3)==0 )
+                {
+                    strcpy(pclTmpData,pclCodeShare[ilCountCodeShare].pclAlc2);
+                }
+                else if ( strncmp(pclTmpFieldName,"ALC3",3)==0 )
+                {
+                    strcpy(pclTmpData,pclCodeShare[ilCountCodeShare].pclAlc3);
+                }
+                else if ( strncmp(pclTmpFieldName,"FLTN",3)==0 )
+                {
+                    strcpy(pclTmpData,pclCodeShare[ilCountCodeShare].pclFlno);
+                }
+                else if ( strncmp(pclTmpFieldName,"FLNS",3)==0 )
+                {
+                    strcpy(pclTmpData+3,pclCodeShare[ilCountCodeShare].pclFlno);
+                }
+
+                if(ilEleCount == 1)
+                {
+                    strcat(pclTmpDataList,pclTmpData);
+                }
+                else
+                {
+                    strcat(pclTmpDataList,",");
+                    strcat(pclTmpDataList,pclTmpData);
+                }
+            }
+            strcpy(pcpDatalist[ilCountCodeShare+1],pclTmpDataList);
+        }
+    }
+
+    for(ilCountCodeShare = 0; ilCountCodeShare < ilCodeShareNo; ilCountCodeShare++)
+    {
+        dbg(DEBUG,"%s pcpDatalist[%d]",pclFunc, ilCountCodeShare, pcpDatalist[ilCountCodeShare]);
+    }
+
+    return ilRC;
 }
