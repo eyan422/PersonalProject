@@ -960,6 +960,7 @@ static int getConfig()
         dbg(DEBUG,"Default igEnableCodeshare<%d>",igEnableCodeshare);
     }
 
+    #ifdef TEST
     /* Get Client and Server chars */
     sprintf(pcgUfisConfigFile,"%s/ufis_ceda.cfg",getenv("CFG_PATH"));
     ilRC = iGetConfigEntry(pcgUfisConfigFile,"CHAR_PATCH","CLIENT_CHARS",
@@ -1012,6 +1013,7 @@ static int getConfig()
         strcpy(pcgServerChars,"\260\261\262\263\263");
         ilRC = RC_SUCCESS;
     }
+    #endif
 
     ilRC = GetRuleSchema(&rgRule);
 
@@ -1085,7 +1087,7 @@ static int GetRuleSchema(_RULE *rpRule)
 
         if (pclLine[0] == 'N')
         {
-            dbg(DEBUG,"%s Disabled Rule -> Ignore & Continue", pclFunc);
+            /*dbg(DEBUG,"%s Disabled Rule -> Ignore & Continue", pclFunc);*/
             continue;
         }
 
@@ -1093,15 +1095,22 @@ static int GetRuleSchema(_RULE *rpRule)
         /*showLine(&rlLine);*/
 
         /*store the required and conflicted field list group by group*/
-        collectSourceFieldSet(pcgSourceFiledSet[atoi(rlLine.pclRuleGroup)], pcgSourceConflictFiledSet[atoi(rlLine.pclRuleGroup)], rlLine.pclSourceField, atoi(rlLine.pclRuleGroup));
+        if(atoi(rlLine.pclRuleGroup)>0)
+        {
+            collectSourceFieldSet(pcgSourceFiledSet[atoi(rlLine.pclRuleGroup)], pcgSourceConflictFiledSet[atoi(rlLine.pclRuleGroup)], rlLine.pclSourceField, atoi(rlLine.pclRuleGroup));
 
-        collectFieldList(pcgSourceFiledList[atoi(rlLine.pclRuleGroup)], rlLine.pclSourceField, atoi(rlLine.pclRuleGroup));
-        collectFieldList(pcgDestFiledList[atoi(rlLine.pclRuleGroup)], rlLine.pclDestField, atoi(rlLine.pclRuleGroup));
+            collectFieldList(pcgSourceFiledList[atoi(rlLine.pclRuleGroup)], rlLine.pclSourceField, atoi(rlLine.pclRuleGroup));
+            collectFieldList(pcgDestFiledList[atoi(rlLine.pclRuleGroup)], rlLine.pclDestField, atoi(rlLine.pclRuleGroup));
+        }
+        else
+        {
+            dbg(TRACE,"%s atoi(rlLine.pclRuleGroup)<%d> ==0",pclFunc);
+        }
 
         /*Copy to global structure*/
         storeRule( &(rpRule->rlLine[ilNoLine++]), &rlLine);
     }
-    igTotalLineOfRule = ilNoLine;
+    igTotalLineOfRule = ilNoLine + 1;
     showRule(rpRule, igTotalLineOfRule);
 
     showFieldByGroup(pcgSourceFiledSet, pcgSourceConflictFiledSet, pcgSourceFiledList, pcgDestFiledList);
@@ -1202,25 +1211,28 @@ static void showRule(_RULE *rpRule, int ipTotalLineOfRule)
 
     int ilCount = 0;
 
-    dbg(DEBUG,"%s There are <%d> lines", pclFunc, ipTotalLineOfRule);
+    dbg(DEBUG,"%s There are <%d> lines, the disabled rules are not shown", pclFunc, ipTotalLineOfRule);
 
     for (ilCount = 0; ilCount < ipTotalLineOfRule; ilCount++)
     {
-        dbg(DEBUG, "%s %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s", pclFunc,
-        rpRule->rlLine[ilCount].pclActive,
-        rpRule->rlLine[ilCount].pclRuleGroup,
-        rpRule->rlLine[ilCount].pclSourceTable,
-        rpRule->rlLine[ilCount].pclSourceKey,
-        rpRule->rlLine[ilCount].pclSourceField,
-        rpRule->rlLine[ilCount].pclSourceFieldType,
-        rpRule->rlLine[ilCount].pclDestTable,
-        rpRule->rlLine[ilCount].pclDestKey,
-        rpRule->rlLine[ilCount].pclDestField,
-        rpRule->rlLine[ilCount].pclDestFieldLen,
-        rpRule->rlLine[ilCount].pclDestFieldType,
-        rpRule->rlLine[ilCount].pclDestFieldOperator,
-        rpRule->rlLine[ilCount].pclCond1,
-        rpRule->rlLine[ilCount].pclCond2);
+        if(strcmp(rpRule->rlLine[ilCount].pclActive, " ") != 0 && strlen(rpRule->rlLine[ilCount].pclActive) > 0)
+        {
+            dbg(DEBUG, "%s %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s", pclFunc,
+            rpRule->rlLine[ilCount].pclActive,
+            rpRule->rlLine[ilCount].pclRuleGroup,
+            rpRule->rlLine[ilCount].pclSourceTable,
+            rpRule->rlLine[ilCount].pclSourceKey,
+            rpRule->rlLine[ilCount].pclSourceField,
+            rpRule->rlLine[ilCount].pclSourceFieldType,
+            rpRule->rlLine[ilCount].pclDestTable,
+            rpRule->rlLine[ilCount].pclDestKey,
+            rpRule->rlLine[ilCount].pclDestField,
+            rpRule->rlLine[ilCount].pclDestFieldLen,
+            rpRule->rlLine[ilCount].pclDestFieldType,
+            rpRule->rlLine[ilCount].pclDestFieldOperator,
+            rpRule->rlLine[ilCount].pclCond1,
+            rpRule->rlLine[ilCount].pclCond2);
+        }
     }
 }
 
@@ -1264,7 +1276,7 @@ static int collectSourceFieldSet(char *pcpFiledSet, char * pcpConflictFiledSet, 
     }
     else
     {
-        dbg(TRACE,"%s GROUP<%d> pcpSourceField<%s> is already in pcpFiledSet<%s>", pclFunc, ipGroupNumer, pcpSourceField, pcpFiledSet);
+        /*dbg(DEBUG,"%s GROUP<%d> pcpSourceField<%s> is already in pcpFiledSet<%s>", pclFunc, ipGroupNumer, pcpSourceField, pcpFiledSet);*/
 
         if (strlen(pcpConflictFiledSet) == 0)
         {
@@ -1608,11 +1620,11 @@ static void showFieldByGroup(char (*pcpSourceFiledSet)[LISTLEN], char (*pcpConfl
 
     for (ilCount = 0; ilCount < GROUPNUMER; ilCount++)
     {
-        if (strlen(pcpSourceFiledSet[ilCount]) > 0)
+        if (strlen(pcpSourceFiledSet[ilCount]) > 0 && strcmp(pcpSourceFiledSet[ilCount]," ") != 0 )
         {
-            dbg(TRACE,"%s Group[%d] Source Field Set <%s>", pclFunc, ilCount, (pcpSourceFiledSet+ilCount)[0]);
-            dbg(TRACE,"%s Group[%d] Conflicted Source Field List <%s>", pclFunc, ilCount, (pcpConflictFiledSet+ilCount)[0]);
-            dbg(TRACE,"%s Group[%d] Source Field List <%s>", pclFunc, ilCount, (pcpSourceFiledList+ilCount)[0]);
+            dbg(TRACE,"\n%s Group[%d] Source Field Set <%s>\n", pclFunc, ilCount, (pcpSourceFiledSet+ilCount)[0]);
+            dbg(TRACE,"%s Group[%d] Conflicted Source Field List <%s>\n", pclFunc, ilCount, (pcpConflictFiledSet+ilCount)[0]);
+            dbg(TRACE,"%s Group[%d] Source Field List <%s>\n", pclFunc, ilCount, (pcpSourceFiledList+ilCount)[0]);
             dbg(TRACE,"%s Group[%d] Destination Field List <%s>\n", pclFunc, ilCount, (pcpDestFiledSet+ilCount)[0]);
         }
     }
