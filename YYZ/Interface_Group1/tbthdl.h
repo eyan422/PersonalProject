@@ -7,6 +7,10 @@
 
 #define FYA
 
+#define INSERT 9
+#define UPDATE 9
+#define MASTER_RECORD 0
+
 typedef struct
 {
     char pclActive[64];              /*ACTIVE*/

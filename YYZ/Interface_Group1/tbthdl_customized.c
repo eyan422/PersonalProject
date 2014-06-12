@@ -3,8 +3,16 @@ tbthdl_customized.c
 */
 extern int extractField(char *pcpFieldVal, char *pcpFieldName, char *pcpFields, char *pcpNewData);
 
+typedef struct {
+    char pclSST[64];
+    char pclMFC[64];
+    char pclMFN[64];
+    char pclMFX[64];
+    char pclMFF[64];
+} _HARDCODE_SHARE;
+
 /*int getCodeShare(char *pcpFields, char *pcpData, char (*pcpCodeShare)[LISTLEN])*/
-int getCodeShare(char *pcpFields, char *pcpData, _VIAL *pcpCodeShare, char *pcpFormat, char *pcpOption)
+int getCodeShare(char *pcpFields, char *pcpData, _VIAL *pcpCodeShare, char *pcpFormat, char *pcpOption, char *pcpSelection)
 {
     int ili = 0;
     int ilj = 0;
@@ -44,8 +52,20 @@ int getCodeShare(char *pcpFields, char *pcpData, _VIAL *pcpCodeShare, char *pcpF
     if (ilRC == RC_FAIL)
     {
         ilJCNT = 0;
-        dbg(TRACE,"%s The JCNT value<%s> is blank, setting is as zero", pclFunc, pclJCNT);
-        return RC_FAIL;
+        dbg(TRACE,"%s The JCNT value<%s> is blank, getting it from AFTTAB", pclFunc, pclJCNT);
+        /*return RC_FAIL;*/
+
+        sprintf( pclSqlBuf, "SELECT JCNT,JFNO FROM AFTTAB %s", pcpSelection);
+        dbg(DEBUG,"%s pclSqlBuf<%s>",pclFunc, pclSqlBuf);
+        ilRC = RunSQL(pclSqlBuf, pclSqlData);
+        if (ilRC != DB_SUCCESS)
+        {
+            dbg(TRACE, "<%s>: Getting JCNT,JFNO - Fails", pclFunc);
+            return RC_FAIL;
+        }
+
+        get_fld(pclSqlData,FIELD_1,STR,20,pclJCNT);
+        get_fld(pclSqlData,FIELD_2,STR,20,pclJFNO);
     }
     else
     {
@@ -91,7 +111,7 @@ int getCodeShare(char *pcpFields, char *pcpData, _VIAL *pcpCodeShare, char *pcpF
     dbg(DEBUG,"pclPointer<%s>",pclPointer);
 
     /*strcat(pclXML,"\t<codeshare>\n");*/
-    for(ili=0; ili < ilJCNT;ili++)
+    for(ili = 0; ili < ilJCNT;ili++)
   	{
 	    memset(pclTmpALC2,0,sizeof(pclTmpALC2));
 	    memset(pclTmpFLNO,0,sizeof(pclTmpFLNO));

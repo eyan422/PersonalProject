@@ -16,7 +16,7 @@ extern void buildSelQuery(char *pcpSqlBuf, char * pcpTable, char * pcpSourceFiel
 extern int getRotationFlightData(char *pcpTable, char *pcpUrnoSelection, char *pcpFields, char (*pcpRotationData)[LISTLEN], char *pcpAdid);
 extern void showRotationFlight(char (*pclRotationData)[LISTLEN]);
 /*extern int getCodeShare(char *pcpFields, char *pcpData, char (*pcpCodeShare)[LISTLEN]);*/
-extern int getCodeShare(char *pcpFields, char *pcpData, _VIAL *pcpCodeShare, char *pcpFormat, char *pcpOption);
+extern int getCodeShare(char *pcpFields, char *pcpData, _VIAL *pcpCodeShare, char *pcpFormat, char *pcpOption, char *pcpSelection);
 
 static int UtcToLocal(char *pcpTime)
 {
@@ -102,7 +102,7 @@ int codeshareFormat(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, ch
     strcat(pclFields,"JCNT,JFNO");
     sprintf(pclData,"%d,%s", ilJcnt, pcpSourceValue);
 
-    ilCount = getCodeShare(pclFields,pclData,pclCodeShare,pcpFormat,"ALC3");
+    ilCount = getCodeShare(pclFields,pclData,pclCodeShare,pcpFormat,"ALC3", pcpSelection);
     dbg(DEBUG,"%s ilCount<%d> pcpFormat<%s>",pclFunc,ilCount, pcpFormat);
     /*
     for(ili = 0; ili < ilCount; ili++)
