@@ -1558,7 +1558,7 @@ static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *
             if ( strlen(pclSelection) > 0 )
             {
                 buildSelQuery(pclSqlBuf, rpRule->rlLine[0].pclDestTable, pcpDestFiledList, pclSelection);
-                dbg(TRACE, "%s select<%s>", pclFunc, pclSqlBuf);
+                /*dbg(DEBUG, "%s select<%s>", pclFunc, pclSqlBuf);*/
 
                 /*
                 ilRC = RunSQL(pclSqlBuf, pclSqlData);
