@@ -18,6 +18,60 @@ extern void showRotationFlight(char (*pclRotationData)[LISTLEN]);
 /*extern int getCodeShare(char *pcpFields, char *pcpData, char (*pcpCodeShare)[LISTLEN]);*/
 extern int getCodeShare(char *pcpFields, char *pcpData, _VIAL *pcpCodeShare, char *pcpFormat, char *pcpOption);
 
+static int UtcToLocal(char *pcpTime)
+{
+	int c;
+		char year[5], month[3], day[3], hour[3], minute[3],second[3];
+		struct tm TimeBuffer, *final_result;
+		time_t time_result;
+
+		/********** Extract the Year off CEDA timestamp **********/
+		for(c=0; c<= 3; ++c)
+		{
+				year[c] = pcpTime[c];
+		}
+		year[4] = '\0';
+		/********** Extract month, day, hour and minute off CEDA timestamp **********/
+		for(c=0; c <= 1; ++c)
+		{
+			month[c]  = pcpTime[c + 4];
+			day[c]    = pcpTime[c + 6];
+			hour[c]   = pcpTime[c + 8];
+			minute[c] = pcpTime[c + 10];
+			second[c] = pcpTime[c + 12];
+		}
+		/********** Terminate the Buffer strings **********/
+		month[2]  = '\0';
+		day[2]    = '\0';
+		hour[2]   = '\0';
+		minute[2] = '\0';
+		second[2] = '\0';
+
+
+		/***** Fill a broken-down time structure incl. string to integer *****/
+		TimeBuffer.tm_year  = atoi(year) - 1900;
+		TimeBuffer.tm_mon   = atoi(month) - 1;
+		TimeBuffer.tm_mday  = atoi(day);
+		TimeBuffer.tm_hour  = atoi(hour);
+		TimeBuffer.tm_min   = atoi(minute);
+		TimeBuffer.tm_sec   = atoi(second);
+		TimeBuffer.tm_isdst = 0;
+		/***** Make secondbased timeformat and correct mktime *****/
+		time_result = mktime(&TimeBuffer) - timezone;
+		/***** Reconvert into broken-down time structure *****/
+		final_result = localtime(&time_result);
+
+		sprintf(pcpTime,"%d%.2d%.2d%.2d%.2d%.2d"
+			,final_result->tm_year+1900
+			,final_result->tm_mon+1
+			,final_result->tm_mday
+			,final_result->tm_hour
+			,final_result->tm_min
+			,final_result->tm_sec);
+
+		return(0); /**** DONE WELL ****/
+}
+
 int codeshareFormat(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpSelection, char *pcpAdid)
 {
     int ilRC = RC_FAIL;
@@ -42,11 +96,10 @@ int codeshareFormat(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, ch
     1-JCNT
     2-JFNO
     */
-    ilJcnt = strlen(pcpSourceValue) / CODESHARE_LEN;
-    dbg(DEBUG,"len<%d> ilNo<%d>\n", strlen(pcpSourceValue),ilJcnt);
+    ilJcnt = strlen(pcpSourceValue) / CODESHARE_LEN + 1;
+    dbg(DEBUG,"%s len<%d> ilNo<%d>", pclFunc, strlen(pcpSourceValue),ilJcnt);
 
-    strcat(pclFields,"JCNT");
-    strcat(pclFields,"JFNO");
+    strcat(pclFields,"JCNT,JFNO");
     sprintf(pclData,"%d,%s", ilJcnt, pcpSourceValue);
 
     ilCount = getCodeShare(pclFields,pclData,pclCodeShare,pcpFormat,"ALC3");
@@ -208,19 +261,18 @@ int rotation(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pc
     char pclUrnoSelection[64] = "\0";
     char pclRotationData[ARRAYNUMBER][LISTLEN] = {"\0"};
 
-
-    dbg(DEBUG,"%s ++++++++++++++++++",pclFunc);
+    /*dbg(DEBUG,"%s ++++++++++++++++++",pclFunc);*/
 
     strcpy(pclTmpSelection, pcpSelection);
-    dbg(DEBUG,"%s pclTmpSelection<%s>",pclFunc,pclTmpSelection);
+    /*dbg(DEBUG,"%s pclTmpSelection<%s>",pclFunc,pclTmpSelection);*/
 
     pclTmp = strstr(pclTmpSelection, "=");
 
-    dbg(DEBUG,"%s pclTmp<%s>",pclFunc,pclTmp);
+    /*dbg(DEBUG,"%s pclTmp<%s>",pclFunc,pclTmp);*/
 
     strcpy(pclUrnoSelection, pclTmp+1);
 
-    dbg(DEBUG,"%s pclUrnoSelection<%s>",pclFunc,pclUrnoSelection);
+    /*dbg(DEBUG,"%s pclUrnoSelection<%s>",pclFunc,pclUrnoSelection);*/
 
     strncpy(pcpDestValue, "", 1);
 
@@ -282,6 +334,7 @@ int refTable(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pc
         default:
             dbg(TRACE, "<%s> Retrieving source data - Found\n <%s>", pclFunc, pclSqlData);
             BuildItemBuffer(pclSqlData, NULL, 1, ",");
+            TrimRight(pclSqlData);
             strcpy(pcpDestValue, pclSqlData);
             ilRC = RC_SUCCESS;
             break;
@@ -295,18 +348,39 @@ int operDay(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcp
     char *pclFunc = "operDay";
 
     /*change the operation day into local one later*/
-    strcpy(pcpDestValue, pcpSourceValue);
+    char pclTmp[64] = "\0";
+
+    /*change the weekday into local one later*/
+    if( strcmp(rpLine->pclCond1, "DATELOC") == 0)
+    {
+        strcpy(pclTmp, pcpSourceValue);
+        /*UTC -> LOC*/
+        UtcToLocal(pclTmp);
+    }
+
+    strncpy(pcpDestValue, pclTmp+6,2);
 }
 
 int weekDay(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpSelection, char *pcpAdid)
 {
     int ilRC = RC_FAIL;
     char *pclFunc = "weekDay";
+    char pclTmp[64] = "\0";
 
-    /*change the weekday into local one later*/
+    /*change the weekday into local one later
+    if( strcmp(rpLine->pclCond1, "DATELOC") == 0)
+    {
+        strcpy(pclTmp, pcpSourceValue);
+        UtcToLocal(pclTmp)
+    }
+
+    strncpy(pcpDestValue, pclTmp+6,2);
+    */
+
     strcpy(pcpDestValue, pcpSourceValue);
 }
 
+/*
 int dateLoc(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpSelection, char *pcpAdid)
 {
     int ilRC = RC_FAIL;
@@ -316,21 +390,13 @@ int dateLoc(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcp
     strcpy(pclTmpTime, pcpSourceValue);
     AddSecondsToCEDATime(pclTmpTime, igTimeDifference * MIN, 1);
 
-    /*
-    if (strlen(pclTmpTime) > atoi(rpLine->pclDestFieldLen))
-    {
-        strncpy(pcpDestValue, pclTmpTime, atoi(rpLine->pclDestFieldLen));
-    }
-    else
-    */
-    {
-        strcpy(pcpDestValue, pclTmpTime);
-    }
+    strcpy(pcpDestValue, pclTmpTime);
 
     ilRC = RC_SUCCESS;
 
     return ilRC;
 }
+*/
 
 int number(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpSelection, char *pcpAdid)
 {
@@ -374,29 +440,36 @@ int timeFormat(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * 
     char pclMin[16] = "\0";
     char pclSec[16] = "\0";
     char pclTmp[64] = "\0";
+    char pclTmpLoc[64] = "\0";
 
     memset(pcpDestValue,0,sizeof(pcpDestValue));
-    dbg(TRACE, "%s The operator is blank -> default action",pclFunc);
 
     if (strlen(pcpSourceValue) == 0)
         return RC_FAIL;
 
-    strncpy(pclYear,pcpSourceValue,4);
-    strncpy(pclMonth,pcpSourceValue+4,2);
-    strncpy(pclDay,pcpSourceValue+6,2);
-    strncpy(pclHour,pcpSourceValue+8,2);
-    strncpy(pclMin,pcpSourceValue+10,2);
-    strncpy(pclSec,pcpSourceValue+12,2);
+    if(strcmp(rpLine->pclCond1, "DATELOC") == 0)
+    {
+        strcpy(pclTmpLoc,pcpSourceValue);
+        /*UTC -> LOC*/
+        UtcToLocal(pclTmpLoc);
+    }
 
-    if ( strlen(rpLine->pclCond1) == 0 || strcmp(rpLine->pclCond1," ") == 0)
+    strncpy(pclYear,pclTmpLoc,4);
+    strncpy(pclMonth,pclTmpLoc+4,2);
+    strncpy(pclDay,pclTmpLoc+6,2);
+    strncpy(pclHour,pclTmpLoc+8,2);
+    strncpy(pclMin,pclTmpLoc+10,2);
+    strncpy(pclSec,pclTmpLoc+12,2);
+
+    if ( strlen(rpLine->pclCond2) == 0 || strcmp(rpLine->pclCond2," ") == 0)
     {
         sprintf(pclTmp,"%s/%s/%s %s:%s:%s", pclDay, pclMonth, pclYear, pclHour, pclMin, pclSec);
     }
-    else if ( strcmp(rpLine->pclCond1,"DAY") == 0)
+    else if ( strcmp(rpLine->pclCond2,"YEAR_MON_DAY") == 0)
     {
         sprintf(pclTmp,"%s%s%s",pclYear, pclMonth, pclDay);
     }
-    else if ( strcmp(rpLine->pclCond1,"HOUR") == 0)
+    else if ( strcmp(rpLine->pclCond2,"HOUR_MIN") == 0)
     {
         sprintf(pclTmp,"%s%s",pclHour,pclMin);
     }
@@ -421,8 +494,11 @@ int defaultOperator(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, ch
 {
     int ilRC = RC_FAIL;
     char *pclFunc = "defaultOperator";
+
+    char pclTmp[64] = "\0";
+
     memset(pcpDestValue,0,sizeof(pcpDestValue));
-    dbg(TRACE, "%s The operator is blank -> default action",pclFunc);
+    /*dbg(TRACE, "%s The operator is blank -> default action",pclFunc);*/
 
     if (strlen(pcpSourceValue) == 0)
         return RC_FAIL;
@@ -433,6 +509,16 @@ int defaultOperator(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, ch
     }
     else
     */
+
+    if(strcmp(rpLine->pclCond1, "DATELOC") == 0)
+    {
+        strcpy(pclTmp,pcpSourceValue);
+        /*UTC -> LOC*/
+        UtcToLocal(pclTmp);
+
+        strcpy(pcpDestValue, pclTmp);
+    }
+    else
     {
         strcpy(pcpDestValue, pcpSourceValue);
     }
@@ -455,7 +541,14 @@ int getUrno(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcp
 
 int getCurrentTime(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpSelection, char *pcpAdid)
 {
+    int ilRC = RC_FAIL;
+    char *pclFunc = "defaultOperator";
+    char pclTimeNow[TIMEFORMAT] = "\0";
 
+    GetServerTimeStamp( "UTC", 1, 0, pclTimeNow);
+    dbg(TRACE,"<%s> Currnt time is <%s>",pclFunc, pclTimeNow);
+
+    strcpy(pcpDestValue, pclTimeNow);
 }
 
 struct codeFunc
@@ -468,7 +561,7 @@ CODEFUNC[OPER_CODE] =
     {" ",defaultOperator},
     {"TIMEFORMAT",timeFormat},
     {"NUMBER",number},
-    {"DATELOC",dateLoc},
+    /*{"DATELOC",dateLoc},*/
     {"WEEKDAY",weekDay},
     {"OPERDAY",operDay},
     {"REF",refTable},

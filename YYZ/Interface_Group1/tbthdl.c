@@ -1336,12 +1336,12 @@ int extractField(char *pcpFieldVal, char *pcpFieldName, char *pcpFields, char *p
     ilItemNo = get_item_no(pcpFields, pcpFieldName, 5) + 1;
     if (ilItemNo <= 0)
     {
-        dbg(TRACE, "<%s> No <%s> Found in the field list, can't do anything", pclFunc, pcpFieldName);
+        dbg(TRACE, "<%s> No <%s> Found in the field list, return", pclFunc, pcpFieldName);
         return RC_FAIL;
     }
 
     get_real_item(pcpFieldVal, pcpNewData, ilItemNo);
-    dbg(DEBUG,"<%s> The New %s is <%s>", pclFunc, pcpFieldName, pcpFieldVal);
+    dbg(TRACE,"<%s> The New %s is <%s>", pclFunc, pcpFieldName, pcpFieldVal);
 
     return RC_SUCCESS;
 }
@@ -1455,7 +1455,7 @@ static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *
 	ilNoEleSource = GetNoOfElements(pcpSourceFiledList, ',');
 	ilNoEleDest   = GetNoOfElements(pcpDestFiledList, ',');
 
-	dbg(TRACE,"%s The number of source and dest list are <%d> and <%d>", pclFunc, ilNoEleSource, ilNoEleDest);
+	/*dbg(TRACE,"%s The number of source and dest list are <%d> and <%d>", pclFunc, ilNoEleSource, ilNoEleDest);*/
 
 	if (ilNoEleDest == ilNoEleSource)
 	{
@@ -1645,13 +1645,13 @@ static int matchFieldListOnGroup(int ilRuleGroup, char *pcpSourceFieldList)
     {
         if(strlen(pcgSourceFiledSet[ilRuleGroup]) > 0)
         {
-            dbg(DEBUG,"%s Group[%d] - The field list is <%s>", pclFunc, ilRuleGroup, pcgSourceFiledSet[ilRuleGroup]);
+            /*dbg(DEBUG,"%s Group[%d] - The field list is <%s>", pclFunc, ilRuleGroup, pcgSourceFiledSet[ilRuleGroup]);*/
             strcpy(pcpSourceFieldList, pcgSourceFiledSet[ilRuleGroup]);
             ilRC = RC_SUCCESS;
         }
         else
         {
-            dbg(DEBUG,"%s Group[%d] - The field list is blank", pclFunc, ilRuleGroup);
+            dbg(TRACE,"%s Group[%d] - The field list is blank", pclFunc, ilRuleGroup);
             ilRC = RC_FAIL;
         }
     }
@@ -1812,7 +1812,7 @@ static int convertSrcValToDestVal(char *pcpSourceFieldName, char *pcpSourceField
         }
     }
 
-    dbg(TRACE,"SourceField<%s> SourceValue<%s> DestinationField<%s> DestinationValue<%s>",
+    dbg(TRACE,"SourceField<%s> SourceValue<%s> DestinationField<%s> DestinationValue<%s>\n",
         pcpSourceFieldName, pcpSourceFieldValue, pcpDestFieldName, pcpDestFieldValue);
 
     return ilRC;
@@ -1855,7 +1855,7 @@ int getRotationFlightData(char *pcpTable, char *pcpUrnoSelection, char *pcpField
     */
 
     buildSelQuery(pclSqlBuf, pcpTable, pcpFields, pclWhere);
-    dbg(TRACE, "%s select<%s>", pclFunc, pclSqlBuf);
+    dbg(DEBUG, "%s select<%s>", pclFunc, pclSqlBuf);
 
     slLocalCursor = 0;
 	slFuncCode = START;
@@ -1958,7 +1958,7 @@ static int mapping(char *pcpTable, char *pcpFields, char *pcpNewData, char *pcpS
         }
         else
         {
-            dbg(TRACE,"%s The source field list is <%s>", pclFunc, pclSourceFieldList);
+            /*dbg(DEBUG,"%s The source field list is <%s>", pclFunc, pclSourceFieldList);*/
         }
 
         ilRc = getSourceFieldData(pcpTable, pclSourceFieldList, pcpSelection, pclSourceDataList);
@@ -1969,10 +1969,10 @@ static int mapping(char *pcpTable, char *pcpFields, char *pcpNewData, char *pcpS
         }
         else
         {
-            dbg(TRACE,"%s The source field list is found <%s>", pclFunc, pclSourceFieldList);
+            /*dbg(TRACE,"%s The source field list is found <%s>", pclFunc, pclSourceFieldList);
 
             dbg(DEBUG,"%s pcgSourceFiledList[%d] <%s>", pclFunc, ilRuleGroup, pcgSourceFiledList[ilRuleGroup]);
-            dbg(DEBUG,"%s pcgDestFiledList[%d] <%s>", pclFunc, ilRuleGroup, pcgDestFiledList[ilRuleGroup]);
+            dbg(DEBUG,"%s pcgDestFiledList[%d] <%s>", pclFunc, ilRuleGroup, pcgDestFiledList[ilRuleGroup]);*/
             ilDataListNo = buildDataArray(pclSourceFieldList, pclSourceDataList, pclDatalist);
 
             ilFlag = TRUE;
