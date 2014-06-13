@@ -2015,7 +2015,7 @@ static int mapping(char *pcpTable, char *pcpFields, char *pcpNewData, char *pcpS
 
     for(ilCount = 0; ilCount < ilDataListNo; ilCount++)
     {
-        dbg(DEBUG,"%s \npclQuery[%d].pclInsertQuery<%s>\n",pclFunc, ilCount, pclQuery[ilCount].pclInsertQuery);
+        dbg(DEBUG,"\n%s pclQuery[%d].pclInsertQuery<%s>\n",pclFunc, ilCount, pclQuery[ilCount].pclInsertQuery);
         dbg(DEBUG,"%s pclQuery[%d].pclUpdateQuery<%s>\n",pclFunc, ilCount, pclQuery[ilCount].pclUpdateQuery);
     }
     /*
