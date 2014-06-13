@@ -147,9 +147,12 @@ static int isCommentLine(char *pcpLine);
 static int isInTimeWindow(char *pcpTimeVal, int ilTimeWindowUpperLimit, int ilTimeWindowLowerLimit);
 static int toDetermineAppliedRuleGroup(char * pcpTable, char * pcpFields, char * pcpData, char *pcpAdidValue);
 static void showFieldByGroup(char (*pcpSourceFiledSet)[LISTLEN], char (*pcpConflictFiledSet)[LISTLEN], char (* pcpSourceFiledList)[LISTLEN], char (* pcpDestFiledSet)[LISTLEN]);
-static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *pcpSourceFiledList,
+/*static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *pcpSourceFiledList,
                         char *pcpDestFiledList,_RULE *rpRule, int ipTotalLineOfRule, char * pcpSelection,
-                        char *pcpAdid, int ilIsMaster, char *pcpHardcodeShare_DestFieldList, _HARDCODE_SHARE pcpHardcodeShare);
+                        char *pcpAdid, int ilIsMaster, char *pcpHardcodeShare_DestFieldList, _HARDCODE_SHARE pcpHardcodeShare);*/
+static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *pcpSourceFiledList, char *pcpDestFiledList,
+                        _RULE *rpRule, int ipTotalLineOfRule, char * pcpSelection, char *pcpAdid, int ilIsMaster,
+                        char *pcpHardcodeShare_DestFieldList, _HARDCODE_SHARE pcpHardcodeShare, _QUERY *pcpQuery);
 static int matchFieldListOnGroup(int ilRuleGroup, char *pcpSourceFieldList);
 static int getSourceFieldData(char *pclTable, char * pcpSourceFieldList, char * pcpSelection, char * pclSourceDataList);
 void buildSelQuery(char *pcpSqlBuf, char * pcpTable, char * pcpSourceFieldList, char * pcpSelection);
@@ -1422,7 +1425,7 @@ static int toDetermineAppliedRuleGroup(char * pcpTable, char * pcpFields, char *
 
 static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *pcpSourceFiledList, char *pcpDestFiledList,
                         _RULE *rpRule, int ipTotalLineOfRule, char * pcpSelection, char *pcpAdid, int ilIsMaster,
-                        char *pcpHardcodeShare_DestFieldList, _HARDCODE_SHARE pcpHardcodeShare)
+                        char *pcpHardcodeShare_DestFieldList, _HARDCODE_SHARE pcpHardcodeShare, _QUERY *pcpQuery)
 {
     int ilRC = RC_SUCCESS;
     int ilItemNo = 0;
@@ -1450,6 +1453,10 @@ static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *
     char pclSqlData[4096] = "\0";
     char pclSqlUpdateBuf[4096] = "\0";
     char pclSqlInsertBuf[4096] = "\0";
+
+    char pclTmp[4096] = "\0";
+    char pclDestFiledListWithCodeshare[4096] = "\0";
+    char pclDestDataListWithCodeshare[4096] = "\0";
     /*
     for each item in the field list:
     1 search for the single rule in the applied group using source field
@@ -1547,8 +1554,8 @@ static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *
                     continue;
                 }
             }
-        }
-        dbg(TRACE, "%s The manipulated dest data list <%s> field number<%d>", pclFunc, pclDestDataList, GetNoOfElements(pclDestDataList,','));
+        }/*end of for loop*/
+        dbg(TRACE, "%s The manipulated dest data list <%s> field number<%d>\n", pclFunc, pclDestDataList, GetNoOfElements(pclDestDataList,','));
 
         if ( GetNoOfElements(pclDestDataList,',') != ilNoEleSource)
         {
@@ -1556,18 +1563,42 @@ static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *
         }
         else
         {
+            strcpy(pclDestFiledListWithCodeshare, pcpDestFiledList);
+            strcat(pclDestFiledListWithCodeshare,",");
+            strcat(pclDestFiledListWithCodeshare,pcpHardcodeShare_DestFieldList);
+
             if ( ilIsMaster == MASTER_RECORD )
             {
-                buildInsertQuery(pclSqlInsertBuf, rpRule->rlLine[0].pclDestTable, pcpDestFiledList, pclDestDataList);
+                sprintf(pclTmp,"%s,%s,%s,%s,%s",pcpHardcodeShare.pclSST,"''","''","''","''","''");
+
+                strcpy(pclDestDataListWithCodeshare, pclDestDataList);
+                strcat(pclDestDataListWithCodeshare,",");
+                strcat(pclDestDataListWithCodeshare,pclTmp);
+
+                /*buildInsertQuery(pclSqlInsertBuf, rpRule->rlLine[0].pclDestTable, pcpDestFiledList, pclDestDataList);*/
+                buildInsertQuery(pclSqlInsertBuf, rpRule->rlLine[0].pclDestTable, pclDestFiledListWithCodeshare, pclDestDataListWithCodeshare);
                 dbg(DEBUG, "%s insert<%s>", pclFunc, pclSqlInsertBuf);
 
-                buildUpdateQuery(pclSqlUpdateBuf, rpRule->rlLine[0].pclDestTable, pcpDestFiledList, pclDestDataList, pclSelection);
+                /*buildUpdateQuery(pclSqlUpdateBuf, rpRule->rlLine[0].pclDestTable, pcpDestFiledList, pclDestDataList, pclSelection);*/
+                buildUpdateQuery(pclSqlUpdateBuf, rpRule->rlLine[0].pclDestTable, pclDestFiledListWithCodeshare, pclDestDataListWithCodeshare,pclSelection);
                 dbg(DEBUG, "%s update<%s>", pclFunc, pclSqlUpdateBuf);
+
+                strcpy(pcpQuery->pclInsertQuery, pclSqlInsertBuf);
+                strcpy(pcpQuery->pclUpdateQuery, pclSqlUpdateBuf);
             }
             else
             {
-                buildInsertQuery(pclSqlInsertBuf, rpRule->rlLine[0].pclDestTable, pcpDestFiledList, pclDestDataList);
+                sprintf(pclTmp,"%s,%s,%s,%s,%s","SL",pcpHardcodeShare.pclMFC, pcpHardcodeShare.pclMFN,pcpHardcodeShare.pclMFX,pcpHardcodeShare.pclMFF);
+
+                strcpy(pclDestDataListWithCodeshare, pclDestDataList);
+                strcat(pclDestDataListWithCodeshare,",");
+                strcat(pclDestDataListWithCodeshare,pclTmp);
+
+                /*buildInsertQuery(pclSqlInsertBuf, rpRule->rlLine[0].pclDestTable, pcpDestFiledList, pclDestDataList);*/
+                buildInsertQuery(pclSqlInsertBuf, rpRule->rlLine[0].pclDestTable, pclDestFiledListWithCodeshare, pclDestDataListWithCodeshare);
                 dbg(DEBUG, "%s insert<%s>", pclFunc, pclSqlInsertBuf);
+
+                strcpy(pcpQuery->pclInsertQuery, pclSqlInsertBuf);
             }
         }
 	}
@@ -1872,14 +1903,18 @@ static int mapping(char *pcpTable, char *pcpFields, char *pcpNewData, char *pcpS
     int ilRuleGroup = 0;
     char *pclFunc = "mapping";
     char *pclTmp = NULL;
+    short slLocalCursor = 0, slFuncCode = 0;
     char pclTimeWindowRefFieldVal[32] = "\0";
     char pclUrnoSelection[64] = "\0";
     char pclTmpSelection[64] = "\0";
     char pclHardcodeShare_DestFieldList[256] = "\0";
+    char pclSqlBuf[2048] = "\0";
+    char pclSqlData[2048] = "\0";
     char pclSourceFieldList[2048] = "\0";
     char pclSourceDataList[2048] = "\0";
     _HARDCODE_SHARE pclHardcodeShare;
     char pclDatalist[ARRAYNUMBER][LISTLEN] = {"\0"};
+    _QUERY pclQuery[ARRAYNUMBER] = {"\0"};
 
     ilRc = extractField(pclTimeWindowRefFieldVal, pcgTimeWindowRefField, pcpFields, pcpNewData);
     if (ilRc == RC_FAIL)
@@ -1909,10 +1944,7 @@ static int mapping(char *pcpTable, char *pcpFields, char *pcpNewData, char *pcpS
     strcpy(pclHardcodeShare_DestFieldList, "SST,MFC,MFN,MFX,MFF");
     getHardcodeShare_DataList(pcpFields, pcpNewData, &pclHardcodeShare);
 
-    /*  fya 0.2
-        To determine the applied rule group
-    */
-
+    /*fya 0.2 To determine the applied rule group*/
     ilRuleGroup = toDetermineAppliedRuleGroup(pcpTable, pcpFields, pcpNewData, pcpAdidValue);
     if ( ilRuleGroup == 0 )
     {
@@ -1962,14 +1994,13 @@ static int mapping(char *pcpTable, char *pcpFields, char *pcpNewData, char *pcpS
         ilDataListNo = buildDataArray(pcpFields, pcpNewData, pclDatalist, pcpSelection);
     }
 
-    #ifdef X
     if (ilFlag == FALSE)
     {
         for(ilCount = 0; ilCount < ilDataListNo; ilCount++)
         {
             appliedRules( ilRuleGroup, pcpFields, pclDatalist[ilCount], pcgSourceFiledList[ilRuleGroup],
                          pcgDestFiledList[ilRuleGroup], &rgRule, igTotalLineOfRule, pcpSelection, pcpAdidValue,
-                         ilCount, pclHardcodeShare_DestFieldList, pclHardcodeShare);
+                         ilCount, pclHardcodeShare_DestFieldList, pclHardcodeShare, pclQuery+ilCount);
         }
     }
     else
@@ -1978,11 +2009,15 @@ static int mapping(char *pcpTable, char *pcpFields, char *pcpNewData, char *pcpS
         {
             appliedRules( ilRuleGroup, pclSourceFieldList, pclDatalist[ilCount], pcgSourceFiledList[ilRuleGroup],
                          pcgDestFiledList[ilRuleGroup], &rgRule, igTotalLineOfRule, pcpSelection, pcpAdidValue,
-                         ilCount, pclHardcodeShare_DestFieldList, pclHardcodeShare);
+                         ilCount, pclHardcodeShare_DestFieldList, pclHardcodeShare, pclQuery+ilCount);
         }
     }
 
-
+    for(ilCount = 0; ilCount < ilDataListNo; ilCount++)
+    {
+        dbg(DEBUG,"%s \npclQuery[%d].pclInsertQuery<%s>\n",pclFunc, ilCount, pclQuery[ilCount].pclInsertQuery);
+        dbg(DEBUG,"%s pclQuery[%d].pclUpdateQuery<%s>\n",pclFunc, ilCount, pclQuery[ilCount].pclUpdateQuery);
+    }
     /*
     build master record searching query
     if master record not found
@@ -2005,7 +2040,7 @@ static int mapping(char *pcpTable, char *pcpFields, char *pcpNewData, char *pcpS
     pclTmp = strstr(pclTmpSelection, "=");
     strcpy(pclUrnoSelection, pclTmp+1);
 
-    ilRc = flightSearch(rgRule->rlLine[0].pclDestTable, rgRule->rlLine[0].pclDestKey, pclUrnoSelection);
+    ilRc = flightSearch(rgRule.rlLine[0].pclDestTable, rgRule.rlLine[0].pclDestKey, rgRule.rlLine[0].pclDestKey, pclUrnoSelection);
     switch (ilRc)
     {
         case RC_FAIL:
@@ -2017,21 +2052,79 @@ static int mapping(char *pcpTable, char *pcpFields, char *pcpNewData, char *pcpS
             /*insert master and codeshare flights*/
             ilStatusMaster = INSERT;
             break;
-        default:
+        default:/*FOUND*/
             ilStatusMaster = UPDATE;
             break;
     }
 
     if (ilStatusMaster == INSERT)
     {
+        for(ilCount = 0; ilCount < ilDataListNo; ilCount++)
+        {
+            /*dbg(DEBUG,"%s pclQuery[%d].pclInsertQuery<%s>\n",pclFunc, ilCount, pclQuery[ilCount].pclInsertQuery);
+              dbg(DEBUG,"%s pclQuery[%d].pclUpdateQuery<%s>\n",pclFunc, ilCount, pclQuery[ilCount].pclUpdateQuery);*/
 
+            slLocalCursor = 0;
+            slFuncCode = START;
+
+            ilRc = sql_if(slFuncCode, &slLocalCursor, pclQuery[ilCount].pclInsertQuery, pclSqlData);
+            if( ilRc != DB_SUCCESS )
+            {
+                ilRc = RC_FAIL;
+                dbg(TRACE,"%s INSERT - Deletion Error",pclFunc);
+            }
+            close_my_cursor(&slLocalCursor);
+        }
     }
     else if (ilStatusMaster == UPDATE)
     {
+        /*delete the codeshare flights->
+          1-update master data
+          2-insert all codeshare data*/
 
+        slLocalCursor = 0;
+        slFuncCode = START;
+
+        sprintf(pclSqlBuf, "DELETE FROM %s WHERE %s='%s' AND SST!='%s'", rgRule.rlLine[0].pclDestTable, rgRule.rlLine[0].pclDestKey, pclUrnoSelection, pcgMasterSST);
+        dbg(TRACE,"%s Delete Query<%s>",pclFunc, pclSqlBuf);
+
+        ilRc = sql_if(slFuncCode, &slLocalCursor, pclSqlBuf, pclSqlData);
+        if( ilRc != DB_SUCCESS )
+        {
+            ilRc = RC_FAIL;
+            dbg(TRACE,"%s UPDATE-Deletion Error",pclFunc);
+        }
+        close_my_cursor(&slLocalCursor);
+
+        for(ilCount = 0; ilCount < ilDataListNo; ilCount++)
+        {
+            /*dbg(DEBUG,"%s pclQuery[%d].pclInsertQuery<%s>\n",pclFunc, ilCount, pclQuery[ilCount].pclInsertQuery);
+              dbg(DEBUG,"%s pclQuery[%d].pclUpdateQuery<%s>\n",pclFunc, ilCount, pclQuery[ilCount].pclUpdateQuery);*/
+
+            slLocalCursor = 0;
+            slFuncCode = START;
+
+            if ( ilCount == 0)
+            {
+                ilRc = sql_if(slFuncCode, &slLocalCursor, pclQuery[ilCount].pclUpdateQuery, pclSqlData);
+                if( ilRc != DB_SUCCESS )
+                {
+                    ilRc = RC_FAIL;
+                    dbg(TRACE,"%s UPDATE-UPDATE Error",pclFunc);
+                }
+            }
+            else
+            {
+                ilRc = sql_if(slFuncCode, &slLocalCursor, pclQuery[ilCount].pclInsertQuery, pclSqlData);
+                if( ilRc != DB_SUCCESS )
+                {
+                    ilRc = RC_FAIL;
+                    dbg(TRACE,"%s UPDATE-INSERT Error",pclFunc);
+                }
+            }
+            close_my_cursor(&slLocalCursor);
+        }
     }
-     #endif
-/**/
     return RC_SUCCESS;
 }
 

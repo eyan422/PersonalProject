@@ -11,6 +11,8 @@
 #define UPDATE 9
 #define MASTER_RECORD 0
 
+static char pcgMasterSST[4] = "SL";
+
 typedef struct
 {
     char pclActive[64];              /*ACTIVE*/
@@ -56,3 +58,8 @@ static void TrimRight(char *pcpBuffer) {
         }
     }
 } /* End of TrimRight */
+
+typedef struct {
+    char pclInsertQuery[4096];
+    char pclUpdateQuery[4096];
+} _QUERY;
