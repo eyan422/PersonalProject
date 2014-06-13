@@ -21,55 +21,55 @@ extern int getCodeShare(char *pcpFields, char *pcpData, _VIAL *pcpCodeShare, cha
 static int UtcToLocal(char *pcpTime)
 {
 	int c;
-		char year[5], month[3], day[3], hour[3], minute[3],second[3];
-		struct tm TimeBuffer, *final_result;
-		time_t time_result;
+    char year[5], month[3], day[3], hour[3], minute[3],second[3];
+    struct tm TimeBuffer, *final_result;
+    time_t time_result;
 
-		/********** Extract the Year off CEDA timestamp **********/
-		for(c=0; c<= 3; ++c)
-		{
-				year[c] = pcpTime[c];
-		}
-		year[4] = '\0';
-		/********** Extract month, day, hour and minute off CEDA timestamp **********/
-		for(c=0; c <= 1; ++c)
-		{
-			month[c]  = pcpTime[c + 4];
-			day[c]    = pcpTime[c + 6];
-			hour[c]   = pcpTime[c + 8];
-			minute[c] = pcpTime[c + 10];
-			second[c] = pcpTime[c + 12];
-		}
-		/********** Terminate the Buffer strings **********/
-		month[2]  = '\0';
-		day[2]    = '\0';
-		hour[2]   = '\0';
-		minute[2] = '\0';
-		second[2] = '\0';
+    /********** Extract the Year off CEDA timestamp **********/
+    for(c=0; c<= 3; ++c)
+    {
+        year[c] = pcpTime[c];
+    }
+    year[4] = '\0';
+    /********** Extract month, day, hour and minute off CEDA timestamp **********/
+    for(c = 0; c <= 1; ++c)
+    {
+        month[c]  = pcpTime[c + 4];
+        day[c]    = pcpTime[c + 6];
+        hour[c]   = pcpTime[c + 8];
+        minute[c] = pcpTime[c + 10];
+        second[c] = pcpTime[c + 12];
+    }
+    /********** Terminate the Buffer strings **********/
+    month[2]  = '\0';
+    day[2]    = '\0';
+    hour[2]   = '\0';
+    minute[2] = '\0';
+    second[2] = '\0';
 
 
-		/***** Fill a broken-down time structure incl. string to integer *****/
-		TimeBuffer.tm_year  = atoi(year) - 1900;
-		TimeBuffer.tm_mon   = atoi(month) - 1;
-		TimeBuffer.tm_mday  = atoi(day);
-		TimeBuffer.tm_hour  = atoi(hour);
-		TimeBuffer.tm_min   = atoi(minute);
-		TimeBuffer.tm_sec   = atoi(second);
-		TimeBuffer.tm_isdst = 0;
-		/***** Make secondbased timeformat and correct mktime *****/
-		time_result = mktime(&TimeBuffer) - timezone;
-		/***** Reconvert into broken-down time structure *****/
-		final_result = localtime(&time_result);
+    /***** Fill a broken-down time structure incl. string to integer *****/
+    TimeBuffer.tm_year  = atoi(year) - 1900;
+    TimeBuffer.tm_mon   = atoi(month) - 1;
+    TimeBuffer.tm_mday  = atoi(day);
+    TimeBuffer.tm_hour  = atoi(hour);
+    TimeBuffer.tm_min   = atoi(minute);
+    TimeBuffer.tm_sec   = atoi(second);
+    TimeBuffer.tm_isdst = 0;
+    /***** Make secondbased timeformat and correct mktime *****/
+    time_result = mktime(&TimeBuffer) - timezone;
+    /***** Reconvert into broken-down time structure *****/
+    final_result = localtime(&time_result);
 
-		sprintf(pcpTime,"%d%.2d%.2d%.2d%.2d%.2d"
-			,final_result->tm_year+1900
-			,final_result->tm_mon+1
-			,final_result->tm_mday
-			,final_result->tm_hour
-			,final_result->tm_min
-			,final_result->tm_sec);
+    sprintf(pcpTime,"%d%.2d%.2d%.2d%.2d%.2d"
+        ,final_result->tm_year+1900
+        ,final_result->tm_mon+1
+        ,final_result->tm_mday
+        ,final_result->tm_hour
+        ,final_result->tm_min
+        ,final_result->tm_sec);
 
-		return(0); /**** DONE WELL ****/
+    return(0); /**** DONE WELL ****/
 }
 
 int codeshareFormat(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpSelection, char *pcpAdid)
@@ -516,7 +516,7 @@ int defaultOperator(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, ch
         /*UTC -> LOC*/
         UtcToLocal(pclTmp);
 
-        strcpy(pcpDestValue, pclTmp);
+        strncpy(pcpDestValue, pclTmp, atoi(rpLine->pclDestFieldLen));
     }
     else
     {
@@ -542,13 +542,44 @@ int getUrno(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcp
 int getCurrentTime(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpSelection, char *pcpAdid)
 {
     int ilRC = RC_FAIL;
-    char *pclFunc = "defaultOperator";
+    char *pclFunc = "getCurrentTime";
     char pclTimeNow[TIMEFORMAT] = "\0";
 
     GetServerTimeStamp( "UTC", 1, 0, pclTimeNow);
     dbg(TRACE,"<%s> Currnt time is <%s>",pclFunc, pclTimeNow);
+    int ilDestLen   = atoi(rpLine->pclDestFieldLen);
 
-    strcpy(pcpDestValue, pclTimeNow);
+    ilRC = getDestSourceLen(ilDestLen, pcpSourceValue);
+    if (ilRC == RC_SUCCESS)
+    {
+        strcpy(pcpDestValue, pclTimeNow);
+    }
+    else
+    {
+        strncpy(pcpDestValue, pclTimeNow, ilDestLen);
+    }
+}
+
+int getDestSourceLen(int ipDestLen, char *pcpSourceValue)
+{
+    int ilRC = RC_FAIL;
+    char *pclFunc = "getDestSourceLen";
+
+    int ilSourceLen = strlen(pcpSourceValue);
+    int ilDestLen   = ipDestLen;
+
+    dbg(DEBUG,"%s ilDestLen<%d> pcpSourceValue<%s> ilSourceLen<%d>", pclFunc, ilDestLen, pcpSourceValue, ilSourceLen);
+
+    if (ilSourceLen <= ilDestLen)
+    {
+        ilRC = RC_SUCCESS;
+    }
+    else /*if (ilSourceLen > ilDestLen)*/
+    {
+        ilRC = RC_FAIL;
+    }
+
+    return ilRC;
 }
 
 struct codeFunc
