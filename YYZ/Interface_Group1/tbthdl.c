@@ -162,10 +162,11 @@ static void buildUpdateQuery(char *pcpSqlBuf, char * pcpTable, char * pcpDestFie
 static void buildDestTabWhereClause( char *pcpSelection, char *pcpDestKey, char *pcpDestFiledList, char *pclDestDataList);
 int getRotationFlightData(char *pcpTable, char *pcpUrnoSelection, char *pcpFields, char (*pcpRotationData)[LISTLEN], char *pcpAdid);
 void showRotationFlight(char (*pclRotationData)[LISTLEN]);
-static int mapping(char *pcpTable, char *pcpFields, char *pcpNewData, char *pcpSelection, char *pcpAdid);
+static int mapping(char *pcpTable, char *pcpFields, char *pcpNewData, char *pcpSelection, char *pcpAdidValue, int ipVialChange);
 static int buildDataArray(char *pcpFields, char *pcpNewData, char (*pcpDatalist)[LISTLEN], char *pcpSelection);
 static int flightSearch(char *pcpTable, char *pcpField, char *pcpKey, char *pcpSelection);
 static void getHardcodeShare_DataList(char *pcpFields, char *pcpData, _HARDCODE_SHARE *pcpHardcodeShare);
+static int checkVialChange(char *pcpFields, char *pcpNewData, char *pcpOldData, int *ipVialChange);
 /******************************************************************************/
 /*                                                                            */
 /* The MAIN program                                                           */
@@ -724,7 +725,7 @@ static int HandleData(EVENT *prpEvent)
 	int		ilUpdPoolJob = TRUE;
 
 	int ilCount = 0;
-
+    int ilVialChange = FALSE;
     char pclAdidValue[2] = "\0";
 	char pclTimeWindowRefField[8] = "\0";
     char pclWhereClaues[2048] = "\0";
@@ -789,6 +790,7 @@ static int HandleData(EVENT *prpEvent)
     }
     else /*The normal DFR, IFR and UFR command*/
     {
+        /*getting the ADID*/
         ilRc = extractField(pclAdidValue, "ADID", pclFields, pclNewData);
         if (ilRc == RC_FAIL)
         {
@@ -800,8 +802,8 @@ static int HandleData(EVENT *prpEvent)
             dbg(TRACE,"%s The ADID value<%s> is valid", pclFunc, pclAdidValue);
         }
 
-        /*original flight*/
-        mapping(clTable, pclFields, pclNewData, pclSelection, pclAdidValue);
+        checkVialChange(pclFields,pclNewData,pclOldData,&ilVialChange);
+        mapping(clTable, pclFields, pclNewData, pclSelection, pclAdidValue, ilVialChange);
 
         #ifndef FYA
         /*getting the roataion flight data beforehand, optimize this part later*/
@@ -817,10 +819,12 @@ static int HandleData(EVENT *prpEvent)
                 {
                     dbg(DEBUG,"%s <%d> Rotation Flight<%s>", pclFunc, ilCount, pclRotationData[ilCount]);
 
-                    /*master flight*/
-                    mapping(clTable, pclFields, pclRotationData[ilCount], pclSelection, pclAdidValue);
-
-                    /*codeshare flights*/
+                    /*
+                    Since the rotation flight has no old data, then set ilVialChange = TRUE;
+                    checkVialChange(pclFields,pclRotationData[ilCount],"",ilVialChange);
+                    */
+                    ilVialChange = TRUE;
+                    mapping(clTable, pclFields, pclRotationData[ilCount], pclSelection, pclAdidValue, ilVialChange);
                 }
             }
         }
@@ -1911,7 +1915,7 @@ void showRotationFlight(char (*pclRotationData)[LISTLEN])
     }
 }
 
-static int mapping(char *pcpTable, char *pcpFields, char *pcpNewData, char *pcpSelection, char *pcpAdidValue)
+static int mapping(char *pcpTable, char *pcpFields, char *pcpNewData, char *pcpSelection, char *pcpAdidValue, int ipIsVialChange)
 {
     int ilRc = 0;
     int ilFlag = FALSE;
@@ -2014,20 +2018,38 @@ static int mapping(char *pcpTable, char *pcpFields, char *pcpNewData, char *pcpS
 
     if (ilFlag == FALSE)
     {
-        for(ilCount = 0; ilCount < ilDataListNo; ilCount++)
+        if (ipIsVialChange == FALSE)
         {
-            appliedRules( ilRuleGroup, pcpFields, pclDatalist[ilCount], pcgSourceFiledList[ilRuleGroup],
-                         pcgDestFiledList[ilRuleGroup], &rgRule, igTotalLineOfRule, pcpSelection, pcpAdidValue,
-                         ilCount, pclHardcodeShare_DestFieldList, pclHardcodeShare, pclQuery+ilCount);
+            appliedRules( ilRuleGroup, pcpFields, pclDatalist[MASTER_RECORD], pcgSourceFiledList[ilRuleGroup],
+                             pcgDestFiledList[ilRuleGroup], &rgRule, igTotalLineOfRule, pcpSelection, pcpAdidValue,
+                             MASTER_RECORD, pclHardcodeShare_DestFieldList, pclHardcodeShare, pclQuery+MASTER_RECORD);
+        }
+        else
+        {
+             for(ilCount = 0; ilCount < ilDataListNo; ilCount++)
+            {
+                appliedRules( ilRuleGroup, pcpFields, pclDatalist[ilCount], pcgSourceFiledList[ilRuleGroup],
+                             pcgDestFiledList[ilRuleGroup], &rgRule, igTotalLineOfRule, pcpSelection, pcpAdidValue,
+                             ilCount, pclHardcodeShare_DestFieldList, pclHardcodeShare, pclQuery+ilCount);
+            }
         }
     }
     else
     {
-        for(ilCount = 0; ilCount < ilDataListNo; ilCount++)
+        if (ipIsVialChange == FALSE)
         {
-            appliedRules( ilRuleGroup, pclSourceFieldList, pclDatalist[ilCount], pcgSourceFiledList[ilRuleGroup],
-                         pcgDestFiledList[ilRuleGroup], &rgRule, igTotalLineOfRule, pcpSelection, pcpAdidValue,
-                         ilCount, pclHardcodeShare_DestFieldList, pclHardcodeShare, pclQuery+ilCount);
+            appliedRules( ilRuleGroup, pclSourceFieldList, pclDatalist[MASTER_RECORD], pcgSourceFiledList[ilRuleGroup],
+                        pcgDestFiledList[ilRuleGroup], &rgRule, igTotalLineOfRule, pcpSelection, pcpAdidValue,
+                        MASTER_RECORD, pclHardcodeShare_DestFieldList, pclHardcodeShare, pclQuery+MASTER_RECORD);
+        }
+        else
+        {
+            for(ilCount = 0; ilCount < ilDataListNo; ilCount++)
+            {
+                appliedRules( ilRuleGroup, pclSourceFieldList, pclDatalist[ilCount], pcgSourceFiledList[ilRuleGroup],
+                             pcgDestFiledList[ilRuleGroup], &rgRule, igTotalLineOfRule, pcpSelection, pcpAdidValue,
+                             ilCount, pclHardcodeShare_DestFieldList, pclHardcodeShare, pclQuery+ilCount);
+            }
         }
     }
 
@@ -2101,50 +2123,78 @@ static int mapping(char *pcpTable, char *pcpFields, char *pcpNewData, char *pcpS
     else if (ilStatusMaster == UPDATE)
     {
         /*delete the codeshare flights->
-          1-update master data
-          2-insert all codeshare data*/
 
-        slLocalCursor = 0;
-        slFuncCode = START;
+        there are two cases under update scenario:
+        1-update all
+        2-update the master data and insert the other codeshare data
 
-        sprintf(pclSqlBuf, "DELETE FROM %s WHERE %s='%s' AND SST!='%s'", rgRule.rlLine[0].pclDestTable, rgRule.rlLine[0].pclDestKey, pclUrnoSelection, pcgMasterSST);
-        dbg(TRACE,"%s Delete Query<%s>",pclFunc, pclSqlBuf);
+            The critera is the number of codeshare fligths and the change of original vian/vial fields
+            1-update master data
+            2-insert all codeshare data*/
 
-        ilRc = sql_if(slFuncCode, &slLocalCursor, pclSqlBuf, pclSqlData);
-        if( ilRc != DB_SUCCESS )
+        /*VIAL is not changed, then -> update all master and codeshare fligths in one query*/
+        if (ipIsVialChange == FALSE)
         {
-            ilRc = RC_FAIL;
-            dbg(TRACE,"%s UPDATE-Deletion Error",pclFunc);
-        }
-        close_my_cursor(&slLocalCursor);
-
-        for(ilCount = 0; ilCount < ilDataListNo; ilCount++)
-        {
-            /*dbg(DEBUG,"%s pclQuery[%d].pclInsertQuery<%s>\n",pclFunc, ilCount, pclQuery[ilCount].pclInsertQuery);
-              dbg(DEBUG,"%s pclQuery[%d].pclUpdateQuery<%s>\n",pclFunc, ilCount, pclQuery[ilCount].pclUpdateQuery);*/
-
             slLocalCursor = 0;
             slFuncCode = START;
 
-            if ( ilCount == 0)
+            ilRc = sql_if(slFuncCode, &slLocalCursor, pclQuery[MASTER_RECORD].pclUpdateQuery, pclSqlData);
+            if( ilRc != DB_SUCCESS )
             {
-                ilRc = sql_if(slFuncCode, &slLocalCursor, pclQuery[ilCount].pclUpdateQuery, pclSqlData);
-                if( ilRc != DB_SUCCESS )
-                {
-                    ilRc = RC_FAIL;
-                    dbg(TRACE,"%s UPDATE-UPDATE Error",pclFunc);
-                }
+                ilRc = RC_FAIL;
+                dbg(TRACE,"%s Update all master and codeshare flights in one query fails",pclFunc);
             }
             else
             {
-                ilRc = sql_if(slFuncCode, &slLocalCursor, pclQuery[ilCount].pclInsertQuery, pclSqlData);
-                if( ilRc != DB_SUCCESS )
-                {
-                    ilRc = RC_FAIL;
-                    dbg(TRACE,"%s UPDATE-INSERT Error",pclFunc);
-                }
+                dbg(TRACE,"%s Update all master and codeshare flights in one query succeeds",pclFunc);
             }
             close_my_cursor(&slLocalCursor);
+        }
+        else
+        {
+            slLocalCursor = 0;
+            slFuncCode = START;
+
+            sprintf(pclSqlBuf, "DELETE FROM %s WHERE %s='%s' AND SST!='%s'", rgRule.rlLine[0].pclDestTable, rgRule.rlLine[0].pclDestKey, pclUrnoSelection, pcgMasterSST);
+            dbg(TRACE,"%s Delete Query<%s>",pclFunc, pclSqlBuf);
+
+            ilRc = sql_if(slFuncCode, &slLocalCursor, pclSqlBuf, pclSqlData);
+            if( ilRc != DB_SUCCESS )
+            {
+                ilRc = RC_FAIL;
+                dbg(TRACE,"%s UPDATE-Deletion Error",pclFunc);
+            }
+            close_my_cursor(&slLocalCursor);
+
+            /*later, compare each record, and only delete & insert the new ones*/
+            for(ilCount = 0; ilCount < ilDataListNo; ilCount++)
+            {
+                /*dbg(DEBUG,"%s pclQuery[%d].pclInsertQuery<%s>\n",pclFunc, ilCount, pclQuery[ilCount].pclInsertQuery);
+                  dbg(DEBUG,"%s pclQuery[%d].pclUpdateQuery<%s>\n",pclFunc, ilCount, pclQuery[ilCount].pclUpdateQuery);*/
+
+                slLocalCursor = 0;
+                slFuncCode = START;
+
+                if ( ilCount == MASTER_RECORD )/*update master flights*/
+                {
+                    ilRc = sql_if(slFuncCode, &slLocalCursor, pclQuery[ilCount].pclUpdateQuery, pclSqlData);
+                    if( ilRc != DB_SUCCESS )
+                    {
+                        ilRc = RC_FAIL;
+                        dbg(TRACE,"%s UPDATE-UPDATE Error",pclFunc);
+                    }
+                }
+                else /*insert codeshare flights*/
+                {
+                    ilRc = sql_if(slFuncCode, &slLocalCursor, pclQuery[ilCount].pclInsertQuery, pclSqlData);
+                    if( ilRc != DB_SUCCESS )
+                    {
+                        ilRc = RC_FAIL;
+                        dbg(TRACE,"%s UPDATE-INSERT Error",pclFunc);
+                    }
+                }
+                close_my_cursor(&slLocalCursor);
+            }
         }
     }
     return RC_SUCCESS;
@@ -2335,4 +2385,67 @@ static void getHardcodeShare_DataList(char *pcpFields, char *pcpData, _HARDCODE_
             strcpy(pcpHardcodeShare->pclMFF,pclTmpData);
         }
     }
+}
+
+static int checkVialChange(char *pcpFields, char *pcpNewData, char *pcpOldData, int *ipVialChange)
+{
+    int ilRc = RC_SUCCESS;
+    char *pclFunc = "checkVialChange";
+    char pclVianValue[64] = "\0";
+    char pclVialOldValue[64] = "\0";
+    char pclVialNewValue[64] = "\0";
+
+    /*getting the VIAN*/
+    ilRc = extractField(pclVianValue, "VIAN", pcpFields, pcpNewData);
+    if (ilRc == RC_FAIL)
+    {
+        dbg(TRACE,"%s The VIAN value<%s> is invalid", pclFunc, pclVianValue);
+        return RC_FAIL;
+    }
+    else
+    {
+        dbg(TRACE,"%s The VIAN value<%s> is valid", pclFunc, pclVianValue);
+    }
+
+    if( atoi(pclVianValue) == 0 )
+    {
+        *ipVialChange = FALSE;
+    }
+    else
+    {
+        /*getting the New VIAL Value*/
+        ilRc = extractField(pclVialNewValue, "VIAL", pcpFields, pcpNewData);
+        if (ilRc == RC_FAIL)
+        {
+            dbg(TRACE,"%s The New VIAL value<%s> is invalid", pclFunc, pclVialNewValue);
+            return RC_FAIL;
+        }
+        else
+        {
+            dbg(TRACE,"%s The New VIAL value<%s> is valid", pclFunc, pclVialNewValue);
+        }
+
+        /*getting the Old VIAL Value*/
+        ilRc = extractField(pclVialOldValue, "VIAL", pcpFields, pcpOldData);
+        if (ilRc == RC_FAIL)
+        {
+            dbg(TRACE,"%s The Old VIAL value<%s> is invalid", pclFunc, pclVialOldValue);
+            return RC_FAIL;
+        }
+        else
+        {
+            dbg(TRACE,"%s The Old VIAL value<%s> is valid", pclFunc, pclVialOldValue);
+        }
+
+        if ( strcmp(pclVialOldValue,pclVialNewValue) != 0 )
+        {
+            *ipVialChange = TRUE;
+        }
+        else
+        {
+            *ipVialChange = FALSE;
+        }
+    }
+
+    return ilRc;
 }
