@@ -1,7 +1,7 @@
 #ifndef _DEF_mks_version
   #define _DEF_mks_version
   #include "ufisvers.h" /* sets UFIS_VERSION, must be done before mks_version */
-  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/lighdl.c 2.4 08/05/2014 16:18 PM Exp  $";
+  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/lighdl.c 2.5 16/06/2014 17:28 PM Exp  $";
 #endif /* _DEF_mks_version */
 
 /******************************************************************************/
@@ -325,6 +325,10 @@ static void FindNextAllocDepBuildWhereClauseFutureActual(char *pcpWhere,char *pc
 static void FindNextAllocArrBuildWhereClauseFutureActualFromNow(char *pcpWhere, char *pcpParkstand, char *pcpTifd);
 static void PutDefaultValueWithPos(SENT_MSG *rpSentMsg, char *pcpParkingStand);
 static void print(Item i);
+static int FindArrOnlyFlight(char *pcpParkingStand, SENT_MSG *rpSentMsg, int ipDeleteTowing, int ipAckNotSent);
+static void FindNextAllocArrOnlyBuildWhereClausePastNow(char *pcpWhere,char *pcpParkstand);
+static void FindNextAllocArrOnlyBuildFullQuery(char *pcpSqlBuf,char *pcpWhere);
+static void FindNextAllocArrOnlyBuildWhereClauseNowFuture(char *pcpWhere,char *pcpParkstand);
 /******************************************************************************/
 /*                                                                            */
 /* The MAIN program                                                           */
@@ -8504,142 +8508,9 @@ static int FindNextAllocationFuture(char *pcpParkingStand, char *pcpTime, SENT_M
 
 		dbg(TRACE, "<%s> The search for next allocation dep flight fails", pclFunc);
 
-        memset(&rlDefNullMsgWithPos,0,sizeof(rlDefNullMsgWithPos));
-
-        PutDefaultValueWithPos(&rlDefNullMsgWithPos,pcpParkingStand);
-        ShowMsgStruct(rlDefNullMsgWithPos);
-        BuildSentData(pclDataSent,rlDefNullMsgWithPos);
-
-        strcat(pclDataSent,"\n");
-        dbg(TRACE,"<%s> pclDataSent<%s>",pclFunc,pclDataSent);
-        /*StoreSentData(pclDataSent,pclUrnoNewData,"NormalFlight",pclRecordURNO);*/
-
-        if (ipAckNotSent == 1)
+        #ifdef FYA
         {
-            StoreSentData(pclDataSent,pclUrnoNewData,"NormalFlight",pclRecordURNO);
-            strcpy(pcgSendMsgId,pclRecordURNO);
-        }
-        else if (ipAckNotSent == 0)
-            StoreSentData(pclDataSent,pclUrnoNewData,"NormalFlight-NoAck",pclRecordURNO);
-
-        /*
-        strcat(pclDataSent,"\n");
-        */
-        /*strcpy(pcgCurSendData,pclDataSent);
-        strcpy(pcgSendMsgId,pclRecordURNO);*/
-
-        EnQueue(pcgQueue, atoi(pcgSendMsgId));
-        dbg(TRACE,"%s Size<%d> Traverse all element in queue:", pclFunc, GetSize(pcgQueue));
-        QueueTraverse(pcgQueue,print);
-
-        for (ilCount = 0; ilCount < igReSendMax; ilCount++)
-        {
-            if (igSock > 0)
-            {
-                /*
-                @fya 20140304
-                strcat(pclDataSent,"\n");
-                */
-                ilRC = Send_data(igSock,pclDataSent);
-                dbg(DEBUG, "<%s>1-ilRC<%d>",pclFunc,ilRC);
-
-                if (ilRC == RC_SUCCESS)
-                {
-                    igSckWaitACK = TRUE;
-                    igSckTryACKCnt = 0;
-
-                    GetServerTimeStamp( "UTC", 1, 0, pcgSckWaitACKExpTime);
-                    AddSecondsToCEDATime(pcgSckWaitACKExpTime, igSckACKCWait, 1);
-                    break;
-                }
-                else if(ilRC == RC_FAIL)
-                {
-                    dbg(DEBUG, "<%s>Send_data error",pclFunc);
-                    ilRC = Sockt_Reconnect();
-                    /*SendRST_Command();*/
-                }
-                else if(ilRC == RC_SENDTIMEOUT)
-                {
-                    dbg(DEBUG,"<%s>Send_data timeout, Re send again",pclFunc);
-                }
-            }
-            else
-            {
-                if ((igConnected == TRUE) || (igOldCnnt == TRUE))
-                {
-                    ilRC = Sockt_Reconnect();
-                    /*SendRST_Command();*/
-                }
-                else
-                      ilRC = RC_FAIL;
-            }
-        }
-
-        if (ipAckNotSent == 1)
-        {
-            /* fya 20140227 sending ack right after normal message*/
-            for (ilCount = 0; ilCount < igReSendMax; ilCount++)
-            {
-                if (igSock > 0)
-                {
-                    ilRC = SendAckMsg();
-                    dbg(DEBUG, "<%s>1-ilRC<%d>",pclFunc,ilRC);
-
-                    if (ilRC == RC_SUCCESS)
-                    {
-                        igSckWaitACK = TRUE;
-                        igSckTryACKCnt = 0;
-
-                        GetServerTimeStamp( "UTC", 1, 0, pcgSckWaitACKExpTime);
-                        AddSecondsToCEDATime(pcgSckWaitACKExpTime, igSckACKCWait, 1);
-                        break;
-                    }
-                    else if(ilRC == RC_FAIL)
-                    {
-                        dbg(DEBUG, "<%s>Send_data error",pclFunc);
-                        ilRC = Sockt_Reconnect();
-                        /*SendRST_Command();*/
-                    }
-                    else if(ilRC == RC_SENDTIMEOUT)
-                    {
-                        dbg(DEBUG,"<%s>Send_data timeout, Re send again",pclFunc);
-                    }
-                }
-                else
-                {
-                    if ((igConnected == TRUE) || (igOldCnnt == TRUE))
-                    {
-                        ilRC = Sockt_Reconnect();
-                        /*SendRST_Command();*/
-                    }
-                    else
-                          ilRC = RC_FAIL;
-              }
-            }
-        }
-
-        if( ilCount >= igReSendMax)
-        {
-            dbg(TRACE,"<%s>Send_data <%d>Times failed, drop msg",pclFunc, ilCount);
-
-            dbg(TRACE,"Make the queue empty");
-            ClearQueue(pcgQueue);
-            /*
-            dbg(TRACE,"Destruct the queue");
-            DestroyQueue(pcgQueue);
-            */
-            return RC_FAIL;
-        }
-
-		return RC_FAIL;
-	}
-
-	switch(ilRC)
-	{
-		case NOTFOUND:
-			dbg(TRACE, "<%s> The search for next allocation dep flight fails", pclFunc);
-
-			memset(&rlDefNullMsgWithPos,0,sizeof(rlDefNullMsgWithPos));
+            memset(&rlDefNullMsgWithPos,0,sizeof(rlDefNullMsgWithPos));
 
             PutDefaultValueWithPos(&rlDefNullMsgWithPos,pcpParkingStand);
             ShowMsgStruct(rlDefNullMsgWithPos);
@@ -8765,8 +8636,148 @@ static int FindNextAllocationFuture(char *pcpParkingStand, char *pcpTime, SENT_M
                 */
                 return RC_FAIL;
             }
+            return RC_FAIL;
+        }
+		#endif
+	}
 
-			return RC_FAIL;
+	switch(ilRC)
+	{
+		case NOTFOUND:
+			dbg(TRACE, "<%s> The search for next allocation dep flight fails", pclFunc);
+
+            #ifdef FYA
+            {
+                memset(&rlDefNullMsgWithPos,0,sizeof(rlDefNullMsgWithPos));
+
+                PutDefaultValueWithPos(&rlDefNullMsgWithPos,pcpParkingStand);
+                ShowMsgStruct(rlDefNullMsgWithPos);
+                BuildSentData(pclDataSent,rlDefNullMsgWithPos);
+
+                strcat(pclDataSent,"\n");
+                dbg(TRACE,"<%s> pclDataSent<%s>",pclFunc,pclDataSent);
+                /*StoreSentData(pclDataSent,pclUrnoNewData,"NormalFlight",pclRecordURNO);*/
+
+                if (ipAckNotSent == 1)
+                {
+                    StoreSentData(pclDataSent,pclUrnoNewData,"NormalFlight",pclRecordURNO);
+                    strcpy(pcgSendMsgId,pclRecordURNO);
+                }
+                else if (ipAckNotSent == 0)
+                    StoreSentData(pclDataSent,pclUrnoNewData,"NormalFlight-NoAck",pclRecordURNO);
+
+                /*
+                strcat(pclDataSent,"\n");
+                */
+                /*strcpy(pcgCurSendData,pclDataSent);
+                strcpy(pcgSendMsgId,pclRecordURNO);*/
+
+                EnQueue(pcgQueue, atoi(pcgSendMsgId));
+                dbg(TRACE,"%s Size<%d> Traverse all element in queue:", pclFunc, GetSize(pcgQueue));
+                QueueTraverse(pcgQueue,print);
+
+                for (ilCount = 0; ilCount < igReSendMax; ilCount++)
+                {
+                    if (igSock > 0)
+                    {
+                        /*
+                        @fya 20140304
+                        strcat(pclDataSent,"\n");
+                        */
+                        ilRC = Send_data(igSock,pclDataSent);
+                        dbg(DEBUG, "<%s>1-ilRC<%d>",pclFunc,ilRC);
+
+                        if (ilRC == RC_SUCCESS)
+                        {
+                            igSckWaitACK = TRUE;
+                            igSckTryACKCnt = 0;
+
+                            GetServerTimeStamp( "UTC", 1, 0, pcgSckWaitACKExpTime);
+                            AddSecondsToCEDATime(pcgSckWaitACKExpTime, igSckACKCWait, 1);
+                            break;
+                        }
+                        else if(ilRC == RC_FAIL)
+                        {
+                            dbg(DEBUG, "<%s>Send_data error",pclFunc);
+                            ilRC = Sockt_Reconnect();
+                            /*SendRST_Command();*/
+                        }
+                        else if(ilRC == RC_SENDTIMEOUT)
+                        {
+                            dbg(DEBUG,"<%s>Send_data timeout, Re send again",pclFunc);
+                        }
+                    }
+                    else
+                    {
+                        if ((igConnected == TRUE) || (igOldCnnt == TRUE))
+                        {
+                            ilRC = Sockt_Reconnect();
+                            /*SendRST_Command();*/
+                        }
+                        else
+                              ilRC = RC_FAIL;
+                    }
+                }
+
+                if (ipAckNotSent == 1)
+                {
+                    /* fya 20140227 sending ack right after normal message*/
+                    for (ilCount = 0; ilCount < igReSendMax; ilCount++)
+                    {
+                        if (igSock > 0)
+                        {
+                            ilRC = SendAckMsg();
+                            dbg(DEBUG, "<%s>1-ilRC<%d>",pclFunc,ilRC);
+
+                            if (ilRC == RC_SUCCESS)
+                            {
+                                igSckWaitACK = TRUE;
+                                igSckTryACKCnt = 0;
+
+                                GetServerTimeStamp( "UTC", 1, 0, pcgSckWaitACKExpTime);
+                                AddSecondsToCEDATime(pcgSckWaitACKExpTime, igSckACKCWait, 1);
+                                break;
+                            }
+                            else if(ilRC == RC_FAIL)
+                            {
+                                dbg(DEBUG, "<%s>Send_data error",pclFunc);
+                                ilRC = Sockt_Reconnect();
+                                /*SendRST_Command();*/
+                            }
+                            else if(ilRC == RC_SENDTIMEOUT)
+                            {
+                                dbg(DEBUG,"<%s>Send_data timeout, Re send again",pclFunc);
+                            }
+                        }
+                        else
+                        {
+                            if ((igConnected == TRUE) || (igOldCnnt == TRUE))
+                            {
+                                ilRC = Sockt_Reconnect();
+                                /*SendRST_Command();*/
+                            }
+                            else
+                                  ilRC = RC_FAIL;
+                      }
+                    }
+                }
+
+                if( ilCount >= igReSendMax)
+                {
+                    dbg(TRACE,"<%s>Send_data <%d>Times failed, drop msg",pclFunc, ilCount);
+
+                    dbg(TRACE,"Make the queue empty");
+                    ClearQueue(pcgQueue);
+                    /*
+                    dbg(TRACE,"Destruct the queue");
+                    DestroyQueue(pcgQueue);
+                    */
+                    return RC_FAIL;
+                }
+            }
+            #endif
+
+			return ilRC;
 
 			break;
 		default:/*
@@ -9788,91 +9799,57 @@ static int FindNextAllocation(char *pcpParkingStand, char *pcpTime, SENT_MSG *rp
 
                     if ( strcmp(pcpTime,pclTmpTimeNow) >= 0 )
                     {
-                        FindNextAllocationFuture(pcpParkingStand, pcpTime, rpSentMsg, ipDeleteTowing, ipAckNotSent);
+                        ilRC = FindNextAllocationFuture(pcpParkingStand, pcpTime, rpSentMsg, ipDeleteTowing, ipAckNotSent);
                     }
-                    else
+
+                    if(ilRC == NOTFOUND)
                     {
-                        dbg(TRACE,"<%s> The tifd<%s> is less than now <%s> -> sending default null message with parking stand", pclFunc, pcpTime, pclTmpTimeNow);
-
-                        memset(&rlDefNullMsgWithPos,0,sizeof(rlDefNullMsgWithPos));
-
-                        PutDefaultValueWithPos(&rlDefNullMsgWithPos,pcpParkingStand);
-                        ShowMsgStruct(rlDefNullMsgWithPos);
-                        BuildSentData(pclDataSent,rlDefNullMsgWithPos);
-
-                        strcat(pclDataSent,"\n");
-                        dbg(TRACE,"<%s> pclDataSent<%s>",pclFunc,pclDataSent);
-                        /*StoreSentData(pclDataSent,pclUrnoNewData,"NormalFlight",pclRecordURNO);*/
-
-                        if (ipAckNotSent == 1)
+                        dbg(TRACE,"%s Then Search for arrival-only flight", pclFunc);
+                        ilRC = FindArrOnlyFlight(pcpParkingStand, rpSentMsg, ipDeleteTowing, ipAckNotSent);
+                    }
+                    #ifdef FYA1
+                    {
+                        else
                         {
-                            StoreSentData(pclDataSent,pclUrnoNewData,"NormalFlight",pclRecordURNO);
-                            strcpy(pcgSendMsgId,pclRecordURNO);
-                        }
-                        else if (ipAckNotSent == 0)
-                            StoreSentData(pclDataSent,pclUrnoNewData,"NormalFlight-NoAck",pclRecordURNO);
+                            dbg(TRACE,"<%s> The tifd<%s> is less than now <%s> -> sending default null message with parking stand", pclFunc, pcpTime, pclTmpTimeNow);
 
-                        /*
-                        strcat(pclDataSent,"\n");
-                        */
-                        /*strcpy(pcgCurSendData,pclDataSent);
-                        strcpy(pcgSendMsgId,pclRecordURNO);*/
+                            memset(&rlDefNullMsgWithPos,0,sizeof(rlDefNullMsgWithPos));
 
-                        EnQueue(pcgQueue, atoi(pcgSendMsgId));
-                        dbg(TRACE,"%s Size<%d> Traverse all element in queue:", pclFunc, GetSize(pcgQueue));
-                        QueueTraverse(pcgQueue,print);
+                            PutDefaultValueWithPos(&rlDefNullMsgWithPos,pcpParkingStand);
+                            ShowMsgStruct(rlDefNullMsgWithPos);
+                            BuildSentData(pclDataSent,rlDefNullMsgWithPos);
 
-                        for (ilCount = 0; ilCount < igReSendMax; ilCount++)
-                        {
-                            if (igSock > 0)
+                            strcat(pclDataSent,"\n");
+                            dbg(TRACE,"<%s> pclDataSent<%s>",pclFunc,pclDataSent);
+                            /*StoreSentData(pclDataSent,pclUrnoNewData,"NormalFlight",pclRecordURNO);*/
+
+                            if (ipAckNotSent == 1)
                             {
-                                /*
-                                @fya 20140304
-                                strcat(pclDataSent,"\n");
-                                */
-                                ilRC = Send_data(igSock,pclDataSent);
-                                dbg(DEBUG, "<%s>1-ilRC<%d>",pclFunc,ilRC);
-
-                                if (ilRC == RC_SUCCESS)
-                                {
-                                    igSckWaitACK = TRUE;
-                                    igSckTryACKCnt = 0;
-
-                                    GetServerTimeStamp( "UTC", 1, 0, pcgSckWaitACKExpTime);
-                                    AddSecondsToCEDATime(pcgSckWaitACKExpTime, igSckACKCWait, 1);
-                                    break;
-                                }
-                                else if(ilRC == RC_FAIL)
-                                {
-                                    dbg(DEBUG, "<%s>Send_data error",pclFunc);
-                                    ilRC = Sockt_Reconnect();
-                                    /*SendRST_Command();*/
-                                }
-                                else if(ilRC == RC_SENDTIMEOUT)
-                                {
-                                    dbg(DEBUG,"<%s>Send_data timeout, Re send again",pclFunc);
-                                }
+                                StoreSentData(pclDataSent,pclUrnoNewData,"NormalFlight",pclRecordURNO);
+                                strcpy(pcgSendMsgId,pclRecordURNO);
                             }
-                            else
-                            {
-                                if ((igConnected == TRUE) || (igOldCnnt == TRUE))
-                                {
-                                    ilRC = Sockt_Reconnect();
-                                    /*SendRST_Command();*/
-                                }
-                                else
-                                      ilRC = RC_FAIL;
-                            }
-                        }
+                            else if (ipAckNotSent == 0)
+                                StoreSentData(pclDataSent,pclUrnoNewData,"NormalFlight-NoAck",pclRecordURNO);
 
-                        if (ipAckNotSent == 1)
-                        {
-                            /* fya 20140227 sending ack right after normal message*/
+                            /*
+                            strcat(pclDataSent,"\n");
+                            */
+                            /*strcpy(pcgCurSendData,pclDataSent);
+                            strcpy(pcgSendMsgId,pclRecordURNO);*/
+
+                            EnQueue(pcgQueue, atoi(pcgSendMsgId));
+                            dbg(TRACE,"%s Size<%d> Traverse all element in queue:", pclFunc, GetSize(pcgQueue));
+                            QueueTraverse(pcgQueue,print);
+
                             for (ilCount = 0; ilCount < igReSendMax; ilCount++)
                             {
                                 if (igSock > 0)
                                 {
-                                    ilRC = SendAckMsg();
+                                    /*
+                                    @fya 20140304
+                                    strcat(pclDataSent,"\n");
+                                    */
+                                    ilRC = Send_data(igSock,pclDataSent);
                                     dbg(DEBUG, "<%s>1-ilRC<%d>",pclFunc,ilRC);
 
                                     if (ilRC == RC_SUCCESS)
@@ -9904,23 +9881,67 @@ static int FindNextAllocation(char *pcpParkingStand, char *pcpTime, SENT_MSG *rp
                                     }
                                     else
                                           ilRC = RC_FAIL;
-                              }
+                                }
+                            }
+
+                            if (ipAckNotSent == 1)
+                            {
+                                /* fya 20140227 sending ack right after normal message*/
+                                for (ilCount = 0; ilCount < igReSendMax; ilCount++)
+                                {
+                                    if (igSock > 0)
+                                    {
+                                        ilRC = SendAckMsg();
+                                        dbg(DEBUG, "<%s>1-ilRC<%d>",pclFunc,ilRC);
+
+                                        if (ilRC == RC_SUCCESS)
+                                        {
+                                            igSckWaitACK = TRUE;
+                                            igSckTryACKCnt = 0;
+
+                                            GetServerTimeStamp( "UTC", 1, 0, pcgSckWaitACKExpTime);
+                                            AddSecondsToCEDATime(pcgSckWaitACKExpTime, igSckACKCWait, 1);
+                                            break;
+                                        }
+                                        else if(ilRC == RC_FAIL)
+                                        {
+                                            dbg(DEBUG, "<%s>Send_data error",pclFunc);
+                                            ilRC = Sockt_Reconnect();
+                                            /*SendRST_Command();*/
+                                        }
+                                        else if(ilRC == RC_SENDTIMEOUT)
+                                        {
+                                            dbg(DEBUG,"<%s>Send_data timeout, Re send again",pclFunc);
+                                        }
+                                    }
+                                    else
+                                    {
+                                        if ((igConnected == TRUE) || (igOldCnnt == TRUE))
+                                        {
+                                            ilRC = Sockt_Reconnect();
+                                            /*SendRST_Command();*/
+                                        }
+                                        else
+                                              ilRC = RC_FAIL;
+                                  }
+                                }
+                            }
+
+                            if( ilCount >= igReSendMax)
+                            {
+                                dbg(TRACE,"<%s>Send_data <%d>Times failed, drop msg",pclFunc, ilCount);
+
+                                dbg(TRACE,"Make the queue empty");
+                                ClearQueue(pcgQueue);
+                                /*
+                                dbg(TRACE,"Destruct the queue");
+                                DestroyQueue(pcgQueue);
+                                */
+                                return RC_FAIL;
                             }
                         }
-
-                        if( ilCount >= igReSendMax)
-                        {
-                            dbg(TRACE,"<%s>Send_data <%d>Times failed, drop msg",pclFunc, ilCount);
-
-                            dbg(TRACE,"Make the queue empty");
-                            ClearQueue(pcgQueue);
-                            /*
-                            dbg(TRACE,"Destruct the queue");
-                            DestroyQueue(pcgQueue);
-                            */
-                            return RC_FAIL;
-                        }
                     }
+                    #endif
 
                     return RC_SUCCESS;
                     break;
@@ -10728,3 +10749,341 @@ static void print(Item i)
     /*printf("The data in this node is %d\n",i);*/
     dbg(TRACE,"The data in this node is %d",i);
 }
+
+static int FindArrOnlyFlight(char *pcpParkingStand, SENT_MSG *rpSentMsg, int ipDeleteTowing, int ipAckNotSent)
+{
+    int ilCount = 0;
+    int ilRC = RC_FAIL;
+    char *pclFunc = "FindArrOnlyFlight";
+
+	char pclUrno[16] = "\0";
+	char pclAdid[16] = "\0";
+	char pclRkey[16] = "\0";
+	char pclRegn[16] = "\0";
+	char pclStoa[16] = "\0";
+	char pclStod[16] = "\0";
+	char pclEtai[16] = "\0";
+	char pclEtdi[16] = "\0";
+	char pclTifa[16] = "\0";
+	char pclTifd[16] = "\0";
+	char pclOnbl[16] = "\0";
+	char pclOfbl[16] = "\0";
+	char pclPsta[16] = "\0";
+	char pclPstd[16] = "\0";
+	char pclTmoa[16] = "\0";
+	char pclAirb[16] = "\0";
+
+	char pclRecordURNO[50] = "\0";
+	char pclUrnoNewData[50] = "\0";
+    char pclDataSent[1024] = "\0";
+	char pclSqlBuf[2048] = "\0",pclSqlData[2048] = "\0",pclWhere[2048] = "\0";
+
+	memset(pclUrno,0,sizeof(pclUrno));
+	memset(pclAdid,0,sizeof(pclAdid));
+	memset(pclRkey,0,sizeof(pclRkey));
+	memset(pclRegn,0,sizeof(pclRegn));
+	memset(pclStoa,0,sizeof(pclStoa));
+	memset(pclStod,0,sizeof(pclStod));
+	memset(pclEtai,0,sizeof(pclEtai));
+	memset(pclEtdi,0,sizeof(pclEtdi));
+	memset(pclTifa,0,sizeof(pclTifa));
+	memset(pclTifd,0,sizeof(pclTifd));
+	memset(pclOnbl,0,sizeof(pclOnbl));
+	memset(pclOfbl,0,sizeof(pclOfbl));
+	memset(pclPsta,0,sizeof(pclPsta));
+	memset(pclPstd,0,sizeof(pclPstd));
+	memset(pclTmoa,0,sizeof(pclTmoa));
+
+	/*Find the past to now*/
+	FindNextAllocArrOnlyBuildWhereClausePastNow(pclWhere,pcpParkingStand);
+	FindNextAllocArrOnlyBuildFullQuery(pclSqlBuf,pclWhere);
+
+	ilRC = RunSQL(pclSqlBuf, pclSqlData);
+	if (ilRC != DB_SUCCESS)
+	{
+		dbg(TRACE, "<%s>: Past-Now arrival only flight is not found in AFTTAB, line<%d>", pclFunc,__LINE__);
+		/*return RC_FAIL;*/
+	}
+
+	switch(ilRC)
+    {
+        case NOTFOUND:
+        	dbg(TRACE, "<%s> Then search for the Now-Future arrival only flight", pclFunc);
+
+        	memset(pclWhere,0,sizeof(pclWhere));
+			memset(pclSqlBuf,0,sizeof(pclSqlBuf));
+			memset(pclSqlData,0,sizeof(pclSqlData));
+
+        	/*Find now to future*/
+			FindNextAllocArrOnlyBuildWhereClauseNowFuture(pclWhere,pcpParkingStand);
+			FindNextAllocArrOnlyBuildFullQuery(pclSqlBuf,pclWhere);
+
+			ilRC = RunSQL(pclSqlBuf, pclSqlData);
+            if (ilRC != DB_SUCCESS)
+            {
+                dbg(TRACE, "<%s>: Now-Future arrival only flight is not found in AFTTAB, return<%d>", pclFunc);
+                /*return RC_FAIL;*/
+            }
+
+
+            switch(ilRC)
+            {
+                case NOTFOUND:
+                	dbg(TRACE, "<%s>: Now-Future arrival only flight is not found in AFTTAB, return<%d>", pclFunc);
+                	return RC_FAIL;
+                	break;
+                default:
+                	get_fld(pclSqlData,FIELD_1,STR,20,pclUrno); TrimSpace(pclUrno);
+		            get_fld(pclSqlData,FIELD_2,STR,20,pclAdid); TrimSpace(pclAdid);
+		            get_fld(pclSqlData,FIELD_3,STR,20,pclRkey); TrimSpace(pclRkey);
+		            get_fld(pclSqlData,FIELD_4,STR,20,pclRegn); /*TrimSpace(pclRegn);*/
+		            get_fld(pclSqlData,FIELD_5,STR,20,pclStoa); TrimSpace(pclStoa);
+		            get_fld(pclSqlData,FIELD_6,STR,20,pclStod); TrimSpace(pclStod);
+		            get_fld(pclSqlData,FIELD_7,STR,20,pclEtai); TrimSpace(pclEtai);
+		            get_fld(pclSqlData,FIELD_8,STR,20,pclEtdi); TrimSpace(pclEtdi);
+		            get_fld(pclSqlData,FIELD_9,STR,20,pclTifa); TrimSpace(pclTifa);
+		            get_fld(pclSqlData,FIELD_10,STR,20,pclTifd); TrimSpace(pclTifd);
+		            get_fld(pclSqlData,FIELD_11,STR,20,pclOnbl); TrimSpace(pclOnbl);
+		            get_fld(pclSqlData,FIELD_12,STR,20,pclOfbl); TrimSpace(pclOfbl);
+		            get_fld(pclSqlData,FIELD_13,STR,20,pclPsta); TrimSpace(pclPsta);
+		            get_fld(pclSqlData,FIELD_14,STR,20,pclPstd); TrimSpace(pclPstd);
+		            get_fld(pclSqlData,FIELD_15,STR,20,pclTmoa); TrimSpace(pclTmoa);
+
+		            dbg(DEBUG,"<%s>line <%d>",pclFunc,__LINE__);
+		            dbg(DEBUG,"<%s>pclUrno<%s>",pclFunc,pclUrno);
+		            dbg(DEBUG,"<%s>pclAdid<%s>",pclFunc,pclAdid);
+		            dbg(DEBUG,"<%s>pclRkey<%s>",pclFunc,pclRkey);
+		            dbg(DEBUG,"<%s>pclRegn<%s>",pclFunc,pclRegn);
+		            dbg(DEBUG,"<%s>pclStoa<%s>",pclFunc,pclStoa);
+		            dbg(DEBUG,"<%s>pclStod<%s>",pclFunc,pclStod);
+		            dbg(DEBUG,"<%s>pclTifa<%s>",pclFunc,pclTifa);
+		            dbg(DEBUG,"<%s>pclTifd<%s>",pclFunc,pclTifd);
+		            dbg(DEBUG,"<%s>pclPsta<%s>",pclFunc,pclPsta);
+		            dbg(DEBUG,"<%s>pclPstd<%s>",pclFunc,pclPstd);
+		            dbg(DEBUG,"<%s>pclEtai<%s>",pclFunc,pclEtai);
+		            dbg(DEBUG,"<%s>pclEtdi<%s>",pclFunc,pclEtdi);
+		            dbg(DEBUG,"<%s>pclOnbl<%s>",pclFunc,pclOnbl);
+		            dbg(DEBUG,"<%s>pclOfbl<%s>",pclFunc,pclOfbl);
+		            dbg(DEBUG,"<%s>pclTmoa<%s>",pclFunc,pclTmoa);
+
+		            memset(rpSentMsg,0,sizeof(*rpSentMsg));
+            		BuildArrPart(rpSentMsg, pclPsta, pclStoa, pclEtai, pclTmoa, pclOnbl);
+                	break;
+            }
+
+        	break;
+        default:
+        	dbg(TRACE, "<%s>: Past-Now arrival only flight is found in AFTTAB, line<%d>", pclFunc,__LINE__);
+
+            get_fld(pclSqlData,FIELD_1,STR,20,pclUrno); TrimSpace(pclUrno);
+            get_fld(pclSqlData,FIELD_2,STR,20,pclAdid); TrimSpace(pclAdid);
+            get_fld(pclSqlData,FIELD_3,STR,20,pclRkey); TrimSpace(pclRkey);
+            get_fld(pclSqlData,FIELD_4,STR,20,pclRegn); /*TrimSpace(pclRegn);*/
+            get_fld(pclSqlData,FIELD_5,STR,20,pclStoa); TrimSpace(pclStoa);
+            get_fld(pclSqlData,FIELD_6,STR,20,pclStod); TrimSpace(pclStod);
+            get_fld(pclSqlData,FIELD_7,STR,20,pclEtai); TrimSpace(pclEtai);
+            get_fld(pclSqlData,FIELD_8,STR,20,pclEtdi); TrimSpace(pclEtdi);
+            get_fld(pclSqlData,FIELD_9,STR,20,pclTifa); TrimSpace(pclTifa);
+            get_fld(pclSqlData,FIELD_10,STR,20,pclTifd); TrimSpace(pclTifd);
+            get_fld(pclSqlData,FIELD_11,STR,20,pclOnbl); TrimSpace(pclOnbl);
+            get_fld(pclSqlData,FIELD_12,STR,20,pclOfbl); TrimSpace(pclOfbl);
+            get_fld(pclSqlData,FIELD_13,STR,20,pclPsta); TrimSpace(pclPsta);
+            get_fld(pclSqlData,FIELD_14,STR,20,pclPstd); TrimSpace(pclPstd);
+            get_fld(pclSqlData,FIELD_15,STR,20,pclTmoa); TrimSpace(pclTmoa);
+
+            dbg(DEBUG,"<%s>line <%d>",pclFunc,__LINE__);
+            dbg(DEBUG,"<%s>pclUrno<%s>",pclFunc,pclUrno);
+            dbg(DEBUG,"<%s>pclAdid<%s>",pclFunc,pclAdid);
+            dbg(DEBUG,"<%s>pclRkey<%s>",pclFunc,pclRkey);
+            dbg(DEBUG,"<%s>pclRegn<%s>",pclFunc,pclRegn);
+            dbg(DEBUG,"<%s>pclStoa<%s>",pclFunc,pclStoa);
+            dbg(DEBUG,"<%s>pclStod<%s>",pclFunc,pclStod);
+            dbg(DEBUG,"<%s>pclTifa<%s>",pclFunc,pclTifa);
+            dbg(DEBUG,"<%s>pclTifd<%s>",pclFunc,pclTifd);
+            dbg(DEBUG,"<%s>pclPsta<%s>",pclFunc,pclPsta);
+            dbg(DEBUG,"<%s>pclPstd<%s>",pclFunc,pclPstd);
+            dbg(DEBUG,"<%s>pclEtai<%s>",pclFunc,pclEtai);
+            dbg(DEBUG,"<%s>pclEtdi<%s>",pclFunc,pclEtdi);
+            dbg(DEBUG,"<%s>pclOnbl<%s>",pclFunc,pclOnbl);
+            dbg(DEBUG,"<%s>pclOfbl<%s>",pclFunc,pclOfbl);
+            dbg(DEBUG,"<%s>pclTmoa<%s>",pclFunc,pclTmoa);
+
+			memset(rpSentMsg,0,sizeof(*rpSentMsg));
+            BuildArrPart(rpSentMsg, pclPsta, pclStoa, pclEtai, pclTmoa, pclOnbl);
+        	break;
+    }
+    ShowMsgStruct(*rpSentMsg);
+
+    memset(pclDataSent,0,sizeof(pclDataSent));
+    BuildSentData(pclDataSent,*rpSentMsg);
+    strcat(pclDataSent,"\n");
+    dbg(TRACE,"<%s> pclDataSent<%s>",pclFunc,pclDataSent);
+
+    if (ipAckNotSent == 1)
+    {
+        StoreSentData(pclDataSent,pclUrnoNewData,"NormalFlight",pclRecordURNO);
+        strcpy(pcgSendMsgId,pclRecordURNO);
+
+        EnQueue(pcgQueue, atoi(pcgSendMsgId));
+        dbg(TRACE,"%s Size<%d> Traverse all element in queue:", pclFunc, GetSize(pcgQueue));
+        QueueTraverse(pcgQueue,print);
+    }
+    else if (ipAckNotSent == 0)
+    {
+        StoreSentData(pclDataSent,pclUrnoNewData,"NormalFlight-NoAck",pclRecordURNO);
+    }
+
+    for (ilCount = 0; ilCount < igReSendMax; ilCount++)
+    {
+        if (igSock > 0)
+        {
+            /*
+            @fya 20140304
+            strcat(pclDataSent,"\n");
+            */
+            ilRC = Send_data(igSock,pclDataSent);
+            dbg(DEBUG, "<%s>1-ilRC<%d>",pclFunc,ilRC);
+
+            if (ilRC == RC_SUCCESS)
+            {
+                igSckWaitACK = TRUE;
+                igSckTryACKCnt = 0;
+
+                GetServerTimeStamp( "UTC", 1, 0, pcgSckWaitACKExpTime);
+                AddSecondsToCEDATime(pcgSckWaitACKExpTime, igSckACKCWait, 1);
+                break;
+            }
+            else if(ilRC == RC_FAIL)
+            {
+                dbg(DEBUG, "<%s>Send_data error",pclFunc);
+                ilRC = Sockt_Reconnect();
+                /*SendRST_Command();*/
+            }
+            else if(ilRC == RC_SENDTIMEOUT)
+            {
+                dbg(DEBUG,"<%s>Send_data timeout, Re send again",pclFunc);
+            }
+        }
+        else
+        {
+            if ((igConnected == TRUE) || (igOldCnnt == TRUE))
+            {
+                ilRC = Sockt_Reconnect();
+                /*SendRST_Command();*/
+            }
+            else
+                  ilRC = RC_FAIL;
+        }
+    }
+
+    if (ipAckNotSent == 1)
+    {
+        /* fya 20140227 sending ack right after normal message*/
+        for (ilCount = 0; ilCount < igReSendMax; ilCount++)
+        {
+            if (igSock > 0)
+            {
+                ilRC = SendAckMsg();
+                dbg(DEBUG, "<%s>1-ilRC<%d>",pclFunc,ilRC);
+
+                if (ilRC == RC_SUCCESS)
+                {
+                    igSckWaitACK = TRUE;
+                    igSckTryACKCnt = 0;
+
+                    GetServerTimeStamp( "UTC", 1, 0, pcgSckWaitACKExpTime);
+                    AddSecondsToCEDATime(pcgSckWaitACKExpTime, igSckACKCWait, 1);
+                    break;
+                }
+                else if(ilRC == RC_FAIL)
+                {
+                    dbg(DEBUG, "<%s>Send_data error",pclFunc);
+                    ilRC = Sockt_Reconnect();
+                    /*SendRST_Command();*/
+                }
+                else if(ilRC == RC_SENDTIMEOUT)
+                {
+                    dbg(DEBUG,"<%s>Send_data timeout, Re send again",pclFunc);
+                }
+            }
+            else
+            {
+                if ((igConnected == TRUE) || (igOldCnnt == TRUE))
+                {
+                    ilRC = Sockt_Reconnect();
+                    /*SendRST_Command();*/
+                }
+                else
+                      ilRC = RC_FAIL;
+          }
+        }
+    }
+
+    if( ilCount >= igReSendMax)
+    {
+        dbg(TRACE,"<%s>Send_data <%d>Times failed, drop msg",pclFunc, ilCount);
+
+        dbg(TRACE,"Make the queue empty");
+        ClearQueue(pcgQueue);
+        /*
+        dbg(TRACE,"Destruct the queue");
+        DestroyQueue(pcgQueue);
+        */
+        return RC_FAIL;
+    }
+    return RC_SUCCESS;
+}
+
+static void FindNextAllocArrOnlyBuildWhereClauseNowFuture(char *pcpWhere,char *pcpParkstand)
+{
+	char *pclFunc = "FindNextAllocArrOnlyBuildWhereClauseNowFuture";
+	char pclWhere[2048] = "\0";
+	char pclTmpTime[TIMEFORMAT] = "\0";
+	char pclTmpTimeNow[TIMEFORMAT] = "\0";
+
+	GetServerTimeStamp( "UTC", 1, 0, pclTmpTimeNow);
+    dbg(TRACE,"<%s> Currnt UTC time is <%s>",pclFunc, pclTmpTimeNow);
+    strcpy(pclTmpTime,pclTmpTimeNow);
+
+	AddSecondsToCEDATime(pclTmpTime, igNextAllocDepUpperRange * 60 * 60 * 24, 1);
+
+	sprintf(pclWhere,"PSTA = '%s' and FTYP NOT IN ('X','N') and ADID IN ('A','B') and TIFA between '%s' and '%s' and AIRB=' ' order by TIFA asc",pcpParkstand,pclTmpTimeNow,pclTmpTime);
+
+	strcpy(pcpWhere,pclWhere);
+    dbg(DEBUG,"<%s>Where Clause<%s>",pclFunc,pcpWhere);
+}
+
+static void FindNextAllocArrOnlyBuildWhereClausePastNow(char *pcpWhere,char *pcpParkstand)
+{
+	char *pclFunc = "FindNextAllocArrOnlyBuildWhereClausePastNow";
+	char pclWhere[2048] = "\0";
+	char pclTmpTime[TIMEFORMAT] = "\0";
+    char pclTmpTimeNow[TIMEFORMAT] = "\0";
+
+    GetServerTimeStamp( "UTC", 1, 0, pclTmpTimeNow);
+
+    dbg(TRACE,"<%s> Currnt UTC time is <%s>",pclFunc, pclTmpTimeNow);
+    strcpy(pclTmpTime,pclTmpTimeNow);
+
+    AddSecondsToCEDATime(pclTmpTime, igPastActualDep * 60 * 60, 1);
+
+	sprintf(pclWhere,"PSTA = '%s' and FTYP NOT IN ('X','N') and ADID IN ('A','B') and TIFA between '%s' and '%s' order by TIFA desc",pcpParkstand,pclTmpTime,pclTmpTimeNow);
+
+	strcpy(pcpWhere,pclWhere);
+    dbg(DEBUG,"<%s>Where Clause<%s>",pclFunc,pcpWhere);
+}
+
+static void FindNextAllocArrOnlyBuildFullQuery(char *pcpSqlBuf,char *pcpWhere)
+{
+	char *pclFunc = "FindNextAllocArrOnlyBuildFullQuery";
+	char pclSqlBuf[2048] = "\0";
+
+	memset(pcpSqlBuf,0,sizeof(pcpSqlBuf));
+
+	sprintf(pclSqlBuf, "SELECT URNO,ADID,RKEY,REGN,STOA,STOD,ETAI,ETDI,TIFA,TIFD,ONBL,OFBL,PSTA,PSTD,TMOA FROM AFTTAB WHERE %s", pcpWhere);
+
+    strcpy(pcpSqlBuf,pclSqlBuf);
+    dbg(DEBUG,"\n*******************<%s>*******************",pclFunc);
+	dbg(DEBUG,"<%s>Full Query<%s>",pclFunc,pcpSqlBuf);
+}
+
