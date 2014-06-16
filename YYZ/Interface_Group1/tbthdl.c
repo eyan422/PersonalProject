@@ -2,7 +2,7 @@
 #ifndef _DEF_mks_version
   #define _DEF_mks_version
   #include "ufisvers.h" /* sets UFIS_VERSION, must be done before mks_version */
-  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/tbthdl.c 1.3 2014/06/13 16:09:14SGT fya Exp  $";
+  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/tbthdl.c 1.4 2014/06/16 16:09:14SGT fya Exp  $";
 #endif /* _DEF_mks_version */
 /******************************************************************************/
 /*                                                                            */
@@ -147,9 +147,6 @@ static int isCommentLine(char *pcpLine);
 static int isInTimeWindow(char *pcpTimeVal, int ilTimeWindowUpperLimit, int ilTimeWindowLowerLimit);
 static int toDetermineAppliedRuleGroup(char * pcpTable, char * pcpFields, char * pcpData, char *pcpAdidValue);
 static void showFieldByGroup(char (*pcpSourceFiledSet)[LISTLEN], char (*pcpConflictFiledSet)[LISTLEN], char (* pcpSourceFiledList)[LISTLEN], char (* pcpDestFiledSet)[LISTLEN]);
-/*static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *pcpSourceFiledList,
-                        char *pcpDestFiledList,_RULE *rpRule, int ipTotalLineOfRule, char * pcpSelection,
-                        char *pcpAdid, int ilIsMaster, char *pcpHardcodeShare_DestFieldList, _HARDCODE_SHARE pcpHardcodeShare);*/
 static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *pcpSourceFiledList, char *pcpDestFiledList,
                         _RULE *rpRule, int ipTotalLineOfRule, char * pcpSelection, char *pcpAdid, int ilIsMaster,
                         char *pcpHardcodeShare_DestFieldList, _HARDCODE_SHARE pcpHardcodeShare, _QUERY *pcpQuery);
@@ -1755,29 +1752,55 @@ static void buildDestTabWhereClause( char *pcpSelection, char *pcpDestKey, char 
 
 static void buildInsertQuery(char *pcpSqlBuf, char * pcpTable, char * pcpDestFieldList, char *pcpDestFieldData)
 {
+    int ilNextUrno = 0;
     char *pclFunc = "buildInsertQuery";
     char pclTimeNow[TIMEFORMAT] = "\0";
+
+    char pclYear[16] = "\0";
+    char pclMonth[16] = "\0";
+    char pclDay[16] = "\0";
+    char pclHour[16] = "\0";
+    char pclMin[16] = "\0";
+    char pclSec[16] = "\0";
+
     char pclTmp[64] = "\0";
+
+    ilNextUrno = NewUrnos( pcpTable, 1 );
 
     GetServerTimeStamp( "UTC", 1, 0, pclTimeNow);
     dbg(TRACE,"<%s> Currnt time is <%s>",pclFunc, pclTimeNow);
-    strcpy(pclTmp, pclTimeNow);
-    UtcToLocal(pclTmp);
+    UtcToLocal(pclTimeNow);
 
-    sprintf(pcpSqlBuf,"INSERT INTO %s (%s,CDAT,LSTU) VALUES(%s,'%s','%s')", pcpTable, pcpDestFieldList, pcpDestFieldData,pclTmp,pclTmp);
+    strncpy(pclYear,pclTimeNow,4);
+    strncpy(pclMonth,pclTimeNow+4,2);
+    strncpy(pclDay,pclTimeNow+6,2);
+    strncpy(pclHour,pclTimeNow+8,2);
+    strncpy(pclMin,pclTimeNow+10,2);
+    strncpy(pclSec,pclTimeNow+12,2);
+
+    sprintf(pclTmp,"%s-%s-%s %s:%s:%s", pclYear, pclMonth, pclDay, pclHour, pclMin, pclSec);
+
+    sprintf(pcpSqlBuf,"INSERT INTO %s (%s,CDAT,LSTU,URNO) VALUES(%s,to_date('%s','YYYY-MM-DD HH24:MI:SS'),to_date('%s','YYYY-MM-DD HH24:MI:SS'),%s)", pcpTable, pcpDestFieldList, pcpDestFieldData,pclTmp,pclTmp,ilNextUrno);
 }
 
 static void buildUpdateQuery(char *pcpSqlBuf, char * pcpTable, char * pcpDestFieldList, char *pcpDestFieldData, char * pcpSelection)
 {
     int ilCount = 0;
     char *pclFunc = "buildupdateQuery";
-    char pclString[4096] = "\0";
+    char pclTimeNow[TIMEFORMAT] = "\0";
+
+    char pclYear[16] = "\0";
+    char pclMonth[16] = "\0";
+    char pclDay[16] = "\0";
+    char pclHour[16] = "\0";
+    char pclMin[16] = "\0";
+    char pclSec[16] = "\0";
 
     char pclTmp[256] = "\0";
     char pclTmpTime[256] = "\0";
-
     char pclTmpField[256] = "\0";
     char pclTmpData[256] = "\0";
+    char pclString[4096] = "\0";
 
     /*ilCount = GetNoOfElements(pcpDestFieldList,',');*/
 
@@ -1785,6 +1808,7 @@ static void buildUpdateQuery(char *pcpSqlBuf, char * pcpTable, char * pcpDestFie
     {
         memset(pclTmpField, 0, sizeof(pclTmpField));
         memset(pclTmpData, 0, sizeof(pclTmpData));
+        memset(pclTmp, 0, sizeof(pclTmp));
 
         get_item(ilCount, pcpDestFieldList, pclTmpField, 0, ",", "\0", "\0");
         TrimRight(pclTmpField);
@@ -1805,7 +1829,20 @@ static void buildUpdateQuery(char *pcpSqlBuf, char * pcpTable, char * pcpDestFie
         }
     }
 
-    sprintf(pclTmpTime,"%s='%s'","LSTU",pclTmp);
+    GetServerTimeStamp( "UTC", 1, 0, pclTimeNow);
+    dbg(TRACE,"<%s> Currnt time is <%s>",pclFunc, pclTimeNow);
+    UtcToLocal(pclTimeNow);
+
+    memset(pclTmp, 0, sizeof(pclTmp));
+    strncpy(pclYear,pclTimeNow,4);
+    strncpy(pclMonth,pclTimeNow+4,2);
+    strncpy(pclDay,pclTimeNow+6,2);
+    strncpy(pclHour,pclTimeNow+8,2);
+    strncpy(pclMin,pclTimeNow+10,2);
+    strncpy(pclSec,pclTimeNow+12,2);
+    sprintf(pclTmp,"%s-%s-%s %s:%s:%s", pclYear, pclMonth, pclDay, pclHour, pclMin, pclSec);
+
+    sprintf(pclTmpTime,"%s=to_date('%s','YYYY-MM-DD HH24:MI:SS')","LSTU",pclTimeNow);
 
     sprintf(pcpSqlBuf,"UPDATE %s SET %s,%s %s", pcpTable, pclString, pclTmpTime, pcpSelection);
 }
@@ -2026,7 +2063,7 @@ static int mapping(char *pcpTable, char *pcpFields, char *pcpNewData, char *pcpS
         }
         else
         {
-             for(ilCount = 0; ilCount < ilDataListNo; ilCount++)
+            for(ilCount = 0; ilCount < ilDataListNo; ilCount++)
             {
                 appliedRules( ilRuleGroup, pcpFields, pclDatalist[ilCount], pcgSourceFiledList[ilRuleGroup],
                              pcgDestFiledList[ilRuleGroup], &rgRule, igTotalLineOfRule, pcpSelection, pcpAdidValue,
