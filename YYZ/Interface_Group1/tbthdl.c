@@ -2,7 +2,7 @@
 #ifndef _DEF_mks_version
   #define _DEF_mks_version
   #include "ufisvers.h" /* sets UFIS_VERSION, must be done before mks_version */
-  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/tbthdl.c 1.2 2014/06/11 16:50:14SGT fya Exp  $";
+  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/tbthdl.c 1.3 2014/06/13 16:09:14SGT fya Exp  $";
 #endif /* _DEF_mks_version */
 /******************************************************************************/
 /*                                                                            */
@@ -1534,6 +1534,10 @@ static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *
                         {
                             if ( strlen(pclDestDataList) == 0 )
                             {
+                                if(strstr(pclTmpDestFieldValue,"-") != 0 )
+                                {
+                                    strcat(pclDestDataList, "date");
+                                }
                                 strcat(pclDestDataList, "'");
                                 strcat(pclDestDataList, pclTmpDestFieldValue);
                                 strcat(pclDestDataList, "'");
@@ -1541,6 +1545,10 @@ static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *
                             else
                             {
                                 strcat(pclDestDataList,",");
+                                if(strstr(pclTmpDestFieldValue,"-") != 0 )
+                                {
+                                    strcat(pclDestDataList, "date");
+                                }
                                 strcat(pclDestDataList, "'");
                                 strcat(pclDestDataList, pclTmpDestFieldValue);
                                 strcat(pclDestDataList, "'");
@@ -1569,7 +1577,7 @@ static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *
 
             if ( ilIsMaster == MASTER_RECORD )
             {
-                sprintf(pclTmp,"%s,%s,%s,%s,%s",pcpHardcodeShare.pclSST,"''","''","''","''","''");
+                sprintf(pclTmp,"'%s',%s,%s,%s,%s",pcpHardcodeShare.pclSST,"''","''","''","''","''");
 
                 strcpy(pclDestDataListWithCodeshare, pclDestDataList);
                 strcat(pclDestDataListWithCodeshare,",");
@@ -1588,7 +1596,7 @@ static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *
             }
             else
             {
-                sprintf(pclTmp,"%s,%s,%s,%s,%s","SL",pcpHardcodeShare.pclMFC, pcpHardcodeShare.pclMFN,pcpHardcodeShare.pclMFX,pcpHardcodeShare.pclMFF);
+                sprintf(pclTmp,"'%s','%s','%s','%s','%s'","SL",pcpHardcodeShare.pclMFC, pcpHardcodeShare.pclMFN,pcpHardcodeShare.pclMFX,pcpHardcodeShare.pclMFF);
 
                 strcpy(pclDestDataListWithCodeshare, pclDestDataList);
                 strcat(pclDestDataListWithCodeshare,",");
@@ -1744,17 +1752,25 @@ static void buildDestTabWhereClause( char *pcpSelection, char *pcpDestKey, char 
 static void buildInsertQuery(char *pcpSqlBuf, char * pcpTable, char * pcpDestFieldList, char *pcpDestFieldData)
 {
     char *pclFunc = "buildInsertQuery";
+    char pclTimeNow[TIMEFORMAT] = "\0";
+    char pclTmp[64] = "\0";
 
-    sprintf(pcpSqlBuf,"INSERT INTO %s FIELDS(%s) VALUES(%s)", pcpTable, pcpDestFieldList, pcpDestFieldData);
+    GetServerTimeStamp( "UTC", 1, 0, pclTimeNow);
+    dbg(TRACE,"<%s> Currnt time is <%s>",pclFunc, pclTimeNow);
+    strcpy(pclTmp, pclTimeNow);
+    UtcToLocal(pclTmp);
+
+    sprintf(pcpSqlBuf,"INSERT INTO %s (%s,CDAT,LSTU) VALUES(%s,'%s','%s')", pcpTable, pcpDestFieldList, pcpDestFieldData,pclTmp,pclTmp);
 }
 
 static void buildUpdateQuery(char *pcpSqlBuf, char * pcpTable, char * pcpDestFieldList, char *pcpDestFieldData, char * pcpSelection)
 {
     int ilCount = 0;
     char *pclFunc = "buildupdateQuery";
-    char pclString[2048] = "\0";
+    char pclString[4096] = "\0";
 
     char pclTmp[256] = "\0";
+    char pclTmpTime[256] = "\0";
 
     char pclTmpField[256] = "\0";
     char pclTmpData[256] = "\0";
@@ -1785,7 +1801,9 @@ static void buildUpdateQuery(char *pcpSqlBuf, char * pcpTable, char * pcpDestFie
         }
     }
 
-    sprintf(pcpSqlBuf,"UPDATE %s SET %s %s", pcpTable, pclString, pcpSelection);
+    sprintf(pclTmpTime,"%s='%s'","LSTU",pclTmp);
+
+    sprintf(pcpSqlBuf,"UPDATE %s SET %s,%s %s", pcpTable, pclString, pclTmpTime, pcpSelection);
 }
 
 static int convertSrcValToDestVal(char *pcpSourceFieldName, char *pcpSourceFieldValue, char *pcpDestFieldName, _LINE * rpLine, char * pcpDestFieldValue, char * pcpSelection, char *pcpAdid)
@@ -2052,8 +2070,12 @@ static int mapping(char *pcpTable, char *pcpFields, char *pcpNewData, char *pcpS
             /*insert master and codeshare flights*/
             ilStatusMaster = INSERT;
             break;
-        default:/*FOUND*/
+        case RC_SUCCESS:/*FOUND*/
             ilStatusMaster = UPDATE;
+            break;
+        default:
+            dbg(TRACE, "%s Invalid Value -> Return", pclFunc);
+            return RC_FAIL;
             break;
     }
 
@@ -2241,14 +2263,27 @@ static int flightSearch(char *pcpTable, char *pcpField, char *pcpKey, char *pcpS
     char pclSqlBuf[2560] = "\0";
     char pclSqlData[2560] = "\0";
 
-    sprintf(pclSqlBuf, "SELECT %s FROM %s WHERE %s = %s", pcpField, pcpTable, pcpKey, pcpSelection);
+    sprintf(pclSqlBuf, "SELECT %s FROM %s WHERE %s=%s", pcpField, pcpTable, pcpKey, pcpSelection);
     dbg(TRACE, "%s pclSqlBuf<%s>", pclFunc, pclSqlBuf);
 
     ilRC = RunSQL(pclSqlBuf, pclSqlData);
     if (ilRC != DB_SUCCESS)
     {
         dbg(TRACE, "<%s>: Retrieving dest data - Fails", pclFunc);
-        return RC_FAIL;
+        ilRC = RC_FAIL;
+        /*return RC_FAIL;*/
+    }
+
+    switch(ilRC)
+    {
+        case NOTFOUND:
+            dbg(TRACE, "<%s> Retrieving source data - Not Found", pclFunc);
+            ilRC = NOTFOUND;
+            break;
+        default:
+            dbg(TRACE, "<%s> Retrieving source data - Found\n <%s>", pclFunc, pclSqlData);
+            ilRC = RC_SUCCESS;
+            break;
     }
 
     return ilRC;

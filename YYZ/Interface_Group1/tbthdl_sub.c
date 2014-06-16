@@ -128,6 +128,7 @@ int codeshareFormat(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, ch
     else
     {
         strncpy(pcpDestValue, pcpFormat, ilDestLen);
+        pcpDestValue[ilDestLen] = '\0';
     }
 
     return RC_SUCCESS;
@@ -261,6 +262,7 @@ int viaref(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpS
             else
             {
                 strncpy(pcpDestValue, pclSqlData, ilDestLen);
+                pcpDestValue[ilDestLen] = '\0';
             }
 
             ilRC = RC_SUCCESS;
@@ -306,6 +308,7 @@ int via(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpSele
     else
     {
         strncpy(pcpDestValue, pclVial[ili], ilDestLen);
+        pcpDestValue[ilDestLen] = '\0';
     }
 
     ilRC = RC_SUCCESS;
@@ -362,6 +365,7 @@ int rotation(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pc
                 else
                 {
                     strncpy(pcpDestValue, pclRotationData[ilCount], ilDestLen);
+                    pcpDestValue[ilDestLen] = '\0';
                 }
 
                 ilRC = RC_SUCCESS;
@@ -428,6 +432,7 @@ int refTable(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pc
             else
             {
                 strncpy(pcpDestValue, pclSqlData, ilDestLen);
+                pcpDestValue[ilDestLen] = '\0';
             }
 
             ilRC = RC_SUCCESS;
@@ -464,6 +469,7 @@ int operDay(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcp
     }
 
     strncpy(pcpDestValue, pclTmp+6,ilDestLen);
+    pcpDestValue[ilDestLen] = '\0';
 }
 
 int weekDay(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpSelection, char *pcpAdid)
@@ -501,6 +507,7 @@ int weekDay(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcp
     else
     {
         strncpy(pcpDestValue, pclTmp, ilDestLen);
+        pcpDestValue[ilDestLen] = '\0';
     }
 }
 
@@ -568,6 +575,7 @@ int timeFormat(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * 
     else
     {
         strncpy(pcpDestValue, pclTmp, ilDestLen);
+        pcpDestValue[ilDestLen] = '\0';
     }
 
     ilRC = RC_SUCCESS;
@@ -584,7 +592,6 @@ int defaultOperator(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, ch
     /*dbg(TRACE, "%s The operator is blank -> default action",pclFunc);*/
 
     ilDestLen = atoi(rpLine->pclDestFieldLen);
-    /*if (strlen(pcpSourceValue) == 0 || ilDestLen == 0)*/
     if ( ilDestLen == 0)
     {
         dbg(TRACE, "%s Dest Length<%d> is invalid", pclFunc, ilDestLen);
@@ -600,9 +607,10 @@ int defaultOperator(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, ch
             dbg(TRACE, "%s Source value<%s> is invalid for DATELOC atttibute", pclFunc, pcpSourceValue);
             return RC_FAIL;
         }
-        /*UTC -> LOC*/
         UtcToLocal(pclTmp);
     }
+
+    dbg(DEBUG,"%s pclTmp<%s>, ilDestLen<%d>, pcpDestValue<%s>, strlen(pcpDestValue)<%d>",pclFunc,pclTmp,ilDestLen,pcpDestValue,strlen(pcpDestValue));
 
     ilRC = getDestSourceLen(ilDestLen, pclTmp);
     if (ilRC == RC_SUCCESS)
@@ -612,8 +620,8 @@ int defaultOperator(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, ch
     else
     {
         strncpy(pcpDestValue, pclTmp, ilDestLen);
+        pcpDestValue[ilDestLen] = '\0';
     }
-
     return ilRC;
 }
 
@@ -622,7 +630,7 @@ int getUrno(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcp
     int ilRC = RC_FAIL;
     int ilDestLen = 0;
     int ilNextUrno = 0;
-    char *pclFunc = "getCurrentTime";
+    char *pclFunc = "getUrno";
     char pclTmp[64] = "\0";
 
     ilDestLen = atoi(rpLine->pclDestFieldLen);
@@ -644,6 +652,7 @@ int getUrno(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcp
     else
     {
         strncpy(pcpDestValue, pclTmp, ilDestLen);
+        pcpDestValue[ilDestLen] = '\0';
     }
 }
 
@@ -655,6 +664,13 @@ int getCurrentTime(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, cha
     char pclTimeNow[TIMEFORMAT] = "\0";
     char pclTmp[64] = "\0";
 
+    char pclYear[16] = "\0";
+    char pclMonth[16] = "\0";
+    char pclDay[16] = "\0";
+    char pclHour[16] = "\0";
+    char pclMin[16] = "\0";
+    char pclSec[16] = "\0";
+
     ilDestLen   = atoi(rpLine->pclDestFieldLen);
     if ( ilDestLen == 0)
     {
@@ -662,10 +678,10 @@ int getCurrentTime(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, cha
         return RC_FAIL;
     }
 
-    strcpy(pclTmp, pclTimeNow);
-
     GetServerTimeStamp( "UTC", 1, 0, pclTimeNow);
     dbg(TRACE,"<%s> Currnt time is <%s>",pclFunc, pclTimeNow);
+
+    strcpy(pclTmp, pclTimeNow);
 
     if(strcmp(rpLine->pclCond1, "DATELOC") == 0)
     {
@@ -679,6 +695,21 @@ int getCurrentTime(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, cha
         UtcToLocal(pclTmp);
     }
 
+    if (strcmp(rpLine->pclDestFieldType, "DATE") == 0)
+    {
+        strncpy(pclYear,pclTmp,4);
+        strncpy(pclMonth,pclTmp+4,2);
+        strncpy(pclDay,pclTmp+6,2);
+        strncpy(pclHour,pclTmp+8,2);
+        strncpy(pclMin,pclTmp+10,2);
+        strncpy(pclSec,pclTmp+12,2);
+
+        if ( strlen(rpLine->pclCond2) == 0 || strcmp(rpLine->pclCond2," ") == 0)
+        {
+            sprintf(pclTmp,"%s-%s-%s", pclYear,pclMonth,pclDay);
+        }
+    }
+
     ilRC = getDestSourceLen(ilDestLen, pclTmp);
     if (ilRC == RC_SUCCESS)
     {
@@ -687,6 +718,7 @@ int getCurrentTime(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, cha
     else
     {
         strncpy(pcpDestValue, pclTmp, ilDestLen);
+        pcpDestValue[ilDestLen] = '\0';
     }
 
     return RC_SUCCESS;
