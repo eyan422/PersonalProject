@@ -2,7 +2,7 @@
 #ifndef _DEF_mks_version
   #define _DEF_mks_version
   #include "ufisvers.h" /* sets UFIS_VERSION, must be done before mks_version */
-  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/tbthdl.c 1.4 2014/06/16 16:09:14SGT fya Exp  $";
+  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/tbthdl.c 1.4 2014/06/17 16:09:14SGT fya Exp  $";
 #endif /* _DEF_mks_version */
 /******************************************************************************/
 /*                                                                            */
@@ -115,7 +115,10 @@ static int igTimeWindowUpperLimit;
 static int igTimeWindowLowerLimit;
 static int igGetDataFromSrcTable;
 static int igEnableCodeshare;
-int igTimeDifference;
+static int igTimeDifference;
+
+static char pcgTimeWindowLowerLimit[64];
+static char pcgTimeWindowUpperLimit[64];
 /******************************************************************************/
 /* Function prototypes	                                                      */
 /******************************************************************************/
@@ -164,6 +167,7 @@ static int buildDataArray(char *pcpFields, char *pcpNewData, char (*pcpDatalist)
 static int flightSearch(char *pcpTable, char *pcpField, char *pcpKey, char *pcpSelection);
 static void getHardcodeShare_DataList(char *pcpFields, char *pcpData, _HARDCODE_SHARE *pcpHardcodeShare);
 static int checkVialChange(char *pcpFields, char *pcpNewData, char *pcpOldData, int *ipVialChange);
+static void updateTimeWindow(char *pcpTimeWindowLowerLimit, char *pcpTimeWindowUpperLimit);
 /******************************************************************************/
 /*                                                                            */
 /* The MAIN program                                                           */
@@ -776,9 +780,19 @@ static int HandleData(EVENT *prpEvent)
     dbg(DEBUG,"Table:  <%s>",clTable);
 
 	/*lgEvtCnt++;*/
-
-    if (strcmp(prlCmdblk->command,"INI") == 0)
+	if (strcmp(prlCmdblk->command,"TMW") == 0)
+	{
+        /*update the time window according to the received TMW command from ntisch*/
+        dbg(TRACE,"%s Update the time window according to the received TMW command from ntisch*",pclFunc);
+        updateTimeWindow(pcgTimeWindowLowerLimit, pcgTimeWindowUpperLimit);
+	}
+    else if (strcmp(prlCmdblk->command,"INI") == 0)
     {
+        /*
+        1-Delete all records in destination table
+        2-Insert into all flights in time-window
+        */
+
 
     }
     else if (strcmp(prlCmdblk->command,"RFH") == 0)
@@ -1353,26 +1367,11 @@ int extractField(char *pcpFieldVal, char *pcpFieldName, char *pcpFields, char *p
     return RC_SUCCESS;
 }
 
-static int isInTimeWindow(char *pcpTimeVal, int igTimeWindowUpperLimit, int igTimeWindowLowerLimit)
+static int isInTimeWindow(char *pcpTimeVal, char *pcpTimeWindowLowerLimit, char *pcpTimeWindowUpperLimit);
 {
     char *pclFunc = "isInTimeWindow";
 
-    char pclTimeLowerLimit[TIMEFORMAT] = "\0";
-    char pclTimeUpperLimit[TIMEFORMAT] = "\0";
-    char pclTimeNow[TIMEFORMAT] = "\0";
-
-    GetServerTimeStamp( "UTC", 1, 0, pclTimeNow);
-    dbg(TRACE,"<%s> Currnt time is <%s>",pclFunc, pclTimeNow);
-
-    strcpy(pclTimeLowerLimit,pclTimeNow);
-    AddSecondsToCEDATime(pclTimeLowerLimit, igTimeWindowLowerLimit * 24 * 60 * 60, 1);
-
-    strcpy(pclTimeUpperLimit,pclTimeNow);
-    AddSecondsToCEDATime(pclTimeUpperLimit, igTimeWindowUpperLimit * 24 * 60 * 60, 1);
-
-    dbg(TRACE,"The time range is <%s> ~ <%s>", pclTimeLowerLimit, pclTimeUpperLimit);
-
-    if ( strcmp(pcpTimeVal,pclTimeLowerLimit) >= 0 && strcmp(pcpTimeVal,pclTimeUpperLimit) <= 0)
+    if ( strcmp(pcpTimeVal, pcpTimeWindowLowerLimit) >= 0 && strcmp(pcpTimeVal, pcpTimeWindowUpperLimit) <= 0)
     {
         dbg(TRACE,"%s <%s> is in the range", pclFunc, pcpTimeVal);
 
@@ -1537,22 +1536,38 @@ static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *
                             {
                                 if(strstr(pclTmpDestFieldValue,"-") != 0 )
                                 {
-                                    strcat(pclDestDataList, "date");
+                                    /*to_date('%s','YYYY-MM-DD HH24:MI:SS')*/
+                                    strcat(pclDestDataList, "to_date(");
+                                    strcat(pclDestDataList, "'");
+                                    strcat(pclDestDataList, pclTmpDestFieldValue);
+                                    strcat(pclDestDataList, "'");
+                                    strcat(pclDestDataList, ",'YYYY-MM-DD HH24:MI:SS')");
                                 }
-                                strcat(pclDestDataList, "'");
-                                strcat(pclDestDataList, pclTmpDestFieldValue);
-                                strcat(pclDestDataList, "'");
+                                else
+                                {
+                                    strcat(pclDestDataList, "'");
+                                    strcat(pclDestDataList, pclTmpDestFieldValue);
+                                    strcat(pclDestDataList, "'");
+                                }
+
                             }
                             else
                             {
                                 strcat(pclDestDataList,",");
                                 if(strstr(pclTmpDestFieldValue,"-") != 0 )
                                 {
-                                    strcat(pclDestDataList, "date");
+                                    strcat(pclDestDataList, "to_date(");
+                                    strcat(pclDestDataList, "'");
+                                    strcat(pclDestDataList, pclTmpDestFieldValue);
+                                    strcat(pclDestDataList, "'");
+                                    strcat(pclDestDataList, ",'YYYY-MM-DD HH24:MI:SS')");
                                 }
-                                strcat(pclDestDataList, "'");
-                                strcat(pclDestDataList, pclTmpDestFieldValue);
-                                strcat(pclDestDataList, "'");
+                                else
+                                {
+                                    strcat(pclDestDataList, "'");
+                                    strcat(pclDestDataList, pclTmpDestFieldValue);
+                                    strcat(pclDestDataList, "'");
+                                }
                             }
                         }
                     }
@@ -1993,8 +2008,7 @@ static int mapping(char *pcpTable, char *pcpFields, char *pcpNewData, char *pcpS
         }
     }
 
-    ilRc = isInTimeWindow(pclTimeWindowRefFieldVal, igTimeWindowUpperLimit, igTimeWindowLowerLimit);
-    if(ilRc == RC_FAIL)
+    if( isInTimeWindow(pclTimeWindowRefFieldVal, pcgTimeWindowLowerLimit, pcgTimeWindowUpperLimit) == RC_FAIL )
     {
         return RC_FAIL;
     }
@@ -2485,4 +2499,27 @@ static int checkVialChange(char *pcpFields, char *pcpNewData, char *pcpOldData, 
     }
 
     return ilRc;
+}
+
+static void updateTimeWindow(char *pcpTimeWindowLowerLimit, char *pcpTimeWindowUpperLimit)
+{
+    char *pclFunc = "updateTimeWindow";
+    char pclTimeNow[TIMEFORMAT] = "\0";
+
+    GetServerTimeStamp( "UTC", 1, 0, pclTimeNow);
+    dbg(TRACE,"<%s> Currnt time is <%s>",pclFunc, pclTimeNow);
+
+    strcpy(pclTimeLowerLimit,pclTimeNow);
+    AddSecondsToCEDATime(pclTimeLowerLimit, igTimeWindowLowerLimit * 24 * 60 * 60, 1);
+
+    strcpy(pclTimeUpperLimit,pclTimeNow);
+    AddSecondsToCEDATime(pclTimeUpperLimit, igTimeWindowUpperLimit * 24 * 60 * 60, 1);
+
+    memset(pcpTimeWindowLowerLimit,0,sizeof(pcpTimeWindowLowerLimit));
+    memset(pcpTimeWindowUpperLimit,0,sizeof(pcpTimeWindowUpperLimit));
+
+    strcpy(pcpTimeWindowLowerLimit, pclTimeLowerLimit);
+    strcpy(pcpTimeWindowUpperLimit, pclTimeUpperLimit);
+
+    dbg(TRACE,"The time range is <%s> ~ <%s>", pcpTimeWindowLowerLimit, pcpTimeWindowUpperLimit);
 }
