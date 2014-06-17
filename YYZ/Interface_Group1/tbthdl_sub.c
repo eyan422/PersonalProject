@@ -11,7 +11,7 @@ For subroutine
 #define VIAL_LEN 121
 #define CODESHARE_LEN 9
 
-extern int igTimeDifference;
+/*extern int igTimeDifference;*/
 extern void buildSelQuery(char *pcpSqlBuf, char * pcpTable, char * pcpSourceFieldList, char * pcpSelection);
 extern int getRotationFlightData(char *pcpTable, char *pcpUrnoSelection, char *pcpFields, char (*pcpRotationData)[LISTLEN], char *pcpAdid);
 extern void showRotationFlight(char (*pclRotationData)[LISTLEN]);
