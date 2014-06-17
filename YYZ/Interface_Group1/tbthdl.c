@@ -804,6 +804,10 @@ static int HandleData(EVENT *prpEvent)
     }
     else if (strcmp(prlCmdblk->command,"RFH") == 0)
     {
+        /*the offset is rel fixed value X in ntisch
+            delete all flights from lowerlimit - x ~ lowerlimit
+            insert all flights from upperlimit -x ~upperlimit
+        */
 
     }
     else /*The normal DFR, IFR and UFR command*/
