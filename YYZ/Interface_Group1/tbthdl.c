@@ -2853,7 +2853,7 @@ static void deleteFlightsOutOfTimeWindowByGroup(int ipRuleGroup, char *pcpTimeWi
     strncpy(pclHour,pcpTimeWindowLowerLimitOriginal+8,2);
     strncpy(pclMin,pcpTimeWindowLowerLimitOriginal+10,2);
     strncpy(pclSec,pcpTimeWindowLowerLimitOriginal+12,2);
-    sprintf(pclTmpOriginal,"date'%s-%s-%s'", pclYear, pclMonth, pclDay);
+    sprintf(pclTmpOriginal,"to_date('%s-%s-%s %s:%s:%s','yyyy-mm-dd hh:mi:ss')", pclYear, pclMonth, pclDay, pclHour, pclMin, pclSec);
 
     memset(pclTmpCurrent, 0, sizeof(pclTmpCurrent));
     strncpy(pclYear,pcpTimeWindowLowerLimitCurrent,4);
@@ -2862,7 +2862,7 @@ static void deleteFlightsOutOfTimeWindowByGroup(int ipRuleGroup, char *pcpTimeWi
     strncpy(pclHour,pcpTimeWindowLowerLimitCurrent+8,2);
     strncpy(pclMin,pcpTimeWindowLowerLimitCurrent+10,2);
     strncpy(pclSec,pcpTimeWindowLowerLimitCurrent+12,2);
-    sprintf(pclTmpCurrent,"date'%s-%s-%s'", pclYear, pclMonth, pclDay);
+    sprintf(pclTmpCurrent,"to_date('%s-%s-%s %s:%s:%s','yyyy-mm-dd hh:mi:ss')", pclYear, pclMonth, pclDay, pclHour, pclMin, pclSec);
 
     slLocalCursor = 0;
     slFuncCode = START;
@@ -2885,6 +2885,18 @@ static void deleteFlightsOutOfTimeWindowByGroup(int ipRuleGroup, char *pcpTimeWi
         ilRc = RC_FAIL;
         dbg(TRACE,"%s UPDATE-Deletion Error",pclFunc);
     }
+    switch(ilRc)
+    {
+        case NOTFOUND:
+            dbg(TRACE, "<%s> Delete source data - Not Found", pclFunc);
+            ilRc = NOTFOUND;
+            break;
+        default:
+            dbg(TRACE, "<%s> Delete source data - Found <%s>", pclFunc, pclSqlData);
+            ilRc = RC_SUCCESS;
+            break;
+    }
+
     close_my_cursor(&slLocalCursor);
 }
 
