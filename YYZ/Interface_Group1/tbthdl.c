@@ -2,7 +2,7 @@
 #ifndef _DEF_mks_version
   #define _DEF_mks_version
   #include "ufisvers.h" /* sets UFIS_VERSION, must be done before mks_version */
-  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/tbthdl.c 1.6 2014/06/18 12:21:14SGT fya Exp  $";
+  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/tbthdl.c 1.7 2014/06/18 12:21:14SGT fya Exp  $";
 #endif /* _DEF_mks_version */
 /******************************************************************************/
 /*                                                                            */
@@ -117,6 +117,7 @@ static int igTimeWindowUpperLimit;
 static int igTimeWindowLowerLimit;
 static int igGetDataFromSrcTable;
 static int igEnableCodeshare;
+static int igInitTable;
 /*static int igTimeDifference;*/
 
 static char pcgTimeWindowLowerLimit[64];
@@ -472,6 +473,11 @@ static int Init_Process()
 
 	dbg(TRACE,"%s Update the time window according to the received TMW command from ntisch",pclFunc);
     updateTimeWindow(pcgTimeWindowLowerLimit, pcgTimeWindowUpperLimit);
+
+    if(igInitTable == TRUE)
+    {
+        iniTables(pcgTimeWindowLowerLimit,pcgTimeWindowUpperLimit,TRUE);
+    }
 
     return(ilRc);
 
@@ -912,7 +918,7 @@ static int getConfig()
     }
     else
     {
-        strcpy(pcgTimeWindowRefField_Dep,"STOA");
+        strcpy(pcgTimeWindowRefField_Dep,"STOD");
         dbg(DEBUG,"pcgTimeWindowRefField_Dep<%s>",pcgTimeWindowRefField_Dep);
     }
 
@@ -957,6 +963,18 @@ static int getConfig()
     {
         igGetDataFromSrcTable = FALSE;
         dbg(DEBUG,"Default igGetDataFromSrcTable<%d>",igGetDataFromSrcTable);
+    }
+
+    ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","INIT_TABLE_AFTER_RESTART",CFG_STRING,pclTmpBuf);
+    if (ilRC == RC_SUCCESS)
+    {
+        igInitTable = atoi(pclTmpBuf);
+        dbg(DEBUG,"igInitTable<%d>",igInitTable);
+    }
+    else
+    {
+        igInitTable = FALSE;
+        dbg(DEBUG,"Default igInitTable<%d>",igInitTable);
     }
 
     /*
@@ -2721,7 +2739,7 @@ static int iniTables(char *pcpTimeWindowLowerLimit, char *pcpTimeWindowUpperLimi
         #endif
 
         buildSelQuery(pclSqlBuf, "AFTTAB", pclSourceFieldList, pclWhere);
-        dbg(DEBUG, "%s select<%s>", pclFunc, pclSqlBuf);
+        dbg(DEBUG, "%s [%d]select<%s>", pclFunc, ilRuleGroup, pclSqlBuf);
 
         slLocalCursor = 0;
         slFuncCode = START;
@@ -2883,7 +2901,7 @@ static void deleteFlightsOutOfTimeWindowByGroup(int ipRuleGroup, char *pcpTimeWi
     if( ilRc != DB_SUCCESS )
     {
         ilRc = RC_FAIL;
-        dbg(TRACE,"%s UPDATE-Deletion Error",pclFunc);
+        dbg(TRACE,"%s UPDATE-Deletion not succed",pclFunc);
     }
     switch(ilRc)
     {
