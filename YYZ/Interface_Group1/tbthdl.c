@@ -2,7 +2,7 @@
 #ifndef _DEF_mks_version
   #define _DEF_mks_version
   #include "ufisvers.h" /* sets UFIS_VERSION, must be done before mks_version */
-  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/tbthdl.c 1.5 2014/06/17 17:56:14SGT fya Exp  $";
+  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/tbthdl.c 1.6 2014/06/18 12:21:14SGT fya Exp  $";
 #endif /* _DEF_mks_version */
 /******************************************************************************/
 /*                                                                            */
@@ -121,6 +121,7 @@ static int igEnableCodeshare;
 
 static char pcgTimeWindowLowerLimit[64];
 static char pcgTimeWindowUpperLimit[64];
+static int igTimeWindowInterval[64];
 /******************************************************************************/
 /* Function prototypes	                                                      */
 /******************************************************************************/
@@ -169,10 +170,14 @@ static int buildDataArray(char *pcpFields, char *pcpNewData, char (*pcpDatalist)
 static int flightSearch(char *pcpTable, char *pcpField, char *pcpKey, char *pcpSelection);
 static void getHardcodeShare_DataList(char *pcpFields, char *pcpData, _HARDCODE_SHARE *pcpHardcodeShare);
 static int checkVialChange(char *pcpFields, char *pcpNewData, char *pcpOldData, int *ipVialChange);
-static void updateTimeWindow(char *pcpTimeWindowLowerLimit, char *pcpTimeWindowUpperLimit);
-static int iniTables(void);
+static int refreshTable(char *pcpTimeWindowLowerLimit, char *pcpTimeWindowUpperLimit);
+static int iniTables(char *pcpTimeWindowLowerLimit, char *pcpTimeWindowUpperLimit);
 static int getFieldValue(char *pcpFields, char *pcpNewData, char *pcpFieldName, char *pcpFieldValue);
 static int truncateTable(int ipRuleGroup);
+static int deleteFlightsOutOfTimeWindow(char *pcpTimeWindowLowerLimitOriginal, char *pcpTimeWindowLowerLimit);
+static void deleteFlightsOutOfTimeWindowByGroup(int ipRuleGroup, char *pcpTimeWindowLowerLimitOriginal, char *pcpTimeWindowLowerLimit);
+static void insertFligthsNewInTimeWindow(char *pcpTimeWindowUpperLimitOriginal, char *pcpTimeWindowUpperLimitCurrent);
+static void updateTimeWindow(char *pcpTimeWindowLowerLimit, char *pcpTimeWindowUpperLimit);
 /******************************************************************************/
 /*                                                                            */
 /* The MAIN program                                                           */
@@ -788,11 +793,11 @@ static int HandleData(EVENT *prpEvent)
     dbg(DEBUG,"Table:  <%s>",clTable);
 
 	/*lgEvtCnt++;*/
-	if (strcmp(prlCmdblk->command,"TMW") == 0)
+	if (strcmp(prlCmdblk->command,"RFH") == 0)
 	{
-        /*update the time window according to the received TMW command from ntisch*/
-        dbg(TRACE,"%s Update the time window according to the received TMW command from ntisch",pclFunc);
-        updateTimeWindow(pcgTimeWindowLowerLimit, pcgTimeWindowUpperLimit);
+        /*update the time window according to the received RFH command from ntisch*/
+        dbg(TRACE,"%s Update the time window according to the received RFH command from ntisch, and refresh the destination table",pclFunc);
+        refreshTable(pcgTimeWindowLowerLimit, pcgTimeWindowUpperLimit);
 	}
     else if (strcmp(prlCmdblk->command,"INI") == 0)
     {
@@ -800,15 +805,7 @@ static int HandleData(EVENT *prpEvent)
         1-Delete all records in destination table
         2-Insert into all flights in time-window
         */
-        return iniTables();
-    }
-    else if (strcmp(prlCmdblk->command,"RFH") == 0)
-    {
-        /*the offset is rel fixed value X in ntisch
-            delete all flights from lowerlimit - x ~ lowerlimit
-            insert all flights from upperlimit -x ~upperlimit
-        */
-
+        iniTables(pcgTimeWindowLowerLimit,pcgTimeWindowUpperLimit);
     }
     else /*The normal DFR, IFR and UFR command*/
     {
@@ -2563,12 +2560,16 @@ static int checkVialChange(char *pcpFields, char *pcpNewData, char *pcpOldData, 
     return ilRc;
 }
 
-static void updateTimeWindow(char *pcpTimeWindowLowerLimit, char *pcpTimeWindowUpperLimit)
+static int refreshTable(char *pcpTimeWindowLowerLimit, char *pcpTimeWindowUpperLimit)
 {
-    char *pclFunc = "updateTimeWindow";
+    int ilRc = RC_SUCCESS;
+    char *pclFunc = "refreshTable";
     char pclTimeNow[TIMEFORMAT] = "\0";
     char pclTimeLowerLimit[TIMEFORMAT] = "\0";
     char pclTimeUpperLimit[TIMEFORMAT] = "\0";
+
+    char pclTimeWindowLowerLimitOriginal[TIMEFORMAT] = "\0";
+    char pclTimeWindowUpperLimitOriginal[TIMEFORMAT] = "\0";
 
     GetServerTimeStamp( "UTC", 1, 0, pclTimeNow);
     dbg(TRACE,"<%s> Currnt time is <%s>",pclFunc, pclTimeNow);
@@ -2579,13 +2580,26 @@ static void updateTimeWindow(char *pcpTimeWindowLowerLimit, char *pcpTimeWindowU
     strcpy(pclTimeUpperLimit,pclTimeNow);
     AddSecondsToCEDATime(pclTimeUpperLimit, igTimeWindowUpperLimit * 24 * 60 * 60, 1);
 
+    strcpy(pclTimeWindowLowerLimitOriginal, pcpTimeWindowLowerLimit);
+    strcpy(pclTimeWindowUpperLimitOriginal, pcpTimeWindowUpperLimit);
+
     memset(pcpTimeWindowLowerLimit,0,sizeof(pcpTimeWindowLowerLimit));
     memset(pcpTimeWindowUpperLimit,0,sizeof(pcpTimeWindowUpperLimit));
 
     strcpy(pcpTimeWindowLowerLimit, pclTimeLowerLimit);
     strcpy(pcpTimeWindowUpperLimit, pclTimeUpperLimit);
 
-    dbg(TRACE,"The time range is <%s> ~ <%s>", pcpTimeWindowLowerLimit, pcpTimeWindowUpperLimit);
+    dbg(TRACE,"The original time range is <%s> ~ <%s>", pclTimeWindowLowerLimitOriginal, pclTimeWindowUpperLimitOriginal);
+    dbg(TRACE,"The current  time range is <%s> ~ <%s>", pcpTimeWindowLowerLimit, pcpTimeWindowUpperLimit);
+
+    /*
+    delete all flights from lowerlimit - x ~ lowerlimit
+    insert all flights from upperlimit -x ~upperlimit
+    */
+    deleteFlightsOutOfTimeWindow(pclTimeWindowLowerLimitOriginal, pcpTimeWindowLowerLimit);
+    insertFligthsNewInTimeWindow(pclTimeWindowUpperLimitOriginal, pcpTimeWindowUpperLimit);
+
+    return ilRc;
 }
 
 static int getFieldValue(char *pcpFields, char *pcpNewData, char *pcpFieldName, char *pcpFieldValue)
@@ -2612,7 +2626,31 @@ static int getFieldValue(char *pcpFields, char *pcpNewData, char *pcpFieldName, 
     return ilRc;
 }
 
-static int iniTables(void)
+static void updateTimeWindow(char *pcpTimeWindowLowerLimit, char *pcpTimeWindowUpperLimit)
+{
+    char *pclFunc = "updateTimeWindow";
+    char pclTimeNow[TIMEFORMAT] = "\0";
+    char pclTimeLowerLimit[TIMEFORMAT] = "\0";
+    char pclTimeUpperLimit[TIMEFORMAT] = "\0";
+
+    GetServerTimeStamp( "UTC", 1, 0, pclTimeNow);
+    dbg(TRACE,"<%s> Currnt time is <%s>",pclFunc, pclTimeNow);
+
+    strcpy(pclTimeLowerLimit,pclTimeNow);
+    AddSecondsToCEDATime(pclTimeLowerLimit, igTimeWindowLowerLimit * 24 * 60 * 60, 1);
+
+    strcpy(pclTimeUpperLimit,pclTimeNow);
+    AddSecondsToCEDATime(pclTimeUpperLimit, igTimeWindowUpperLimit * 24 * 60 * 60, 1);
+
+    memset(pcpTimeWindowLowerLimit,0,sizeof(pcpTimeWindowLowerLimit));
+    memset(pcpTimeWindowUpperLimit,0,sizeof(pcpTimeWindowUpperLimit));
+    strcpy(pcpTimeWindowLowerLimit, pclTimeLowerLimit);
+    strcpy(pcpTimeWindowUpperLimit, pclTimeUpperLimit);
+
+    dbg(TRACE,"The current  time range is <%s> ~ <%s>", pcpTimeWindowLowerLimit, pcpTimeWindowUpperLimit);
+}
+
+static int iniTables(char *pcpTimeWindowLowerLimit, char *pcpTimeWindowUpperLimit)
 {
     int ilCount = 0;
     int ilFlightCount = 0;
@@ -2661,23 +2699,23 @@ static int iniTables(void)
         if(ilRuleGroup == 1)
         {
             /*arrival fligths*/
-            sprintf(pclWhere, "WHERE %s BETWEEN '%s' and '%s' AND ROWNUM < 3", pcgTimeWindowRefField_Arr, pcgTimeWindowLowerLimit, pcgTimeWindowUpperLimit);
+            sprintf(pclWhere, "WHERE %s BETWEEN '%s' and '%s' AND ROWNUM < 3", pcgTimeWindowRefField_Arr, pcpTimeWindowLowerLimit, pcpTimeWindowUpperLimit);
         }
         else if(ilRuleGroup == igTotalNumbeoOfRule)
         {
              /*departure fligths*/
-            sprintf(pclWhere, "WHERE %s BETWEEN '%s' and '%s' AND ROWNUM < 3", pcgTimeWindowRefField_Dep, pcgTimeWindowLowerLimit, pcgTimeWindowUpperLimit);
+            sprintf(pclWhere, "WHERE %s BETWEEN '%s' and '%s' AND ROWNUM < 3", pcgTimeWindowRefField_Dep, pcpTimeWindowLowerLimit, pcpTimeWindowUpperLimit);
         }
         #else
         if(ilRuleGroup == 1)
         {
             /*arrival fligths*/
-            sprintf(pclWhere, "WHERE %s BETWEEN '%s' and '%s'", pcgTimeWindowRefField_Arr, pcgTimeWindowLowerLimit, pcgTimeWindowUpperLimit);
+            sprintf(pclWhere, "WHERE %s BETWEEN '%s' and '%s'", pcgTimeWindowRefField_Arr, pcpTimeWindowLowerLimit, pcpTimeWindowUpperLimit);
         }
         else if(ilRuleGroup == igTotalNumbeoOfRule)
         {
              /*departure fligths*/
-            sprintf(pclWhere, "WHERE %s BETWEEN '%s' and '%s'", pcgTimeWindowRefField_Dep, pcgTimeWindowLowerLimit, pcgTimeWindowUpperLimit);
+            sprintf(pclWhere, "WHERE %s BETWEEN '%s' and '%s'", pcgTimeWindowRefField_Dep, pcpTimeWindowLowerLimit, pcpTimeWindowUpperLimit);
         }
         #endif
 
@@ -2750,11 +2788,11 @@ static int truncateTable(int ipRuleGroup)
 
     if ( ipRuleGroup == 1)
     {
-        strcpy(pclTable,"Current_Arrivals");
+        strcpy(pclTable,"Current_Arrivals");/*later*/
     }
     else if ( ipRuleGroup == 2)
     {
-        strcpy(pclTable,"Current_Departures");
+        strcpy(pclTable,"Current_Departures");/*later*/
     }
     sprintf(pclSqlBuf, "TRUNCATE TABLE %s",pclTable);
     dbg(DEBUG, "%s <%s>", pclFunc, pclSqlBuf);
@@ -2768,4 +2806,62 @@ static int truncateTable(int ipRuleGroup)
     return ilRC;
 }
 
+static int deleteFlightsOutOfTimeWindow(char *pcpTimeWindowLowerLimitOriginal, char *pcpTimeWindowLowerLimit)
+{
+    int    ilRc   = RC_SUCCESS;         /* Return code */
+    int ilRuleGroup = 0;
+    char *pclFunc = "deleteFlightsOutOfTimeWindow";
 
+    if (igTotalNumbeoOfRule > 2)
+    {
+        dbg(TRACE,"%s The number of rule group<%d> is invalid", pclFunc, igTotalNumbeoOfRule);
+        return RC_FAIL;
+    }
+
+    for (ilRuleGroup = 1; ilRuleGroup <= igTotalNumbeoOfRule; ilRuleGroup++)
+    {
+        /*delete existed unrequired records in destination table*/
+        deleteFlightsOutOfTimeWindowByGroup(ilRuleGroup,pcpTimeWindowLowerLimitOriginal,pcpTimeWindowLowerLimit);
+    }
+
+    return ilRc;
+}
+
+static void deleteFlightsOutOfTimeWindowByGroup(int ipRuleGroup, char *pcpTimeWindowLowerLimitOriginal, char *pcpTimeWindowLowerLimit)
+{
+    int    ilRc   = RC_SUCCESS;         /* Return code */
+    short slLocalCursor = 0, slFuncCode = 0;
+    char *pclFunc = "deleteFlightsOutOfTimeWindowByGroup";
+    char pclSqlBuf[2048] = "\0",pclSqlData[4096] = "\0",pclWhere[2048] = "\0", pclSelection[2048] = "\0";
+
+    slLocalCursor = 0;
+    slFuncCode = START;
+
+    if(ipRuleGroup == 1)
+    {
+        /*arrival fligths*/
+        sprintf(pclSqlBuf, "DELETE FROM Current_Arrivals WHERE %s BETWEEN '%s' AND '%s'", pcgTimeWindowRefField_Arr, pcpTimeWindowLowerLimitOriginal,pcpTimeWindowLowerLimit);
+    }
+    else if(ipRuleGroup == igTotalNumbeoOfRule)
+    {
+        /*departure fligths*/
+        sprintf(pclSqlBuf, "DELETE FROM Current_Departures WHERE %s BETWEEN '%s' AND '%s'", pcgTimeWindowRefField_Dep, pcpTimeWindowLowerLimitOriginal,pcpTimeWindowLowerLimit);
+    }
+    dbg(TRACE,"%s [%d]Delete Query<%s>",pclFunc, ipRuleGroup, pclSqlBuf);
+
+    ilRc = sql_if(slFuncCode, &slLocalCursor, pclSqlBuf, pclSqlData);
+    if( ilRc != DB_SUCCESS )
+    {
+        ilRc = RC_FAIL;
+        dbg(TRACE,"%s UPDATE-Deletion Error",pclFunc);
+    }
+    close_my_cursor(&slLocalCursor);
+}
+
+static void insertFligthsNewInTimeWindow(char *pcpTimeWindowUpperLimitOriginal, char *pcpTimeWindowUpperLimitCurrent)
+{
+    int    ilRc   = RC_SUCCESS;         /* Return code */
+    char *pclFunc = "insertFligthsNewInTimeWindow";
+
+    iniTables(pcpTimeWindowUpperLimitOriginal, pcpTimeWindowUpperLimitCurrent);
+}
