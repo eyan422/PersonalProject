@@ -171,7 +171,7 @@ static int flightSearch(char *pcpTable, char *pcpField, char *pcpKey, char *pcpS
 static void getHardcodeShare_DataList(char *pcpFields, char *pcpData, _HARDCODE_SHARE *pcpHardcodeShare);
 static int checkVialChange(char *pcpFields, char *pcpNewData, char *pcpOldData, int *ipVialChange);
 static int refreshTable(char *pcpTimeWindowLowerLimit, char *pcpTimeWindowUpperLimit);
-static int iniTables(char *pcpTimeWindowLowerLimit, char *pcpTimeWindowUpperLimit);
+static int iniTables(char *pcpTimeWindowLowerLimit, char *pcpTimeWindowUpperLimit,int ipOptionToTruncate);
 static int getFieldValue(char *pcpFields, char *pcpNewData, char *pcpFieldName, char *pcpFieldValue);
 static int truncateTable(int ipRuleGroup);
 static int deleteFlightsOutOfTimeWindow(char *pcpTimeWindowLowerLimitOriginal, char *pcpTimeWindowLowerLimit);
@@ -805,7 +805,7 @@ static int HandleData(EVENT *prpEvent)
         1-Delete all records in destination table
         2-Insert into all flights in time-window
         */
-        iniTables(pcgTimeWindowLowerLimit,pcgTimeWindowUpperLimit);
+        iniTables(pcgTimeWindowLowerLimit,pcgTimeWindowUpperLimit,TRUE);
     }
     else /*The normal DFR, IFR and UFR command*/
     {
@@ -814,7 +814,7 @@ static int HandleData(EVENT *prpEvent)
         checkVialChange(pclFields,pclNewData,pclOldData,&ilVialChange);
         mapping(clTable, pclFields, pclNewData, pclSelection, pclAdidValue, ilVialChange);
 
-        #ifndef FYA
+        /*#ifndef FYA*/
         /*getting the roataion flight data beforehand, optimize this part later*/
         ilRc = getRotationFlightData(clTable, pclUrnoSelection, pclFields, pclRotationData, pclAdidValue);
         if (ilRc == RC_SUCCESS)
@@ -837,7 +837,7 @@ static int HandleData(EVENT *prpEvent)
                 }
             }
         }
-        #endif
+        /*#endif*/
     }
 
     /****************************************/
@@ -2650,7 +2650,7 @@ static void updateTimeWindow(char *pcpTimeWindowLowerLimit, char *pcpTimeWindowU
     dbg(TRACE,"The current  time range is <%s> ~ <%s>", pcpTimeWindowLowerLimit, pcpTimeWindowUpperLimit);
 }
 
-static int iniTables(char *pcpTimeWindowLowerLimit, char *pcpTimeWindowUpperLimit)
+static int iniTables(char *pcpTimeWindowLowerLimit, char *pcpTimeWindowUpperLimit, int ipOptionToTruncate)
 {
     int ilCount = 0;
     int ilFlightCount = 0;
@@ -2679,7 +2679,8 @@ static int iniTables(char *pcpTimeWindowLowerLimit, char *pcpTimeWindowUpperLimi
     for (ilRuleGroup = 1; ilRuleGroup <= igTotalNumbeoOfRule; ilRuleGroup++)
     {
         /*truncate all existed records in destination table*/
-        truncateTable(ilRuleGroup);
+        if(ipOptionToTruncate == TRUE)
+            truncateTable(ilRuleGroup);
 
         memset(pclSourceFieldList,0,sizeof(pclSourceFieldList));
         ilRc = matchFieldListOnGroup(ilRuleGroup, pclSourceFieldList);
@@ -2827,12 +2828,41 @@ static int deleteFlightsOutOfTimeWindow(char *pcpTimeWindowLowerLimitOriginal, c
     return ilRc;
 }
 
-static void deleteFlightsOutOfTimeWindowByGroup(int ipRuleGroup, char *pcpTimeWindowLowerLimitOriginal, char *pcpTimeWindowLowerLimit)
+static void deleteFlightsOutOfTimeWindowByGroup(int ipRuleGroup, char *pcpTimeWindowLowerLimitOriginal, char *pcpTimeWindowLowerLimitCurrent)
 {
     int    ilRc   = RC_SUCCESS;         /* Return code */
     short slLocalCursor = 0, slFuncCode = 0;
     char *pclFunc = "deleteFlightsOutOfTimeWindowByGroup";
+
+    char pclYear[16] = "\0";
+    char pclMonth[16] = "\0";
+    char pclDay[16] = "\0";
+    char pclHour[16] = "\0";
+    char pclMin[16] = "\0";
+    char pclSec[16] = "\0";
+
+    char pclTmpOriginal[64] = "\0";
+    char pclTmpCurrent[64] = "\0";
+
     char pclSqlBuf[2048] = "\0",pclSqlData[4096] = "\0",pclWhere[2048] = "\0", pclSelection[2048] = "\0";
+
+    memset(pclTmpOriginal, 0, sizeof(pclTmpOriginal));
+    strncpy(pclYear,pcpTimeWindowLowerLimitOriginal,4);
+    strncpy(pclMonth,pcpTimeWindowLowerLimitOriginal+4,2);
+    strncpy(pclDay,pcpTimeWindowLowerLimitOriginal+6,2);
+    strncpy(pclHour,pcpTimeWindowLowerLimitOriginal+8,2);
+    strncpy(pclMin,pcpTimeWindowLowerLimitOriginal+10,2);
+    strncpy(pclSec,pcpTimeWindowLowerLimitOriginal+12,2);
+    sprintf(pclTmpOriginal,"date'%s-%s-%s'", pclYear, pclMonth, pclDay);
+
+    memset(pclTmpCurrent, 0, sizeof(pclTmpCurrent));
+    strncpy(pclYear,pcpTimeWindowLowerLimitCurrent,4);
+    strncpy(pclMonth,pcpTimeWindowLowerLimitCurrent+4,2);
+    strncpy(pclDay,pcpTimeWindowLowerLimitCurrent+6,2);
+    strncpy(pclHour,pcpTimeWindowLowerLimitCurrent+8,2);
+    strncpy(pclMin,pcpTimeWindowLowerLimitCurrent+10,2);
+    strncpy(pclSec,pcpTimeWindowLowerLimitCurrent+12,2);
+    sprintf(pclTmpCurrent,"date'%s-%s-%s'", pclYear, pclMonth, pclDay);
 
     slLocalCursor = 0;
     slFuncCode = START;
@@ -2840,12 +2870,12 @@ static void deleteFlightsOutOfTimeWindowByGroup(int ipRuleGroup, char *pcpTimeWi
     if(ipRuleGroup == 1)
     {
         /*arrival fligths*/
-        sprintf(pclSqlBuf, "DELETE FROM Current_Arrivals WHERE %s BETWEEN '%s' AND '%s'", pcgTimeWindowRefField_Arr, pcpTimeWindowLowerLimitOriginal,pcpTimeWindowLowerLimit);
+        sprintf(pclSqlBuf, "DELETE FROM Current_Arrivals WHERE CDAT BETWEEN %s AND %s", pclTmpOriginal,pclTmpCurrent);
     }
     else if(ipRuleGroup == igTotalNumbeoOfRule)
     {
         /*departure fligths*/
-        sprintf(pclSqlBuf, "DELETE FROM Current_Departures WHERE %s BETWEEN '%s' AND '%s'", pcgTimeWindowRefField_Dep, pcpTimeWindowLowerLimitOriginal,pcpTimeWindowLowerLimit);
+        sprintf(pclSqlBuf, "DELETE FROM Current_Departures WHERE CDAT BETWEEN %s AND %s", pclTmpOriginal,pclTmpCurrent);
     }
     dbg(TRACE,"%s [%d]Delete Query<%s>",pclFunc, ipRuleGroup, pclSqlBuf);
 
@@ -2863,5 +2893,5 @@ static void insertFligthsNewInTimeWindow(char *pcpTimeWindowUpperLimitOriginal, 
     int    ilRc   = RC_SUCCESS;         /* Return code */
     char *pclFunc = "insertFligthsNewInTimeWindow";
 
-    iniTables(pcpTimeWindowUpperLimitOriginal, pcpTimeWindowUpperLimitCurrent);
+    iniTables(pcpTimeWindowUpperLimitOriginal, pcpTimeWindowUpperLimitCurrent,FALSE);
 }
