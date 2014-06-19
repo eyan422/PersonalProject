@@ -298,7 +298,7 @@ int via(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpSele
 
     /*getting the vial information*/
     ilCount = getVial(pcpSourceValue, pclVial);
-    ili = (int)((rpLine->pclDestField)[3] - '0') - 1;
+    ili = (int)((rpLine->pclDestField)[strlen(rpLine->pclDestField)-1] - '0') - 1;
 
     ilRC = getDestSourceLen(ilDestLen, pclVial[ili]);
     if (ilRC == RC_SUCCESS)

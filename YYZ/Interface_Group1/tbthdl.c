@@ -2,7 +2,7 @@
 #ifndef _DEF_mks_version
   #define _DEF_mks_version
   #include "ufisvers.h" /* sets UFIS_VERSION, must be done before mks_version */
-  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/tbthdl.c 1.7 2014/06/18 12:21:14SGT fya Exp  $";
+  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/tbthdl.c 1.7 2014/06/19 11:17:14SGT fya Exp  $";
 #endif /* _DEF_mks_version */
 /******************************************************************************/
 /*                                                                            */
@@ -179,6 +179,7 @@ static int deleteFlightsOutOfTimeWindow(char *pcpTimeWindowLowerLimitOriginal, c
 static void deleteFlightsOutOfTimeWindowByGroup(int ipRuleGroup, char *pcpTimeWindowLowerLimitOriginal, char *pcpTimeWindowLowerLimit);
 static void insertFligthsNewInTimeWindow(char *pcpTimeWindowUpperLimitOriginal, char *pcpTimeWindowUpperLimitCurrent);
 static void updateTimeWindow(char *pcpTimeWindowLowerLimit, char *pcpTimeWindowUpperLimit);
+static int showGroupInfo(_LINE *rlGroupInfo, int ipGroupNO);
 /******************************************************************************/
 /*                                                                            */
 /* The MAIN program                                                           */
@@ -815,7 +816,7 @@ static int HandleData(EVENT *prpEvent)
     }
     else /*The normal DFR, IFR and UFR command*/
     {
-        if( strcmp(clTable,"AFTTAB") == 0 )
+        if(!strcmp(clTable,"AFTTAB"))
         {
             /*getting the ADID*/
             getFieldValue(pclFields, pclNewData, "ADID", pclAdidValue);
@@ -827,7 +828,7 @@ static int HandleData(EVENT *prpEvent)
         }
         mapping(clTable, pclFields, pclNewData, pclSelection, pclAdidValue, ilVialChange);
 
-        if( strcmp(clTable,"AFTTAB") == 0 )
+        if(!strcmp(clTable,"AFTTAB"))
         {
           /*#ifndef FYA*/
             /*getting the roataion flight data beforehand, optimize this part later*/
@@ -1088,17 +1089,16 @@ static int GetRuleSchema(_RULE *rpRule)
 {
     int ilRC = RC_SUCCESS;
     char pclFunc[] = "GetRuleSchema:";
-    char pclCfgFile[128];
     FILE *fp;
-    int ilCurLine;
-    char pclLine[2048];
-
     int ilNoLine = 0;
     int ilI;
     int ilJ;
+    char pclRuleGroupNO[16] = "\0";
+    char pclCfgFile[128];
     char pclTmpBuf[128];
+    char pclLine[2048];
     _LINE rlLine;
-
+    _LINE rlGroupInfo[ARRAYNUMBER];
 
     ilRC = iGetConfigEntry(pcgConfigFile, "MAIN", "RULE_SCHEMA_FILE", CFG_STRING, pclTmpBuf);
     if (ilRC == RC_SUCCESS)
@@ -1153,9 +1153,14 @@ static int GetRuleSchema(_RULE *rpRule)
 
         getOneline(&rlLine, pclLine);
         /*showLine(&rlLine);*/
+        if( strcmp(pclRuleGroupNO, rlLine.pclRuleGroup) != 0 )
+        {
+            /*record the group info by rule group number*/
+            getOneline(rlGroupInfo+atoi(rlLine.pclRuleGroup),pclLine);
+        }
 
         /*store the required and conflicted field list group by group*/
-        if(atoi(rlLine.pclRuleGroup)>0)
+        if( atoi(rlLine.pclRuleGroup) > 0 )
         {
             collectSourceFieldSet(pcgSourceFiledSet[atoi(rlLine.pclRuleGroup)], pcgSourceConflictFiledSet[atoi(rlLine.pclRuleGroup)], rlLine.pclSourceField, atoi(rlLine.pclRuleGroup));
 
@@ -1165,16 +1170,21 @@ static int GetRuleSchema(_RULE *rpRule)
         else
         {
             dbg(TRACE,"%s atoi(rlLine.pclRuleGroup)<%d> ==0",pclFunc);
+            continue;
         }
 
         /*Copy to global structure*/
         storeRule( &(rpRule->rlLine[ilNoLine++]), &rlLine);
 
-        igTotalNumbeoOfRule = atoi(rlLine.pclRuleGroup);
+        if( atoi(rlLine.pclRuleGroup) > igTotalNumbeoOfRule)
+        {
+            igTotalNumbeoOfRule = atoi(rlLine.pclRuleGroup);
+        }
     }
     igTotalLineOfRule = ilNoLine + 1;
     showRule(rpRule, igTotalLineOfRule);
 
+    ilRC = showGroupInfo(rlGroupInfo, igTotalNumbeoOfRule);
     showFieldByGroup(pcgSourceFiledSet, pcgSourceConflictFiledSet, pcgSourceFiledList, pcgDestFiledList);
     fclose(fp);
 
@@ -2284,6 +2294,7 @@ static int mapping(char *pcpTable, char *pcpFields, char *pcpNewData, char *pcpS
     pclTmp = strstr(pclTmpSelection, "=");
     strcpy(pclUrnoSelection, pclTmp+1);
 
+    /*ilRc = flightSearch(rgRule.rlLine[0].pclDestTable, rgRule.rlLine[0].pclDestKey, rgRule.rlLine[0].pclDestKey, pclUrnoSelection);*/
     ilRc = flightSearch(rgRule.rlLine[0].pclDestTable, rgRule.rlLine[0].pclDestKey, rgRule.rlLine[0].pclDestKey, pclUrnoSelection);
     switch (ilRc)
     {
@@ -2542,7 +2553,6 @@ static int flightSearch(char *pcpTable, char *pcpField, char *pcpKey, char *pcpS
             ilRC = RC_SUCCESS;
             break;
     }
-
     return ilRC;
 }
 
@@ -3003,4 +3013,43 @@ static void insertFligthsNewInTimeWindow(char *pcpTimeWindowUpperLimitOriginal, 
     char *pclFunc = "insertFligthsNewInTimeWindow";
 
     iniTables(pcpTimeWindowUpperLimitOriginal, pcpTimeWindowUpperLimitCurrent,FALSE);
+}
+
+static int showGroupInfo(_LINE *rlGroupInfo, int ipGroupNO)
+{
+    int ilCount = 0;
+    int ilRc = RC_SUCCESS;
+    char *pclFunc = "showGroupInfo";
+
+    dbg(DEBUG, "%s +++++ipGroupNO<%d> ARRAYNUMBER<%d>",pclFunc, ipGroupNO, ARRAYNUMBER);
+
+    if(ipGroupNO > ARRAYNUMBER)
+    {
+        return RC_FAIL;
+    }
+    else
+    {
+        for (ilCount = 0; ilCount <= ipGroupNO; ilCount++)
+        {
+            if(strcmp(rlGroupInfo[ilCount].pclActive, " ") != 0 && strlen(rlGroupInfo[ilCount].pclActive) > 0)
+            {
+                dbg(DEBUG, "%s Group[%d] Line 1-%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s", pclFunc,ilCount,
+                rlGroupInfo[ilCount].pclActive,
+                rlGroupInfo[ilCount].pclRuleGroup,
+                rlGroupInfo[ilCount].pclSourceTable,
+                rlGroupInfo[ilCount].pclSourceKey,
+                rlGroupInfo[ilCount].pclSourceField,
+                rlGroupInfo[ilCount].pclSourceFieldType,
+                rlGroupInfo[ilCount].pclDestTable,
+                rlGroupInfo[ilCount].pclDestKey,
+                rlGroupInfo[ilCount].pclDestField,
+                rlGroupInfo[ilCount].pclDestFieldLen,
+                rlGroupInfo[ilCount].pclDestFieldType,
+                rlGroupInfo[ilCount].pclDestFieldOperator,
+                rlGroupInfo[ilCount].pclCond1,
+                rlGroupInfo[ilCount].pclCond2);
+            }
+        }
+    }
+    return ilRc;
 }
