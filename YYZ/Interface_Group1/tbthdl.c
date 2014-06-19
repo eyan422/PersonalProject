@@ -103,6 +103,7 @@ static char pcgUfisConfigFile[512];
 
 /*fya 0.1*/
 _RULE rgRule;
+_LINE rgGroupInfo[ARRAYNUMBER];
 static int igTotalLineOfRule;
 static int igTotalNumbeoOfRule;
 
@@ -1098,7 +1099,6 @@ static int GetRuleSchema(_RULE *rpRule)
     char pclTmpBuf[128];
     char pclLine[2048];
     _LINE rlLine;
-    _LINE rlGroupInfo[ARRAYNUMBER];
 
     ilRC = iGetConfigEntry(pcgConfigFile, "MAIN", "RULE_SCHEMA_FILE", CFG_STRING, pclTmpBuf);
     if (ilRC == RC_SUCCESS)
@@ -1156,7 +1156,7 @@ static int GetRuleSchema(_RULE *rpRule)
         if( strcmp(pclRuleGroupNO, rlLine.pclRuleGroup) != 0 )
         {
             /*record the group info by rule group number*/
-            getOneline(rlGroupInfo+atoi(rlLine.pclRuleGroup),pclLine);
+            getOneline(rgGroupInfo+atoi(rlLine.pclRuleGroup),pclLine);
         }
 
         /*store the required and conflicted field list group by group*/
@@ -1184,7 +1184,7 @@ static int GetRuleSchema(_RULE *rpRule)
     igTotalLineOfRule = ilNoLine + 1;
     showRule(rpRule, igTotalLineOfRule);
 
-    ilRC = showGroupInfo(rlGroupInfo, igTotalNumbeoOfRule);
+    ilRC = showGroupInfo(rgGroupInfo, igTotalNumbeoOfRule);
     showFieldByGroup(pcgSourceFiledSet, pcgSourceConflictFiledSet, pcgSourceFiledList, pcgDestFiledList);
     fclose(fp);
 
@@ -1665,11 +1665,13 @@ static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *
                 strcat(pclDestDataListWithCodeshare,pclTmp);
 
                 /*buildInsertQuery(pclSqlInsertBuf, rpRule->rlLine[0].pclDestTable, pcpDestFiledList, pclDestDataList);*/
-                buildInsertQuery(pclSqlInsertBuf, rpRule->rlLine[0].pclDestTable, pclDestFiledListWithCodeshare, pclDestDataListWithCodeshare);
+                /*buildInsertQuery(pclSqlInsertBuf, rpRule->rlLine[0].pclDestTable, pclDestFiledListWithCodeshare, pclDestDataListWithCodeshare);*/
+                buildInsertQuery(pclSqlInsertBuf, rgGroupInfo[ipRuleGroup].pclDestTable, pclDestFiledListWithCodeshare, pclDestDataListWithCodeshare);
                 dbg(DEBUG, "%s insert<%s>", pclFunc, pclSqlInsertBuf);
 
                 /*buildUpdateQuery(pclSqlUpdateBuf, rpRule->rlLine[0].pclDestTable, pcpDestFiledList, pclDestDataList, pclSelection);*/
-                buildUpdateQuery(pclSqlUpdateBuf, rpRule->rlLine[0].pclDestTable, pclDestFiledListWithCodeshare, pclDestDataListWithCodeshare,pclSelection);
+                /*buildUpdateQuery(pclSqlUpdateBuf, rpRule->rlLine[0].pclDestTable, pclDestFiledListWithCodeshare, pclDestDataListWithCodeshare,pclSelection);*/
+                buildUpdateQuery(pclSqlUpdateBuf, rgGroupInfo[ipRuleGroup].pclDestTable, pclDestFiledListWithCodeshare, pclDestDataListWithCodeshare,pclSelection);
                 dbg(DEBUG, "%s update<%s>", pclFunc, pclSqlUpdateBuf);
 
                 strcpy(pcpQuery->pclInsertQuery, pclSqlInsertBuf);
@@ -1684,7 +1686,8 @@ static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *
                 strcat(pclDestDataListWithCodeshare,pclTmp);
 
                 /*buildInsertQuery(pclSqlInsertBuf, rpRule->rlLine[0].pclDestTable, pcpDestFiledList, pclDestDataList);*/
-                buildInsertQuery(pclSqlInsertBuf, rpRule->rlLine[0].pclDestTable, pclDestFiledListWithCodeshare, pclDestDataListWithCodeshare);
+                /*buildInsertQuery(pclSqlInsertBuf, rpRule->rlLine[0].pclDestTable, pclDestFiledListWithCodeshare, pclDestDataListWithCodeshare);*/
+                buildInsertQuery(pclSqlInsertBuf, rgGroupInfo[ipRuleGroup].pclDestTable, pclDestFiledListWithCodeshare, pclDestDataListWithCodeshare);
                 dbg(DEBUG, "%s insert<%s>", pclFunc, pclSqlInsertBuf);
 
                 strcpy(pcpQuery->pclInsertQuery, pclSqlInsertBuf);
@@ -2295,7 +2298,7 @@ static int mapping(char *pcpTable, char *pcpFields, char *pcpNewData, char *pcpS
     strcpy(pclUrnoSelection, pclTmp+1);
 
     /*ilRc = flightSearch(rgRule.rlLine[0].pclDestTable, rgRule.rlLine[0].pclDestKey, rgRule.rlLine[0].pclDestKey, pclUrnoSelection);*/
-    ilRc = flightSearch(rgRule.rlLine[0].pclDestTable, rgRule.rlLine[0].pclDestKey, rgRule.rlLine[0].pclDestKey, pclUrnoSelection);
+    ilRc = flightSearch(rgGroupInfo[ilRuleGroup].pclDestTable, rgGroupInfo[ilRuleGroup].pclDestKey, rgGroupInfo[ilRuleGroup].pclDestKey, pclUrnoSelection);
     switch (ilRc)
     {
         case RC_FAIL:
@@ -2373,7 +2376,10 @@ static int mapping(char *pcpTable, char *pcpFields, char *pcpNewData, char *pcpS
             memset(pclSqlBuf,0,sizeof(pclSqlBuf));
             memset(pclSqlData,0,sizeof(pclSqlData));
 
+            /*
             sprintf(pclSqlBuf, "DELETE FROM %s WHERE %s='%s' AND SST!='%s'", rgRule.rlLine[0].pclDestTable, rgRule.rlLine[0].pclDestKey, pclUrnoSelection, pcgMasterSST);
+            */
+            sprintf(pclSqlBuf, "DELETE FROM %s WHERE %s='%s' AND SST!='%s'", rgGroupInfo[ilRuleGroup].pclDestTable, rgGroupInfo[ilRuleGroup].pclDestKey, pclUrnoSelection, pcgMasterSST);
             dbg(TRACE,"%s Delete Query<%s>",pclFunc, pclSqlBuf);
 
             ilRc = sql_if(slFuncCode, &slLocalCursor, pclSqlBuf, pclSqlData);
