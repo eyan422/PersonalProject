@@ -815,31 +815,41 @@ static int HandleData(EVENT *prpEvent)
     }
     else /*The normal DFR, IFR and UFR command*/
     {
-        /*getting the ADID*/
-        getFieldValue(pclFields, pclNewData, "ADID", pclAdidValue);
-        checkVialChange(pclFields,pclNewData,pclOldData,&ilVialChange);
+        if( strcmp(clTable,"AFTTAB") == 0 )
+        {
+            /*getting the ADID*/
+            getFieldValue(pclFields, pclNewData, "ADID", pclAdidValue);
+            checkVialChange(pclFields,pclNewData,pclOldData,&ilVialChange);
+        }
+        else
+        {
+            ilVialChange = FALSE;
+        }
         mapping(clTable, pclFields, pclNewData, pclSelection, pclAdidValue, ilVialChange);
 
-        /*#ifndef FYA*/
-        /*getting the roataion flight data beforehand, optimize this part later*/
-        ilRc = getRotationFlightData(clTable, pclUrnoSelection, pclFields, pclRotationData, pclAdidValue);
-        if (ilRc == RC_SUCCESS)
+        if( strcmp(clTable,"AFTTAB") == 0 )
         {
-            showRotationFlight(pclRotationData);
-
-            /*handle rotation data*/
-            for(ilCount = 0; ilCount < ARRAYNUMBER; ilCount++)
+          /*#ifndef FYA*/
+            /*getting the roataion flight data beforehand, optimize this part later*/
+            ilRc = getRotationFlightData(clTable, pclUrnoSelection, pclFields, pclRotationData, pclAdidValue);
+            if (ilRc == RC_SUCCESS)
             {
-                if (strlen(pclRotationData[ilCount]) > 0)
-                {
-                    dbg(DEBUG,"%s <%d> Rotation Flight<%s>", pclFunc, ilCount, pclRotationData[ilCount]);
+                showRotationFlight(pclRotationData);
 
-                    /*
-                    Since the rotation flight has no old data, then set ilVialChange = TRUE;
-                    checkVialChange(pclFields,pclRotationData[ilCount],"",ilVialChange);
-                    */
-                    ilVialChange = TRUE;
-                    mapping(clTable, pclFields, pclRotationData[ilCount], pclSelection, pclAdidValue, ilVialChange);
+                /*handle rotation data*/
+                for(ilCount = 0; ilCount < ARRAYNUMBER; ilCount++)
+                {
+                    if (strlen(pclRotationData[ilCount]) > 0)
+                    {
+                        dbg(DEBUG,"%s <%d> Rotation Flight<%s>", pclFunc, ilCount, pclRotationData[ilCount]);
+
+                        /*
+                        Since the rotation flight has no old data, then set ilVialChange = TRUE;
+                        checkVialChange(pclFields,pclRotationData[ilCount],"",ilVialChange);
+                        */
+                        ilVialChange = TRUE;
+                        mapping(clTable, pclFields, pclRotationData[ilCount], pclSelection, pclAdidValue, ilVialChange);
+                    }
                 }
             }
         }
@@ -2049,7 +2059,40 @@ static int mapping(char *pcpTable, char *pcpFields, char *pcpNewData, char *pcpS
         ilRc = extractField(pclTimeWindowRefFieldVal, pcgTimeWindowRefField_Arr, pcpFields, pcpNewData);
         if (ilRc == RC_FAIL)
         {
-            return RC_FAIL;
+            /*get from source table usign urno*/
+            memset(pclSqlBuf,0,sizeof(pclSqlBuf));
+            sprintf(pclSqlBuf, "select %s from %s %s", pcgTimeWindowRefField_Arr,pcpTable,pcpSelection);
+            dbg(TRACE,"%s: clSql = <%s>", pclFunc, pclSqlBuf);
+
+            ilRc = RunSQL(pclSqlBuf, pclSqlData);
+            if (ilRc != DB_SUCCESS)
+            {
+                dbg(TRACE, "<%s>: Retrieving dest data - Fails", pclFunc);
+                /*return RC_FAIL;*/
+            }
+
+            switch(ilRc)
+            {
+                case NOTFOUND:
+                    dbg(TRACE, "<%s> Retrieving source data - Not Found", pclFunc);
+                    ilRc = NOTFOUND;
+                    break;
+                default:
+                    dbg(TRACE, "<%s> Retrieving source data - Found\n <%s>", pclFunc, pclSqlData);
+                    get_real_item(pclTimeWindowRefFieldVal,pclSqlData,1);
+                    ilRc = RC_SUCCESS;
+                    break;
+            }
+
+            if ( atoi(pclTimeWindowRefFieldVal) != 0 )
+            {
+                dbg(TRACE, "<%s> %s = %s", pclFunc, pcgTimeWindowRefField_Arr, pclTimeWindowRefFieldVal);
+            }
+            else
+            {
+                dbg(TRACE,"%s The refered time value is invalid", pclFunc);
+                return RC_FAIL;
+            }
         }
         else
         {
@@ -2069,7 +2112,40 @@ static int mapping(char *pcpTable, char *pcpFields, char *pcpNewData, char *pcpS
         ilRc = extractField(pclTimeWindowRefFieldVal, pcgTimeWindowRefField_Dep, pcpFields, pcpNewData);
         if (ilRc == RC_FAIL)
         {
-            return RC_FAIL;
+            /*get from source table usign urno*/
+            memset(pclSqlBuf,0,sizeof(pclSqlBuf));
+            sprintf(pclSqlBuf, "select %s from %s %s", pcgTimeWindowRefField_Dep,pcpTable,pcpSelection);
+            dbg(TRACE,"%s: clSql = <%s>", pclFunc, pclSqlBuf);
+
+            ilRc = RunSQL(pclSqlBuf, pclSqlData);
+            if (ilRc != DB_SUCCESS)
+            {
+                dbg(TRACE, "<%s>: Retrieving dest data - Fails", pclFunc);
+                /*return RC_FAIL;*/
+            }
+
+            switch(ilRc)
+            {
+                case NOTFOUND:
+                    dbg(TRACE, "<%s> Retrieving source data - Not Found", pclFunc);
+                    ilRc = NOTFOUND;
+                    break;
+                default:
+                    dbg(TRACE, "<%s> Retrieving source data - Found\n <%s>", pclFunc, pclSqlData);
+                    get_real_item(pclTimeWindowRefFieldVal,pclSqlData,1);
+                    ilRc = RC_SUCCESS;
+                    break;
+            }
+
+            if ( atoi(pclTimeWindowRefFieldVal) != 0 )
+            {
+                dbg(TRACE, "<%s> %s = %s", pclFunc, pcgTimeWindowRefField_Arr, pclTimeWindowRefFieldVal);
+            }
+            else
+            {
+                dbg(TRACE,"%s The refered time value is invalid", pclFunc);
+                return RC_FAIL;
+            }
         }
         else
         {
@@ -2282,6 +2358,9 @@ static int mapping(char *pcpTable, char *pcpFields, char *pcpNewData, char *pcpS
         {
             slLocalCursor = 0;
             slFuncCode = START;
+
+            memset(pclSqlBuf,0,sizeof(pclSqlBuf));
+            memset(pclSqlData,0,sizeof(pclSqlData));
 
             sprintf(pclSqlBuf, "DELETE FROM %s WHERE %s='%s' AND SST!='%s'", rgRule.rlLine[0].pclDestTable, rgRule.rlLine[0].pclDestKey, pclUrnoSelection, pcgMasterSST);
             dbg(TRACE,"%s Delete Query<%s>",pclFunc, pclSqlBuf);
