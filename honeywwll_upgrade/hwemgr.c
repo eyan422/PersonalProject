@@ -1,9 +1,9 @@
 #ifndef _DEF_mks_version
     #define _DEF_mks_version
     #include "ufisvers.h" /* sets UFIS_VERSION, must be done before mks_version */
-    static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Interface/hwemgr.c 1.3 5/19/2014 5:05:39 PM Exp yya $";
+    static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Interface/hwemgr.c 1.4 20/06/2014 5:05:39 PM Exp fya $";
 #endif /* _DEF_mks_version */
-    
+
 
 
 /********************************************************************************/
@@ -17,6 +17,7 @@
 /* 20120127 DKA 1.00   First release.                                           */
 /* 20130422 YYA: UFIS-6225 Msg Resend maintain in hwetab by hwemgr Handle       */
 /*                         Add new Col to hwetab:SCNT,ESDT                      */
+/* 20140620 FYA v1.5 UFIS-6225 Code Review*/
 /********************************************************************************/
 
 
@@ -74,7 +75,7 @@ int  debug_level = DEBUG;
 /* Holds all the parameters defined in cfg file. */
 typedef struct
 {
-    int iHwetabRetention;    
+    int iHwetabRetention;
     int iConn1;
     int iConn2;
     int iHwepde;
@@ -89,7 +90,7 @@ typedef struct
     char CDAT[MAX_HWETAB_DATE+1];
     char SDAT[MAX_HWETAB_DATE+1];
     char ADAT[MAX_HWETAB_DATE+1];
-    char DDAT[MAX_HWETAB_DATE+1];	
+    char DDAT[MAX_HWETAB_DATE+1];
     char MGID[MAX_HWETAB_MGID+1];
 }HWETAB;
 
@@ -111,8 +112,8 @@ static char pcgDestName [64];
 static char pcgRecvName [64];
 static int igGlNoAck = 0; /* flag for acknowledgement */
 static char pcgCedaCmd [64];/* last command */
-char cgConnectionMask=0; 
-char cgOldConnectionMask=0; 
+char cgConnectionMask=0;
+char cgOldConnectionMask=0;
 CONFIGREC rgConfig; /* variable to hold all configuration values */
 char pcgCurrentHwetabUrno[32]="";
 char pcgNewHwetabUrno[32]="";
@@ -126,7 +127,7 @@ int igHwetabFieldCount=8;
 static int igSendWaitAck = FALSE;
 static int igAckForAll = FALSE;
 static int igReSendEnable = FALSE;
-static int igReSendMax = 3; 
+static int igReSendMax = 3;
 static int igReSendTim = 3;  /* Time interval of the Re-Send */
 
 static int igDelForAck = TRUE;
@@ -142,7 +143,7 @@ int getSystemDate(char *pcpOut);
 int getNextHwetabRecord(HWETAB *rpHwetabRec);
 static int HandleData(void); /* CEDA  event data     */
 static void HandleErr(int); /* General errors */
-static void HandleQueues(void); 
+static void HandleQueues(void);
 static void HandleQueErr(int);
 static void HandleSignal(int);
 static int InitPgm();
@@ -165,7 +166,7 @@ int sendCedaEventWithLog(int ipRouteId, int ipOrgId, char *pcpDstNam, char *pcpR
                   char *pcpSelection, char *pcpFields, char *pcpData,
                   char *pcpErrDscr, int ipPrior, int ipRetCode);
 int sendDataHweConn(char *pcpUrno, char *pcpData, char *pcpMGID, char *pcpSndCnt);
-static void Terminate(void); 
+static void Terminate(void);
 int updateHwetab(char *pcpWhere, int ipArgc,...);
 
 
@@ -181,10 +182,10 @@ MAIN
     int ilCnt = 0;
     char pclSql[1024];
     char pclSqlErr[513];
-    
+
     INITIALIZE; /* General initialization    */
     dbg(TRACE,"MAIN: version <%s>",mks_version);
-       
+
     /* handles signal       */
     (void)SetSignals(HandleSignal);
     (void)UnsetSignals();
@@ -202,7 +203,7 @@ MAIN
         }/* end of if */
     }
     while((ilCnt < 10) && (ilRC != RC_SUCCESS));
-    
+
     if(ilRC != RC_SUCCESS)
     {
         dbg(TRACE,"MAIN: init_que() failed! waiting 60 sec ...");
@@ -221,7 +222,7 @@ MAIN
     {
         dbg(TRACE,"MAIN: SendRemoteShutdown(%d) failed!",mod_id);
     } /* end of if */
-    
+
     if((ctrl_sta != HSB_STANDALONE) && (ctrl_sta != HSB_ACTIVE) && (ctrl_sta != HSB_ACT_TO_SBY))
     {
         dbg(DEBUG,"MAIN: waiting for status switch ...");
@@ -240,83 +241,83 @@ MAIN
                 dbg(TRACE,"MAIN: init failed!");
             } /* end of if */
         }/* end of if */
-    } 
-    else 
+    }
+    else
     {
         Terminate();
     }/* end of if */
-    
+
     ilRC = getConfig(pcgConfigFile);
     printConfig();
     cgConnectionMask=0;
-    igConn1RecStatus=igConn2RecStatus=IDLE; 
+    igConn1RecStatus=igConn2RecStatus=IDLE;
 
     dbg(TRACE,"MAIN: initializing OK");
     dbg(TRACE,"==================== Entering main pgm loop  =================");
-     
-    /* 
+
+    /*
     getNextHwetabRecord(&rgHwetabRec);
-    printHwetabRecord(&rgHwetabRec);  
+    printHwetabRecord(&rgHwetabRec);
     */
-    
+
     strcpy(pclSql, "DELETE FROM hwetab ");
     ilRC=executeSql(pclSql, pclSqlErr);
     dbg(TRACE,"MAIN:: executing [%s][%d][%s]", pclSql, ilRC, pclSqlErr);
-    
+
     ilRC = sendCedaEventWithLog(rgConfig.iConn1, 0, pcgDestName, pcgRecvName,
                                 pcgTwStart, pcgTwEnd, "CONX", "HWETAB", "",
-                                "", "", 
+                                "", "",
                                 "", 3, NETOUT_NO_ACK);
     ilRC = sendCedaEventWithLog(rgConfig.iConn2, 0, pcgDestName, pcgRecvName,
                                 pcgTwStart, pcgTwEnd, "CONX", "HWETAB", "",
-                                "", "", 
+                                "", "",
                                 "", 3, NETOUT_NO_ACK);
     for(;;)
     {
         dbg(TRACE,"==================== START/END =================");
         ilRC = que(QUE_GETBIG,0,mod_id,PRIORITY_3,igItemLen,(char *)&prgItem);
-        
+
         /* depending on the size of the received item  */
         /* a realloc could be made by the que function */
         /* so do never forget to set event pointer !!! */
         prgEvent = (EVENT *) prgItem->text;
-                
+
         if( ilRC == RC_SUCCESS )
         {
             /* Acknowledge the item */
             ilRC = que(QUE_ACK,0,mod_id,0,0,NULL);
-            if( ilRC != RC_SUCCESS ) 
+            if( ilRC != RC_SUCCESS )
             {
                 /* handle que_ack error */
                 HandleQueErr(ilRC);
             } /* fi */
-            
+
             switch( prgEvent->command )
             {
                 case HSB_STANDBY:
                     ctrl_sta = prgEvent->command;
                     HandleQueues();
-                    break;    
+                    break;
                 case HSB_COMING_UP:
                     ctrl_sta = prgEvent->command;
                     HandleQueues();
-                    break;    
+                    break;
                 case HSB_ACTIVE :
                     ctrl_sta = prgEvent->command;
-                    break;    
+                    break;
                 case HSB_ACT_TO_SBY:
                     ctrl_sta = prgEvent->command;
                     /* CloseConnection(); */
                     HandleQueues();
-                    break;    
+                    break;
                 case HSB_DOWN :
                     /* whole system shutdown - do not further use que(), send_message() or timsch() ! */
                     ctrl_sta = prgEvent->command;
                     Terminate();
-                    break;    
+                    break;
                 case HSB_STANDALONE:
                     ctrl_sta = prgEvent->command;
-                    break;    
+                    break;
                 case SHUTDOWN:
                     /* process shutdown - maybe from uutil */
                     Terminate();
@@ -351,19 +352,19 @@ MAIN
                     DebugPrintItem(TRACE,prgItem);
                     DebugPrintEvent(TRACE,prgEvent);
                     break;
-            } /* end switch */ 
+            } /* end switch */
         }
-   
-    } /* end for */    
+
+    } /* end for */
     exit(0);
-    
+
 } /* end of MAIN */
 
 
 static void HandleSignal(int ipSig)
 {
     int ilRC = RC_SUCCESS; /* Return code */
-    
+
     switch(ipSig)
     {
         case SIGTERM:
@@ -379,7 +380,7 @@ static void HandleSignal(int ipSig)
             break;
     } /* end of switch */
     exit(0);
-    
+
 } /* end of HandleSignal */
 
 
@@ -391,51 +392,51 @@ static void HandleQueues()
 {
     int    ilRC = RC_SUCCESS; /* Return code */
     int    ilBreakOut = FALSE;
-    
+
     do
     {
         ilRC = que(QUE_GETBIGNW,0,mod_id,PRIORITY_3,igItemLen,(char *)&prgItem);
         /* depending on the size of the received item  */
         /* a realloc could be made by the que function */
         /* so do never forget to set event pointer !!! */
-        prgEvent = (EVENT *) prgItem->text;    
+        prgEvent = (EVENT *) prgItem->text;
         if( ilRC == RC_SUCCESS )
         {
             /* Acknowledge the item */
             ilRC = que(QUE_ACK,0,mod_id,0,0,NULL);
-            if( ilRC != RC_SUCCESS ) 
+            if( ilRC != RC_SUCCESS )
             {
                 /* handle que_ack error */
                 HandleQueErr(ilRC);
             } /* fi */
-        
+
             switch( prgEvent->command )
             {
                 case HSB_STANDBY:
                     ctrl_sta = prgEvent->command;
-                    break;        
+                    break;
                 case HSB_COMING_UP:
                     ctrl_sta = prgEvent->command;
-                    break;    
+                    break;
                 case HSB_ACTIVE:
                     ctrl_sta = prgEvent->command;
                     ilBreakOut = TRUE;
-                    break;    
+                    break;
                 case HSB_ACT_TO_SBY    :
                     ctrl_sta = prgEvent->command;
-                    break;    
+                    break;
                 case HSB_DOWN:
                     /* whole system shutdown - do not further use que(), send_message() or timsch() ! */
                     ctrl_sta = prgEvent->command;
                     Terminate();
-                    break;    
+                    break;
                 case HSB_STANDALONE:
                     ctrl_sta = prgEvent->command;
                     ilBreakOut = TRUE;
-                    break;    
+                    break;
                 case SHUTDOWN:
                     Terminate();
-                    break;                        
+                    break;
                 case RESET:
                     ilRC = Reset();
                     break;
@@ -456,10 +457,10 @@ static void HandleQueues()
                     DebugPrintEvent(TRACE,prgEvent);
                     break;
             } /* end switch */
-        }        
-    } 
+        }
+    }
     while (ilBreakOut == FALSE);
-    
+
     if(igInitOK == FALSE)
     {
             ilRC = InitPgm();
@@ -469,7 +470,7 @@ static void HandleQueues()
             } /* end of if */
     }/* end of if */
 } /* end of HandleQueues */
-    
+
 
 
 /******************************************************************************/
@@ -478,8 +479,8 @@ static void HandleQueues()
 static void HandleQueErr(int pipErr)
 {
     int    ilRC = RC_SUCCESS;
-    
-    switch(pipErr) 
+
+    switch(pipErr)
     {
         case QUE_E_FUNC: /* Unknown function */
             dbg(TRACE,"HandleQueErr: <%d> : unknown function",pipErr);
@@ -539,7 +540,7 @@ static void HandleQueErr(int pipErr)
             dbg(TRACE,"HandleQueErr: <%d> unknown error",pipErr);
             break;
     } /* end switch */
-         
+
     return;
 } /* end of HandleQueErr */
 
@@ -548,10 +549,10 @@ static void HandleQueErr(int pipErr)
 /* The termination routine                                                    */
 /******************************************************************************/
 static void Terminate()
-{ 
+{
     dbg(TRACE,"Terminate: now leaving ...");
-    
-    exit(0);    
+
+    exit(0);
 } /* end of Terminate */
 
 
@@ -561,8 +562,8 @@ static void Terminate()
 static int Reset()
 {
     int ilRC = RC_SUCCESS; /* Return code */
-    
-    return ilRC;    
+
+    return ilRC;
 } /* end of Reset */
 
 
@@ -593,7 +594,7 @@ static int InitPgm()
             sleep(6);
             ilCnt++;
         } /* end of if */
-    } 
+    }
     while((ilCnt < 10) && (ilRC != RC_SUCCESS));
 
     if(ilRC != RC_SUCCESS)
@@ -612,13 +613,13 @@ static int InitPgm()
     {
         dbg(DEBUG,"InitPgm: DEBUG_LEVEL IS <DEBUG>");
         igDbgSave = DEBUG;
-    }             
-    else if (strcmp(pclDbgLevel,"OFF") == 0) 
+    }
+    else if (strcmp(pclDbgLevel,"OFF") == 0)
     {
         dbg(DEBUG,"InitPgm: DEBUG_LEVEL IS <OFF>");
-        igDbgSave = 0; 
-    } 
-    else 
+        igDbgSave = 0;
+    }
+    else
     {
         dbg(DEBUG,"InitPgm: DEBUG_LEVEL IS <TRACE>");
         igDbgSave = TRACE;
@@ -662,12 +663,12 @@ static int ReadConfigEntry(char *pcpSection,char *pcpKeyword,char *pcpCfgBuffer,
         dbg(TRACE,"ReadConfigEntry: Not found in %s: [%s] <%s>",pcgConfigFile, pclSection, pclKeyword);
         dbg(TRACE,"ReadConfigEntry: use default-value: <%s>",pcpDefault);
         strcpy(pcpCfgBuffer,pcpDefault);
-    } 
+    }
     else
     {
         dbg(TRACE,"ReadConfigEntry: Config Entry [%s],<%s>:<%s> found in %s", pclSection, pclKeyword ,pcpCfgBuffer, pcgConfigFile);
     }
-    
+
     return ilRC;
 }
 
@@ -687,7 +688,7 @@ static void HandleErr(int pipErr)
 *******************************************************************************/
 static int HandleData()
 {
-    int ilRC = RC_SUCCESS; 
+    int ilRC = RC_SUCCESS;
     int que_out;  /* Sender que id */
     BC_HEAD *prlBchd = NULL;  /* Broadcast heade */
     CMDBLK  *prlCmdblk = NULL;    /* Command Block */
@@ -695,7 +696,7 @@ static int HandleData()
     char *pclFld = NULL;
     char *pclData = NULL;
     char pclFields [4096], pclValues [4096];
-    char *pclOldData = NULL;  
+    char *pclOldData = NULL;
     char pclTable [32];
     char pclFieldTmp[2048];
     char pclValueTmp[2048];
@@ -703,8 +704,8 @@ static int HandleData()
     char *pclFieldPtr2;
     char *pclValuePtr;
     char *pclValuePtr2;
-  
-  
+
+
     igQueOut = prgEvent->originator;   /* Queue-id des Absenders */
     prlBchd = (BC_HEAD *) ((char *)prgEvent + sizeof(EVENT));
     prlCmdblk = (CMDBLK  *) ((char *)prlBchd->data);
@@ -719,21 +720,21 @@ static int HandleData()
     //pclOldData= strtok(pclData,"\n");
     //pclOldData= strtok(NULL,"\n");
     dbg(TRACE,"HandleData:: FROM <%d> TBL <%s>",igQueOut,prlCmdblk->obj_name);
-  
+
     strcpy (pclTable,prlCmdblk->obj_name);
     dbg(TRACE,"HandleData:: Cmd <%s> Que (%d) WKS <%s> Usr <%s>",
         prlCmdblk->command, prgEvent->originator, prlBchd->recv_name, prlBchd->dest_name);
     dbg(TRACE,"HandleData:: Prio (%d) TWS <%s> TWE <%s>", prgItem->priority, prlCmdblk->tw_start, prlCmdblk->tw_end);
- 
+
     strcpy (pcgTwStart,prlCmdblk->tw_start);
     strcpy (pcgTwEnd,prlCmdblk->tw_end);
-    
-    memset(pcgDestName, 0, (sizeof(prlBchd->dest_name) + 1));    
+
+    memset(pcgDestName, 0, (sizeof(prlBchd->dest_name) + 1));
     strncpy (pcgDestName, prlBchd->dest_name, sizeof(prlBchd->dest_name));
-    
+
     memset(pcgRecvName, 0, (sizeof(prlBchd->recv_name) + 1));
     strncpy(pcgRecvName, prlBchd->recv_name, sizeof(prlBchd->recv_name));
-    
+
     dbg(TRACE,"HandleData:: Originator <%d> ", igQueOut);
     dbg(TRACE,"HandleData:: Sel <%s> ", pclSel);
     dbg(TRACE,"HandleData:: Fld <%s> ", pclFld);
@@ -744,14 +745,14 @@ static int HandleData()
     if (prlBchd->rc == NETOUT_NO_ACK)
     {
         igGlNoAck = TRUE;
-        /*   dbg(TRACE,"HandleData:: No Answer Expected (NO_ACK is true)");   */ 
+        /*   dbg(TRACE,"HandleData:: No Answer Expected (NO_ACK is true)");   */
     }
     else
     {
         igGlNoAck = FALSE;
         /*   dbg(TRACE,"HandleData:: Sender Expects Answer (NO_ACK is false)");   */
     }
- 
+
     if (prlBchd->rc != RC_SUCCESS && prlBchd->rc != NETOUT_NO_ACK)
     {
         dbg(TRACE,"HandleData:: Originator %d", igQueOut);
@@ -761,78 +762,80 @@ static int HandleData()
     else
     {
         strcpy (pcgCedaCmd,prlCmdblk->command);
-        if ( !strcmp(prlCmdblk->command, "CDB") ) 
+        if ( !strcmp(prlCmdblk->command, "CDB") )
         {
         	dbg(TRACE, "----------     HandleData:: CDB Start     ----------");
-            ilRC=processCDB();  
+            ilRC=processCDB();
           	dbg(TRACE, "----------     HandleData:: CDB End Result[%d]     ----------", ilRC);
         }
         else if ( !strcmp(prlCmdblk->command, "CONX") )
         {
         	dbg(TRACE, "----------     HandleData:: CONX Start     ----------");
-            ilRC=processCONX(); 
-            dbg(TRACE, "----------     HandleData:: CONX End Result[%d]     ----------", ilRC);            
+            ilRC=processCONX();
+            dbg(TRACE, "----------     HandleData:: CONX End Result[%d]     ----------", ilRC);
         }//Frank 20130107
         else if ( !strcmp(prlCmdblk->command, "DROP") || !strcmp(prlCmdblk->command, "INI") )
         {
         	dbg(TRACE, "----------     HandleData:: DROP Start     ----------");
         	ilRC=processDROP();
-            dbg(TRACE, "----------     HandleData:: DROP End Result[%d]     ----------", ilRC);          	
+            dbg(TRACE, "----------     HandleData:: DROP End Result[%d]     ----------", ilRC);
         }
         else if ( !strcmp(prlCmdblk->command, "XMLO") )
         {
         	dbg(TRACE, "----------     HandleData:: XMLO Start     ----------");
-            
+
             //Frank
             /*
             if ( strcmp(pclFld, "DATA") )
             {
                 dbg(TRACE, "HandleData:: Invalid field name[%s]", pclFld);
-                ilRC=RC_FAIL;     
-            }    
+                ilRC=RC_FAIL;
+            }
             else
             */
             {
-                ilRC=processXMLO(pclData, pclSel);    
+                ilRC=processXMLO(pclData, pclSel);
             }
             dbg(TRACE, "----------     HandleData:: XMLO End Result[%d]     ----------", ilRC);
         }
         else if ( !strcmp(prlCmdblk->command, "RACK") )
         {
             dbg(TRACE, "----------     HandleData:: RACK Start     ----------");
-            ilRC=processRACK(pclData, pclSel);
+            /*fya v1.5
+            pclSel is pclMsgid from hwecon*/
+            ilRC = processRACK(pclData, pclSel);
             dbg(TRACE, "----------     HandleData:: RACK End[%d]     ----------", ilRC);
-        }          
+        }
         else if ( !strcmp(prlCmdblk->command, "NACK") )
         {
             dbg(TRACE, "----------     HandleData:: NACK Start     ----------");
             ilRC=processNACK();
             dbg(TRACE, "----------     HandleData:: NACK End[%d]     ----------", ilRC);
-        }     
+        }
         else if ( !strcmp(prlCmdblk->command, "RST") )
         {
         	dbg(TRACE, "----------     HandleData:: RST Start     ----------");
             ilRC=processRST();
-            dbg(TRACE, "----------     HandleData:: RST End Result[%d]     ----------", ilRC);          	
+            dbg(TRACE, "----------     HandleData:: RST End Result[%d]     ----------", ilRC);
         }
         else if ( !strcmp(prlCmdblk->command, "STAT") )
         {
             dbg(TRACE, "----------     HandleData:: STAT Start     ----------");
             ilRC=processSTAT();
-            dbg(TRACE, "----------     HandleData:: STAT End Result[%d]     ----------", ilRC);   	
+            dbg(TRACE, "----------     HandleData:: STAT End Result[%d]     ----------", ilRC);
         }
         else if ( !strcmp(prlCmdblk->command, "DLY") )
         {
             dbg(TRACE, "----------     HandleData:: STAT Start     ----------");
             ilRC=processDLY();
-            dbg(TRACE, "----------     HandleData:: STAT End Result[%d]     ----------", ilRC);   	
+            dbg(TRACE, "----------     HandleData:: STAT End Result[%d]     ----------", ilRC);
         }
- 
+
         else
             dbg(TRACE, "HandleData:: Invalid CMD[%s]", prlCmdblk->command);
-            
-    }  
-    return ilRC;    
+
+    }
+    return ilRC;
 } /* end of HandleData */
 
 /*********************************************************************************
@@ -846,76 +849,76 @@ void printConfig()
     dbg(TRACE, "printConfig:: Connection 2 [%d]", rgConfig.iConn2);
     dbg(TRACE, "printConfig:: HWEPDE[%d]", rgConfig.iHwepde);
     dbg(TRACE, "printConfig:: End");
-    return;    
+    return;
 }
 
 /*********************************************************************************
-getConfig:  Read configuration file (pcpFileName) and store it in a structure 
+getConfig:  Read configuration file (pcpFileName) and store it in a structure
             of CONFIGREC (stConfig).
 *********************************************************************************/
 int getConfig(char *pcpFileName)
 {
     int ilRC=RC_SUCCESS;
     char pclTmp[1024];
-    
+
     dbg(TRACE, "getConfig:: Start");
-    
+
     dbg(DEBUG, "getConfig:: Filename[%s]", pcpFileName);
     memset(&rgConfig, 0, sizeof(rgConfig));
     ilRC=ReadConfigEntry("MAIN","HWETAB_RETENTION_DAYS", pclTmp, "5");
     if ( ilRC==RC_FAIL )
     {
-        dbg(DEBUG,"getConfig:: Error in opening config file");        
+        dbg(DEBUG,"getConfig:: Error in opening config file");
     }
     else
     {
-        rgConfig.iHwetabRetention=atoi(pclTmp);    
-    } 
+        rgConfig.iHwetabRetention=atoi(pclTmp);
+    }
 
     ilRC=ReadConfigEntry("MAIN","HWECONN1", pclTmp, "0");
     if ( ilRC==RC_FAIL )
     {
-        dbg(DEBUG,"getConfig:: Error in opening config file");   
+        dbg(DEBUG,"getConfig:: Error in opening config file");
     }
     else
     {
-        rgConfig.iConn1=atoi(pclTmp);    
+        rgConfig.iConn1=atoi(pclTmp);
     }
 
     ilRC=ReadConfigEntry("MAIN","HWECONN2", pclTmp, "0");
     if ( ilRC==RC_FAIL )
     {
-        dbg(DEBUG,"getConfig:: Error in opening config file");        
+        dbg(DEBUG,"getConfig:: Error in opening config file");
     }
     else
     {
-        rgConfig.iConn2=atoi(pclTmp);    
+        rgConfig.iConn2=atoi(pclTmp);
     }
- 
+
     ilRC=ReadConfigEntry("MAIN","HWEPDE", pclTmp, "0");
     if ( ilRC==RC_FAIL )
     {
-        dbg(DEBUG,"getConfig:: Error in opening config file");        
+        dbg(DEBUG,"getConfig:: Error in opening config file");
     }
     else
     {
-        rgConfig.iHwepde=atoi(pclTmp);    
-    }   
-    
+        rgConfig.iHwepde=atoi(pclTmp);
+    }
+
     ilRC=ReadConfigEntry("MAIN","HWEEXCO", pclTmp, "0");
     if ( ilRC==RC_FAIL )
     {
-        dbg(DEBUG,"getConfig:: Error in opening config file");        
+        dbg(DEBUG,"getConfig:: Error in opening config file");
     }
     else
     {
-        rgConfig.iHweexco=atoi(pclTmp);    
-    }     
-              
+        rgConfig.iHweexco=atoi(pclTmp);
+    }
+
     ilRC = ReadConfigEntry("MAIN","RESEND_ENABLE", pclTmp, "NO");
     if (( ilRC == RC_SUCCESS) && (strcmp(pclTmp, "YES") == 0) )
     {
-        dbg(DEBUG,"getConfig:: ReSend Msg Enable");        
+        dbg(DEBUG,"getConfig:: ReSend Msg Enable");
         igReSendEnable = TRUE;
     }
     else
@@ -927,54 +930,54 @@ int getConfig(char *pcpFileName)
         if ( ilRC == RC_FAIL )
             igReSendMax = 3;
         else
-            igReSendMax = atoi(pclTmp);    
+            igReSendMax = atoi(pclTmp);
 
         ilRC = ReadConfigEntry("MAIN","RESEND_TIME", pclTmp, "3");
         if ( ilRC == RC_FAIL )
             igReSendTim = 3;
         else
-            igReSendTim = atoi(pclTmp);    
-        dbg(TRACE,"getConfig:: ReSend Msg MAX<%d>Times and Interval<%d>mins", igReSendMax, igReSendTim); 
+            igReSendTim = atoi(pclTmp);
+        dbg(TRACE,"getConfig:: ReSend Msg MAX<%d>Times and Interval<%d>mins", igReSendMax, igReSendTim);
     }
- 
+
     ilRC=ReadConfigEntry("MAIN","ACKFORALL", pclTmp, "NO");
     if (( ilRC== RC_SUCCESS) && (strcmp(pclTmp, "YES") == 0) )
     {
-        dbg(TRACE,"getConfig:: MSG ACK FOR ALL Enable");        
+        dbg(TRACE,"getConfig:: MSG ACK FOR ALL Enable");
         igAckForAll = TRUE;
     }
     else
         igAckForAll = FALSE;
- 
+
     ilRC=ReadConfigEntry("MAIN","WAITFORACK", pclTmp, "NO");
     if (( ilRC== RC_SUCCESS) && (strcmp(pclTmp, "YES") == 0) )
     {
-        dbg(TRACE,"getConfig:: Send MSG Wait for ACK Enable");        
+        dbg(TRACE,"getConfig:: Send MSG Wait for ACK Enable");
         igSendWaitAck = TRUE;
     }
     else
         igSendWaitAck = FALSE;
- 
-    ilRC=ReadConfigEntry("MAIN","DELFORACK", pclTmp, "YES");
-    if (( ilRC== RC_SUCCESS) && (strcmp(pclTmp, "NO") == 0) )
+
+    ilRC = ReadConfigEntry("MAIN","DELFORACK", pclTmp, "YES");
+    if (( ilRC == RC_SUCCESS) && (strcmp(pclTmp, "NO") == 0) )
     {
-        dbg(TRACE,"getConfig:: Delete ACK MSG Disable");        
+        dbg(TRACE,"getConfig:: Delete ACK MSG Disable");
         igDelForAck = FALSE;
     }
     else
         igDelForAck = TRUE;
- 
+
     dbg(TRACE, "getConfig:: End Result[%d]", ilRC);
-    return ilRC;    
+    return ilRC;
 }
 
 
 /*******************************************************************************
 processCDB: Perform actions for CDB commands:  Delete all records whose cdat
             (creation date) is less than system date - retention days.
-            Note.  Retention Days can be found in hwemgr.cfg [MAIN] 
+            Note.  Retention Days can be found in hwemgr.cfg [MAIN]
             HWETAB_RETENTION_DAYS.  If this variable is not found it is set to
-            5.  See getConfig for more details about the config.            
+            5.  See getConfig for more details about the config.
 *******************************************************************************/
 int processCDB()
 {
@@ -982,30 +985,30 @@ int processCDB()
     char pclDate[16];
     char pclSql[1024];
     char pclSqlErr[513];
-    
+
     dbg(TRACE, "processCDB:: Start");
-    
+
     ilRC=getRetentionDate(rgConfig.iHwetabRetention, pclDate);
     sprintf(pclSql,"DELETE FROM hwetab WHERE cdat<'%s'", pclDate);
-    
+
     ilRC=executeSql(pclSql, pclSqlErr);
     dbg(TRACE,"processCDB:: executing [%s][%d][%s]", pclSql, ilRC, pclSqlErr);
     if ( ilRC==RC_FAIL )
     {
-        dbg(TRACE,"processCDB:: DB error!");        
+        dbg(TRACE,"processCDB:: DB error!");
     }
     else if ( ilRC==1 )
     {
-        dbg(TRACE, "processCDB:: No records deleted for cdat<[%s]", pclDate);    
+        dbg(TRACE, "processCDB:: No records deleted for cdat<[%s]", pclDate);
         ilRC=RC_SUCCESS;
     }
     else
     {
-        dbg(TRACE, "processCDB:: Successfully deleted all records whose cdat is < [%s]", pclDate);    
+        dbg(TRACE, "processCDB:: Successfully deleted all records whose cdat is < [%s]", pclDate);
     }
-    
-    dbg(TRACE, "processCDB:: End Result[%d]", ilRC);      
-    return ilRC;    
+
+    dbg(TRACE, "processCDB:: End Result[%d]", ilRC);
+    return ilRC;
 }
 
 /*******************************************************************************
@@ -1013,7 +1016,7 @@ getRetentionDate::  Gets retention date in yyyymmdd and store it in pcpOut.
                     Formula is:
                     1. Get system date.
                     2. convert ipRetentionDays to number of seconds.
-                    3. Subtract item 2 from item 1.        
+                    3. Subtract item 2 from item 1.
 *******************************************************************************/
 int getRetentionDate(int ipRetentionDays, char *pcpOut)
 {
@@ -1022,7 +1025,7 @@ int getRetentionDate(int ipRetentionDays, char *pcpOut)
     time_t tlTmp = tlNow - (ipRetentionDays*60*60*24);
     struct tm *ptmlTmp;
     struct tm tmlRetentionDate;
-     
+
     dbg(DEBUG, "getRetentionDate:: Start");
     dbg(DEBUG, "getRetentionDate:: Retention Days [%d]", ipRetentionDays);
 
@@ -1031,18 +1034,18 @@ int getRetentionDate(int ipRetentionDays, char *pcpOut)
     if ( ptmlTmp==NULL )
     {
         dbg(TRACE,"getRetentionDate:: RetentionDays[%d]: Error in executing gmtime_r", ipRetentionDays);
-        pcpOut[0]=0;     
+        pcpOut[0]=0;
         ilRC=RC_FAIL;
-    }    
+    }
     else
     {
-        sprintf(pcpOut, "%04d%02d%02d", 
-                tmlRetentionDate.tm_year+1900, tmlRetentionDate.tm_mon+1, tmlRetentionDate.tm_mday);    
+        sprintf(pcpOut, "%04d%02d%02d",
+                tmlRetentionDate.tm_year+1900, tmlRetentionDate.tm_mon+1, tmlRetentionDate.tm_mday);
     }
-    
+
     dbg(DEBUG, "getRetentionDate:: pcpOut[%s]", pcpOut);
     dbg(DEBUG, "getRetentionDate:: End Result[%d]", ilRC);
-    return ilRC;    
+    return ilRC;
 }
 
 
@@ -1055,33 +1058,33 @@ int executeSql(char *pcpSql, char *pcpErr)
     int ilRC=RC_SUCCESS;
     short slActCursor;
     char pclData[1024];
-    unsigned long ilBufLen = 512;    
+    unsigned long ilBufLen = 512;
     unsigned long ilErrLen = 0;
     short slFkt = START;
 
     dbg(DEBUG, "executeSql:: Start");
     dbg(DEBUG, "executeSql:: SQL Statement[%s]", pcpSql);
-    
+
     ilRC = sql_if(slFkt, &slActCursor, pcpSql, pclData);
     if ( ilRC==RC_FAIL )
     {
         dbg(DEBUG,"executeSql:: Error in executing [%s][%s]", pcpSql, pcpErr);
         sqlglm(pcpErr,&ilBufLen,&ilErrLen);
         pcpErr[ilErrLen]=0;
-    } 
+    }
     else
         pcpErr[0]=0;
-        
-    commit_work();        
-    close_my_cursor(&slActCursor);    
+
+    commit_work();
+    close_my_cursor(&slActCursor);
 
     dbg(DEBUG, "executeSql:: End Result[%d]", ilRC);
-    return ilRC;    
+    return ilRC;
 }
 
 
 /*******************************************************************************
-prcessXMLO:  Process the XMLO command.  
+prcessXMLO:  Process the XMLO command.
              1. Insert data in hwetab.
              2. Send to hwecon1/hwecon2
 *******************************************************************************/
@@ -1092,17 +1095,17 @@ int processXMLO(char *pcpData, char *pcpMGID)
 	char pclDate[16];
 	char pclWhere[1024];
 	char pclMGID[MAX_HWETAB_MGID+1];
-    
+
     dbg(TRACE, "processXMLO:: Start");
     dbg(TRACE, "processXMLO:: Data[%s]", pcpData);
-    
+
     if ( !strcmp(pcpMGID, pclMGID) )
         strcpy(pclMGID, "1");
     else
         strcpy(pclMGID, pcpMGID);
-        
+
     dbg(TRACE, "processXMLO:: PCPMGID[%s], PCLMGID[%s]", pcpMGID, pclMGID);
-  
+
     dbg(TRACE, "processXMLO:: Connection Mask[%d], igConn1RecStatus[%d], igConn2RecStatus[%d]",
         cgConnectionMask, igConn1RecStatus, igConn2RecStatus);
 
@@ -1110,24 +1113,24 @@ int processXMLO(char *pcpData, char *pcpMGID)
     {
         if ( cgConnectionMask==0 )
         {
-            dbg(TRACE, "processXMLO:: No connection");	
+            dbg(TRACE, "processXMLO:: No connection");
         }
         else
         {
-        	ilRC=insertHwetab(pcpData, pclMGID);
-    	    ilRC=sendDataHweConn(pcgNewHwetabUrno, pcpData, pclMGID, "0");          
+        	ilRC = insertHwetab(pcpData, pclMGID);
+    	    ilRC = sendDataHweConn(pcgNewHwetabUrno, pcpData, pclMGID, "0");
         }
     }
-    
+
     dbg(TRACE, "processXMLO:: Final: Hwetab Urno[%s], Connection Mask[%d], igConn1RecStatus[%d], igConn2RecStatus[%d]",
         pcgCurrentHwetabUrno, cgConnectionMask, igConn1RecStatus, igConn2RecStatus);
-            
+
     dbg(TRACE, "processXMLO:: End Result[%d]", ilRC);
-    return ilRC;    
+    return ilRC;
 }
 
 /*******************************************************************************
-prcessRST:  Process the RST command.  
+prcessRST:  Process the RST command.
              1. Set outstanding records in hwetab to status DROP.
              2. Send to hwecon1/hwecon2
 *******************************************************************************/
@@ -1138,14 +1141,14 @@ int processRST()
 	int ilTmp2;
 	char pclDate[16];
 	char pclWhere[1024];
-	
+
     dbg(TRACE, "processRST:: Start");
-    
+
     if ( !strcmp(pcgCurrentHwetabUrno, "") )
         strcpy(pclWhere, "WHERE stat=' ' ");
     else
         sprintf(pclWhere, "WHERE stat=' ' or URNO='%s' ", pcgCurrentHwetabUrno);
-        
+
     getSystemDate(pclDate);
     ilRC=updateHwetab(pclWhere, 4, "stat", "DROP", "ddat", pclDate);
 
@@ -1154,27 +1157,27 @@ int processRST()
         cgConnectionMask=0;
         igConn1RecStatus=igConn2RecStatus=IDLE;
     	memset(&pcgCurrentHwetabUrno, 0, sizeof(pcgCurrentHwetabUrno));
-    	
+
     	ilTmp1=sendCedaEventWithLog(rgConfig.iConn1, 0, pcgDestName, pcgRecvName,
                                     pcgTwStart, pcgTwEnd, "DROP", "HWETAB",
                                     "", "", "",
                                     "", 3, NETOUT_NO_ACK);
-        
+
     	ilTmp2 = sendCedaEventWithLog(rgConfig.iConn2, 0, pcgDestName, pcgRecvName,
                                     pcgTwStart, pcgTwEnd, "DROP", "HWETAB",
                                     "", "", "",
                                     "", 3, NETOUT_NO_ACK);
-        dbg(TRACE, "processRST:: Sending DROP to conn1[%d] && conn2[%d]", 
+        dbg(TRACE, "processRST:: Sending DROP to conn1[%d] && conn2[%d]",
             ilTmp1, ilTmp2);
-    }  
-    
+    }
+
     dbg(TRACE, "processRST:: End Result[%d]", ilRC);
-    return ilRC;   	
+    return ilRC;
 }
 
 
 /*******************************************************************************
-getSystemDate:  get system date in UTC and format them to yyyymmddhhmiss and 
+getSystemDate:  get system date in UTC and format them to yyyymmddhhmiss and
                 store it in pcpOut.
 *******************************************************************************/
 int getSystemDate(char *pcpOut)
@@ -1183,7 +1186,7 @@ int getSystemDate(char *pcpOut)
     time_t tlNow = time(NULL);
     struct tm *ptmlTmp;
     struct tm tmlResult;
-        
+
     dbg(DEBUG,"getSystemDate:: Start");
 
     ptmlTmp=gmtime_r(&tlNow, &tmlResult);
@@ -1191,26 +1194,26 @@ int getSystemDate(char *pcpOut)
     if ( ptmlTmp==NULL )
     {
         dbg(TRACE,"getSystemDate:: Error in executing gmtime_r");
-        pcpOut[0]=0;     
+        pcpOut[0]=0;
         ilRC=RC_FAIL;
-    }    
+    }
     else
     {
         sprintf(pcpOut, "%04d%02d%02d"
-                        "%02d%02d%02d", 
+                        "%02d%02d%02d",
                 tmlResult.tm_year+1900, tmlResult.tm_mon+1, tmlResult.tm_mday,
-                tmlResult.tm_hour, tmlResult.tm_min, tmlResult.tm_sec);    
+                tmlResult.tm_hour, tmlResult.tm_min, tmlResult.tm_sec);
     }
-    
-    dbg(TRACE, "getSystemDate:: System Date[%s]", pcpOut);    
+
+    dbg(TRACE, "getSystemDate:: System Date[%s]", pcpOut);
     dbg(DEBUG, "getSystemDate:: End Result[%d]", ilRC);
-    return ilRC;        
+    return ilRC;
 }
 
 
 
 /*******************************************************************************
-insertHwetab: Insert a record in hwetab. 
+insertHwetab: Insert a record in hwetab.
 *******************************************************************************/
 int insertHwetab(char *pcpData, char *pcpMGID)
 {
@@ -1220,19 +1223,19 @@ int insertHwetab(char *pcpData, char *pcpMGID)
     char pclSql[2048];
     char pclSqlErr[513];
     int ilUrno;
-    
+
     dbg(DEBUG, "insertHwetab:: Start");
-  
+
     getSystemDate(pclDate);
     ilUrno=NewUrnos("HWETAB",1);
-    
+
     sprintf(pcgNewHwetabUrno, "%2.2s%2.2s%d",
             &pclDate[4], &pclDate[6], ilUrno);
-    
-    strcpy(pclTmp, pcpData);        
+
+    strcpy(pclTmp, pcpData);
     ConvertClientStringToDb(pclTmp);
-       
-        
+
+
     sprintf(pclSql, "INSERT INTO hwetab "
                     "(URNO, DATA, STAT, CDAT, SDAT, ADAT, DDAT, MGID) "
                     "VALUES "
@@ -1243,15 +1246,15 @@ int insertHwetab(char *pcpData, char *pcpMGID)
     dbg(TRACE,"insertHwetab:: SQL Result[%d][%s]", ilRC, pclSqlErr);
     if ( ilRC==RC_FAIL )
     {
-        dbg(TRACE,"insertHwetab:: DB error!");        
+        dbg(TRACE,"insertHwetab:: DB error!");
     }
     else
     {
-        dbg(TRACE, "insertHwetab:: Record Added Successfully");    
+        dbg(TRACE, "insertHwetab:: Record Added Successfully");
     }
-       
+
     dbg(DEBUG, "insertHwetab:: End Result[%d]", ilRC);
-    return ilRC;    
+    return ilRC;
 }
 
 /*******************************************************************************
@@ -1262,28 +1265,28 @@ updateHwetab:  Update a record in hwetab using pcpUrno as key.  Arguments must
 int updateHwetab(char *pcpWhere, int ipArgc, ...)
 {
     int ilRC=RC_SUCCESS;
-    va_list valArgv;  
-    int ilCounter; 
+    va_list valArgv;
+    int ilCounter;
     char pclSql[2048];
     char pclSqlErr[513];
-     
+
     dbg(DEBUG, "updateHwetab:: Start");
     dbg(DEBUG, "updateHwetab:: Condition[%s], Fields to be updated [%d]", pcpWhere, ipArgc);
-    
+
     if ( ipArgc<1 )
     {
-        dbg(TRACE, "updateHwetab:: No field to update!");    
+        dbg(TRACE, "updateHwetab:: No field to update!");
     }
     else if ( (ipArgc%2)==1 )
     {
-        dbg(TRACE, "updateHwetab:: Field/Value pair not match. ");    
+        dbg(TRACE, "updateHwetab:: Field/Value pair not match. ");
         ilRC=RC_FAIL;
     }
     else
     {
         memset(&pclSql, 0, sizeof(pclSql));
         strcpy(pclSql, "UPDATE hwetab SET ");
-        va_start(valArgv, ipArgc); 
+        va_start(valArgv, ipArgc);
         /*
         for ( ilCounter = 0; ilCounter< ipArgc; ilCounter++ )
            dbg(DEBUG, "updateHwetab:: Count[%d][%s]", ilCounter, va_arg(valArgv, char *));
@@ -1293,31 +1296,31 @@ int updateHwetab(char *pcpWhere, int ipArgc, ...)
             if ( ilCounter )
                 strcat(pclSql,", ");
 
-              sprintf(pclSql, "%s %s =", pclSql, va_arg(valArgv, char *));    
-               sprintf(pclSql, "%s '%s'", pclSql, va_arg(valArgv, char *));    
+              sprintf(pclSql, "%s %s =", pclSql, va_arg(valArgv, char *));
+               sprintf(pclSql, "%s '%s'", pclSql, va_arg(valArgv, char *));
         }
         va_end(valArgv);
-        
+
         sprintf(pclSql, "%s %s ", pclSql, pcpWhere);
-        
+
         ilRC=executeSql(pclSql, pclSqlErr);
         dbg(TRACE,"updateHwetab:: executing [%s][%d][%s]", pclSql, ilRC, pclSqlErr);
-        
+
         if ( ilRC==RC_FAIL )
         {
-            dbg(TRACE,"updateHwetab:: DB error!");        
+            dbg(TRACE,"updateHwetab:: DB error!");
         }
         else if ( ilRC==1 )
         {
-            dbg(TRACE, "updateHwetab:: No Record to update");    
+            dbg(TRACE, "updateHwetab:: No Record to update");
         }
         else
         {
-            dbg(TRACE, "updateHwetab:: Record(s) Updated Successfully");    
+            dbg(TRACE, "updateHwetab:: Record(s) Updated Successfully");
         }
-    }        
+    }
     dbg(DEBUG, "updateHwetab:: End Result[%d]", ilRC);
-    return ilRC;    
+    return ilRC;
 }
 
 /*******************************************************************************
@@ -1333,35 +1336,35 @@ int processDROP()
     char pclSqlErr[513];
     char pclWhere[128];
     char pclDate[16];
-    
+
     dbg(TRACE, "processDROP:: Start");
-    
+
     if ( igQueOut==rgConfig.iConn1 )
         cgConnectionMask&=2;
     else if ( igQueOut==rgConfig.iConn2 )
         cgConnectionMask&=1;
 
 		//Wilson 20130103
-    dbg(TRACE, "processDROP:: Old Connection Mask[%d] New Connection Mask[%d]", 
-        cgOldConnectionMask, cgConnectionMask); 	
+    dbg(TRACE, "processDROP:: Old Connection Mask[%d] New Connection Mask[%d]",
+        cgOldConnectionMask, cgConnectionMask);
     dbg(TRACE, "processDROP:: igConn1RecStatus[%d], igConn2RecStatus[%d]",
         igConn1RecStatus, igConn2RecStatus);
-        
+
     if ( cgOldConnectionMask && !cgConnectionMask )
     {
     	dbg(TRACE, "processDROP::  No connections");
     	strcpy(pclSql, "DELETE FROM hwetab ");
         ilRC=executeSql(pclSql, pclSqlErr);
         dbg(TRACE,"processDROP:: executing [%s][%d][%s]", pclSql, ilRC, pclSqlErr);
-    
+
         memset(&pcgCurrentHwetabUrno, 0, sizeof(pcgCurrentHwetabUrno));
-        igConn1RecStatus=igConn2RecStatus=IDLE;      	
+        igConn1RecStatus=igConn2RecStatus=IDLE;
     }
-    
+
     //Frank
 	//if there is only one connection and received the corresponding NOACK from it when the DROP command comes, then hwemgr should gets the next record in hwetab which is similar to processNACK
 	// The extreme case is such as only hwecon1 sends NOACK back to hwemgr, meanwhile hwecon2 diconnected, so there is no NOACK from hwecon2 to hwemgr. So, at this moment, when hwecon2 informs hwemgr it is down, hwemgr should follow the same logic in processNOACK
-    if ( 
+    if (
     	     ( cgConnectionMask==1 && igConn1RecStatus==NOACK ) ||
     	     ( cgConnectionMask==2 && igConn2RecStatus==NOACK )
     	 )
@@ -1374,41 +1377,41 @@ int processDROP()
     	ilRC = sendCedaEventWithLog(rgConfig.iHweexco, 0, pcgDestName, pcgRecvName,
                                     pcgTwStart, pcgTwEnd, "RES", "HWETAB",
                                     "", "", "",
-                                    "", 3, NETOUT_NO_ACK); 
+                                    "", 3, NETOUT_NO_ACK);
         ilRC = sendCedaEventWithLog(rgConfig.iHwepde, 0, pcgDestName, pcgRecvName,
                                     pcgTwStart, pcgTwEnd, "BAT", "HWETAB",
                                     "", "", "",
-                                    "", 3, NETOUT_NO_ACK);    
+                                    "", 3, NETOUT_NO_ACK);
 
- 	
-/*    	
+
+/*
         sprintf(pclWhere, "WHERE STAT='SENT' ");
 		getSystemDate(pclDate);
 		ilRC=updateHwetab(pclWhere, 4, "STAT", "DROP", "DDAT", pclDate);
-		    
+
 		if ( ilRC==RC_SUCCESS )
 		{
 		    igConn1RecStatus=igConn2RecStatus=IDLE;
 		    memset(&pcgCurrentHwetabUrno, 0, sizeof(pcgCurrentHwetabUrno));
 		    ilRC=getNextHwetabRecord(&rgHwetabRec);
-		    printHwetabRecord(&rgHwetabRec);  
-		}    
-		
+		    printHwetabRecord(&rgHwetabRec);
+		}
+
 		if ( ilRC==RC_SUCCESS )
 		{
-		    ilRC=sendDataHweConn(rgHwetabRec.URNO, rgHwetabRec.DATA);          
+		    ilRC=sendDataHweConn(rgHwetabRec.URNO, rgHwetabRec.DATA);
 		}
 		else if ( ilRC==1 )
 		{
 		    ilRC=RC_SUCCESS;
-		    dbg(TRACE, "processDROP::  No record to process.");	
+		    dbg(TRACE, "processDROP::  No record to process.");
 	    }
-*/          
+*/
     }
-    cgOldConnectionMask=cgConnectionMask;	 
-    
+    cgOldConnectionMask=cgConnectionMask;
+
     dbg(TRACE, "processDROP:: End Result[%d]", ilRC);
-    return ilRC;   
+    return ilRC;
 }
 
 /*******************************************************************************
@@ -1422,25 +1425,25 @@ int processCONX()
     int ilRC=RC_SUCCESS;
     char pclSql[1024];
     char pclSqlErr[513];
-    
+
     dbg(TRACE, "processCONX:: Start");
-    
+
     if ( igQueOut==rgConfig.iConn1 )
         cgConnectionMask|=1;
    	else if ( igQueOut==rgConfig.iConn2 )
         cgConnectionMask|=2;
-   
-    dbg(TRACE, "processCONX:: Current Connection Mask[%d], New Connection Mask[%d]", 
-        cgOldConnectionMask, cgConnectionMask); 
-                   
+
+    dbg(TRACE, "processCONX:: Current Connection Mask[%d], New Connection Mask[%d]",
+        cgOldConnectionMask, cgConnectionMask);
+
     if ( !cgOldConnectionMask && cgConnectionMask )
     {
     	strcpy(pclSql, "DELETE FROM hwetab ");
         ilRC=executeSql(pclSql, pclSqlErr);
         dbg(TRACE,"processCONX:: executing [%s][%d][%s]", pclSql, ilRC, pclSqlErr);
-        
+
     	igConn1RecStatus=igConn2RecStatus=IDLE;
-    	
+
     	ilRC = sendCedaEventWithLog(rgConfig.iHweexco, 0, pcgDestName, pcgRecvName,
                                     pcgTwStart, pcgTwEnd, "RES", "HWETAB",
                                     "", "", "",
@@ -1450,10 +1453,10 @@ int processCONX()
                                     "", "", "",
                                     "", 3, NETOUT_NO_ACK);
     }
-    
-    cgOldConnectionMask=cgConnectionMask;	
-    
-    dbg(TRACE, "processCONX:: End Result[%d]", ilRC);   	
+
+    cgOldConnectionMask=cgConnectionMask;
+
+    dbg(TRACE, "processCONX:: End Result[%d]", ilRC);
     return ilRC;
 }
 
@@ -1470,9 +1473,9 @@ int processRACK(char *pcpData, char *pcpMGID)
     char pclWhere[1024];
     char pclSql[2048] = "\0";
     char pclSqlErr[513];
-    
+
     dbg(TRACE, "processRACK:: Start");
-    
+
     if (igAckForAll == TRUE)
         sprintf(pclWhere, "WHERE STAT='SENT' ");
     else
@@ -1481,34 +1484,35 @@ int processRACK(char *pcpData, char *pcpMGID)
     if (igDelForAck == FALSE)
     {
         getSystemDate(pclDate);
-        ilRC=updateHwetab(pclWhere, 4, "STAT", "ACK", "ADAT", pclDate);
+        ilRC = updateHwetab(pclWhere, 4, "STAT", "ACK", "ADAT", pclDate);
     }
     else
     {
         sprintf(pclSql,"DELETE FROM HWETAB %s", pclWhere);
-        ilRC=executeSql(pclSql, pclSqlErr);
+        ilRC = executeSql(pclSql, pclSqlErr);
         dbg(TRACE,"processRACK:: executing [%s][%d][%s]", pclSql, ilRC, pclSqlErr);
     }
-    
-    if ( ilRC==RC_SUCCESS )
-    {
-    	igConn1RecStatus=igConn2RecStatus=IDLE;
-    	memset(&pcgCurrentHwetabUrno, 0, sizeof(pcgCurrentHwetabUrno));
-        ilRC=getNextHwetabRecord(&rgHwetabRec);
-        printHwetabRecord(&rgHwetabRec);  
-    }    
 
     if ( ilRC==RC_SUCCESS )
     {
-        ilRC=sendDataHweConn(rgHwetabRec.URNO, rgHwetabRec.DATA, rgHwetabRec.MGID, "0");          
+    	igConn1RecStatus = igConn2RecStatus = IDLE;
+    	memset(&pcgCurrentHwetabUrno, 0, sizeof(pcgCurrentHwetabUrno));
+
+        ilRC = getNextHwetabRecord(&rgHwetabRec);
+        printHwetabRecord(&rgHwetabRec);
+    }
+
+    if ( ilRC==RC_SUCCESS )
+    {
+        ilRC = sendDataHweConn(rgHwetabRec.URNO, rgHwetabRec.DATA, rgHwetabRec.MGID, "0");
     }
     else if ( ilRC==1 )
     {
         ilRC=RC_SUCCESS;
-        dbg(TRACE, "processRACK::  No record to process.");	
-    }          
-     
-    dbg(TRACE, "processRACK:: End Result[%d]", ilRC);   	
+        dbg(TRACE, "processRACK::  No record to process.");
+    }
+
+    dbg(TRACE, "processRACK:: End Result[%d]", ilRC);
     return ilRC;
 }
 
@@ -1521,25 +1525,25 @@ int processASNT(char *pcpData, char *pcpMGID)
     int ilRC=RC_SUCCESS;
     char pclDate[16];
     char pclWhere[1024];
-    
+
     dbg(DEBUG, "processASNT:: Start");
-    
+
     if (igSendWaitAck == FALSE)
     {
     	igConn1RecStatus=igConn2RecStatus=IDLE;
     	memset(&pcgCurrentHwetabUrno, 0, sizeof(pcgCurrentHwetabUrno));
         ilRC=getNextHwetabRecord(&rgHwetabRec);
-        printHwetabRecord(&rgHwetabRec);  
+        printHwetabRecord(&rgHwetabRec);
         if ( ilRC==RC_SUCCESS )
-            ilRC=sendDataHweConn(rgHwetabRec.URNO, rgHwetabRec.DATA, rgHwetabRec.MGID, "0");          
+            ilRC=sendDataHweConn(rgHwetabRec.URNO, rgHwetabRec.DATA, rgHwetabRec.MGID, "0");
        else if ( ilRC==1 )
        {
            ilRC=RC_SUCCESS;
-           dbg(TRACE, "processRACK::  No record to process.");	
-       }          
-    }    
-    
-    dbg(DEBUG, "processASNT:: End Result[%d]", ilRC);   	
+           dbg(TRACE, "processASNT::  No record to process.");
+       }
+    }
+
+    dbg(DEBUG, "processASNT:: End Result[%d]", ilRC);
     return ilRC;
 }
 
@@ -1557,30 +1561,30 @@ int processNACK()
     char pclWhere[1024];
     char pclSql[1024];
     char pclSqlErr[513];
-        
+
     dbg(TRACE, "processNACK:: Start");
-    
+
     dbg(TRACE, "processNACK:: Connection Mask[%d] Record Status: Conn1[%d], Conn2[%d]",
         cgConnectionMask, igConn1RecStatus, igConn2RecStatus);
-        
+
     if ( igQueOut==rgConfig.iConn1 )
-        igConn1RecStatus=NOACK;	
+        igConn1RecStatus=NOACK;
     else if ( igQueOut==rgConfig.iConn2 )
-        igConn2RecStatus=NOACK;	
+        igConn2RecStatus=NOACK;
 
     dbg(TRACE, "processNACK:: New Record Status: Conn1[%d], Conn2[%d]",
         igConn1RecStatus, igConn2RecStatus);
-        
-    if (  
+
+    if (
            (igConn1RecStatus==NOACK && igConn2RecStatus==NOACK) ||
            (igConn1RecStatus==NOACK && cgConnectionMask==1) ||
-           (igConn2RecStatus==NOACK && cgConnectionMask==2) 
+           (igConn2RecStatus==NOACK && cgConnectionMask==2)
        )
     {
     	strcpy(pclSql, "DELETE FROM hwetab ");
         ilRC=executeSql(pclSql, pclSqlErr);
         dbg(TRACE,"processNACK:: executing [%s][%d][%s]", pclSql, ilRC, pclSqlErr);
-        
+
     	igConn1RecStatus=igConn2RecStatus=IDLE;
 
     	ilRC = sendCedaEventWithLog(rgConfig.iHweexco, 0, pcgDestName, pcgRecvName,
@@ -1590,35 +1594,35 @@ int processNACK()
         ilRC = sendCedaEventWithLog(rgConfig.iHwepde, 0, pcgDestName, pcgRecvName,
                                     pcgTwStart, pcgTwEnd, "BAT", "HWETAB",
                                     "", "", "",
-                                    "", 3, NETOUT_NO_ACK);    	
-                                    
-/*    	
+                                    "", 3, NETOUT_NO_ACK);
+
+/*
         sprintf(pclWhere, "WHERE STAT='SENT' ");
         getSystemDate(pclDate);
         ilRC=updateHwetab(pclWhere, 4, "STAT", "DROP", "DDAT", pclDate);
-        
+
         if ( ilRC==RC_SUCCESS )
         {
         	igConn1RecStatus=igConn2RecStatus=IDLE;
     	    memset(&pcgCurrentHwetabUrno, 0, sizeof(pcgCurrentHwetabUrno));
             ilRC=getNextHwetabRecord(&rgHwetabRec);
-            printHwetabRecord(&rgHwetabRec);  
-        }    
+            printHwetabRecord(&rgHwetabRec);
+        }
 
         if ( ilRC==RC_SUCCESS )
         {
-            ilRC=sendDataHweConn(rgHwetabRec.URNO, rgHwetabRec.DATA, rgHwetabRec.MGID);          
+            ilRC=sendDataHweConn(rgHwetabRec.URNO, rgHwetabRec.DATA, rgHwetabRec.MGID);
         }
         else if ( ilRC==1 )
 	    {
 	        ilRC=RC_SUCCESS;
-	        dbg(TRACE, "processNACK::  No record to process.");	
-	    } 
+	        dbg(TRACE, "processNACK::  No record to process.");
+	    }
 */
     }
-           
+
     dbg(TRACE, "processNACK:: End Result[%d]", ilRC);
-    return ilRC;	
+    return ilRC;
 }
 
 
@@ -1635,41 +1639,41 @@ int getNextHwetabRecord(HWETAB *rpHwetabRec)
     dbg(TRACE, "getNextHwetabRecord:: Start");
 
     memset(rpHwetabRec, 0, sizeof(HWETAB));
- 
+
     sprintf(pclSql, "SELECT %s "
                     "FROM HWETAB "
                     "WHERE STAT=' ' "
                     "ORDER BY URNO ",
             pcgHwetabFields);
-    
-    
+
+
     dbg(TRACE, "getNextHwetabRecord:: Executing [%s]", pclSql);
-    ilRC = sql_if (START, &slCursor, pclSql, pclDataBuf);    
- 		
-    if( ilRC==0 )
+    ilRC = sql_if (START, &slCursor, pclSql, pclDataBuf);
+
+    if( ilRC == 0 )
     {
         BuildItemBuffer (pclDataBuf, pcgHwetabFields, igHwetabFieldCount, ",");
-        get_real_item(rpHwetabRec->URNO,pclDataBuf,1); 
-        get_real_item(rpHwetabRec->DATA,pclDataBuf,2); 
+        get_real_item(rpHwetabRec->URNO,pclDataBuf,1);
+        get_real_item(rpHwetabRec->DATA,pclDataBuf,2);
         ConvertDbStringToClient(rpHwetabRec->DATA);
-        get_real_item(rpHwetabRec->STAT,pclDataBuf,3); 
-        get_real_item(rpHwetabRec->CDAT,pclDataBuf,4); 
-        get_real_item(rpHwetabRec->SDAT,pclDataBuf,5); 
-        get_real_item(rpHwetabRec->ADAT,pclDataBuf,6); 
-        get_real_item(rpHwetabRec->DDAT,pclDataBuf,7); 
-        get_real_item(rpHwetabRec->MGID,pclDataBuf,8); 
+        get_real_item(rpHwetabRec->STAT,pclDataBuf,3);
+        get_real_item(rpHwetabRec->CDAT,pclDataBuf,4);
+        get_real_item(rpHwetabRec->SDAT,pclDataBuf,5);
+        get_real_item(rpHwetabRec->ADAT,pclDataBuf,6);
+        get_real_item(rpHwetabRec->DDAT,pclDataBuf,7);
+        get_real_item(rpHwetabRec->MGID,pclDataBuf,8);
     }
     else if ( ilRC==1 )
     {
-        dbg(TRACE,"getNextHwetabRecord:: No record found");	
+        dbg(TRACE,"getNextHwetabRecord:: No record found");
     }
     else
-        dbg(TRACE,"getNextHwetabRecord:: DB ERROR");	 
+        dbg(TRACE,"getNextHwetabRecord:: DB ERROR");
 
     close_my_cursor(&slCursor);
 
     dbg(TRACE, "getNextHwetabRecord:: End Result[%d]", ilRC);
-    return ilRC;	
+    return ilRC;
 }
 
 /*******************************************************************************
@@ -1678,7 +1682,7 @@ printHwetabRecord:  For debugging purposes.  Print hwetab record.
 void printHwetabRecord(HWETAB *rpHwetab)
 {
     dbg(DEBUG, "printHwetabRecord:: Start");
-    
+
     dbg(DEBUG, "printHwetabRecord:: HWETAB");
     dbg(DEBUG, "printHwetabRecord::      URNO[%s]", rpHwetab->URNO);
     dbg(DEBUG, "printHwetabRecord::      DATA[%s]", rpHwetab->DATA);
@@ -1688,9 +1692,9 @@ void printHwetabRecord(HWETAB *rpHwetab)
     dbg(DEBUG, "printHwetabRecord::      ADAT[%s]", rpHwetab->ADAT);
     dbg(DEBUG, "printHwetabRecord::      DDAT[%s]", rpHwetab->DDAT);
     dbg(DEBUG, "printHwetabRecord::      MGID[%s]", rpHwetab->MGID);
-    
-    dbg(DEBUG, "printHwetabRecord:: End");    
-    return;	
+
+    dbg(DEBUG, "printHwetabRecord:: End");
+    return;
 }
 
 
@@ -1704,30 +1708,30 @@ int sendCedaEventWithLog(int ipRouteId, int ipOrgId, char *pcpDstNam, char *pcpR
                   char *pcpErrDscr, int ipPrior, int ipRetCode)
 {
 	int ilRC=RC_SUCCESS;
-	
+
 	dbg(TRACE, "sendCedaEvent:: Start");
-	
+
     dbg(TRACE, "sendCedaEvent:: ipRouteId[%d], ipOrgId[%d], pcpDstNam[%s], pcpRcvNam[%s]",
         ipRouteId, ipOrgId, pcpDstNam, pcpRcvNam);
     dbg(TRACE, "sendCedaEvent:: pcpStart[%s], pcpEnd[%s], pcpCommand[%s], pcpTabName[%s], pcpSelection[%s]",
-        pcpStart, pcpEnd, pcpCommand, pcpTabName, pcpSelection); 
+        pcpStart, pcpEnd, pcpCommand, pcpTabName, pcpSelection);
     dbg(TRACE, "sendCedaEvent:: pcpFields[%s], pcpData[%s]",
-        pcpFields, pcpData); 
+        pcpFields, pcpData);
     dbg(TRACE, "sendCedaEvent:: SendCedaEvent: pcpErrDscr[%s], ipPrior[%d], ipRetCode[%d]",
-        pcpErrDscr, ipPrior, ipRetCode); 
+        pcpErrDscr, ipPrior, ipRetCode);
 
-    ilRC = SendCedaEvent(ipRouteId, ipOrgId, pcpDstNam, pcpRcvNam, 
-                         pcpStart, pcpEnd, pcpCommand, pcpTabName, pcpSelection, 
-                         pcpFields, pcpData, 
+    ilRC = SendCedaEvent(ipRouteId, ipOrgId, pcpDstNam, pcpRcvNam,
+                         pcpStart, pcpEnd, pcpCommand, pcpTabName, pcpSelection,
+                         pcpFields, pcpData,
                          pcpErrDscr, ipPrior, ipRetCode);
 
 	dbg(TRACE, "sendCedaEvent:: End Result[%d]", ilRC);
-	return ilRC;	
+	return ilRC;
 }
 
 
 /*******************************************************************************
-sendDataHweConn:  Update record in hwetab to STAT='SENT'.  
+sendDataHweConn:  Update record in hwetab to STAT='SENT'.
                   Send data to hwecon1 and hwecon2 if connected and idle.
 *******************************************************************************/
 int sendDataHweConn(char *pcpUrno, char *pcpData, char *pcpMGID, char *pcpSndCnt)
@@ -1738,7 +1742,7 @@ int sendDataHweConn(char *pcpUrno, char *pcpData, char *pcpMGID, char *pcpSndCnt
     int ilSend=0;
     char pclDate[16];
     char pclWhere[128];
-    
+
     char pclExpDate[16] = "\0";
     char pclNextScnt[16] = "\0";
     int  ilSndCnt = 0;
@@ -1747,10 +1751,10 @@ int sendDataHweConn(char *pcpUrno, char *pcpData, char *pcpMGID, char *pcpSndCnt
     dbg(TRACE, "sendDataHweConn:: pcpUrno[%s], pcpMGID[%s], pcpData[%s]", pcpUrno, pcpMGID, pcpData);
     dbg(TRACE, "sendDataHweConn:: cgConnectionMask[%d], igConn1RecStatus[%d], igConn2RecStatus[%d]",
         cgConnectionMask, igConn1RecStatus, igConn2RecStatus);
-        
-    if ( ((cgConnectionMask&1)==1 && (igConn1RecStatus==IDLE 
-             || (igConn1RecStatus==SENT && igSendWaitAck == FALSE))) 
-         || ( (cgConnectionMask&2)==2 && ((igConn2RecStatus==IDLE) 
+
+    if ( ((cgConnectionMask&1)==1 && (igConn1RecStatus==IDLE
+             || (igConn1RecStatus==SENT && igSendWaitAck == FALSE)))
+         || ( (cgConnectionMask&2)==2 && ((igConn2RecStatus==IDLE)
              || (igConn2RecStatus == SENT && igSendWaitAck == FALSE) )) )
     {
         getSystemDate(pclDate);
@@ -1760,14 +1764,16 @@ int sendDataHweConn(char *pcpUrno, char *pcpData, char *pcpMGID, char *pcpSndCnt
             strcpy(pclNextScnt, pcpSndCnt);
             str_trm_all (pclNextScnt, " ", TRUE);
             ilSndCnt = atoi(pclNextScnt);
-            sprintf(pclNextScnt,"%d", ilSndCnt++);
+            /*sprintf(pclNextScnt,"%d", ilSndCnt++);*/
+            ilSndCnt++;
+            sprintf(pclNextScnt,"%d", ilSndCnt);
             GetServerTimeStamp( "UTC", 1, 0, pclExpDate);
             AddSecondsToCEDATime(pclExpDate, igReSendTim * 60, 1);
-            ilRC=updateHwetab(pclWhere, 8, "stat", "SENT", "sdat", pclDate,"SCNT", pclNextScnt, "ESDT", pclExpDate);     
+            ilRC = updateHwetab(pclWhere, 8, "stat", "SENT", "sdat", pclDate, "SCNT", pclNextScnt, "ESDT", pclExpDate);
         }
         else
-            ilRC=updateHwetab(pclWhere, 4, "stat", "SENT", "sdat", pclDate);     
-        
+            ilRC = updateHwetab(pclWhere, 4, "stat", "SENT", "sdat", pclDate);
+
         if ( ilRC==RC_SUCCESS )
         {
             if ((cgConnectionMask&1)==1 && (igConn1RecStatus==IDLE
@@ -1775,7 +1781,7 @@ int sendDataHweConn(char *pcpUrno, char *pcpData, char *pcpMGID, char *pcpSndCnt
             {
                 ilTmp1 = sendCedaEventWithLog(rgConfig.iConn1, 0, pcgDestName, pcgRecvName,
                                          pcgTwStart, pcgTwEnd, "XMLO", "HWETAB", pcpMGID,
-                                         "DATA", pcpData, 
+                                         "DATA", pcpData,
                                          "", 3, NETOUT_NO_ACK);
                 dbg(TRACE, "sendDataHweConn:: Sending data to conn1[%d]", ilTmp1);
                 igConn1RecStatus=SENT;
@@ -1786,62 +1792,62 @@ int sendDataHweConn(char *pcpUrno, char *pcpData, char *pcpMGID, char *pcpSndCnt
             {
                 ilTmp2 = sendCedaEventWithLog(rgConfig.iConn2, 0, pcgDestName, pcgRecvName,
                                           pcgTwStart, pcgTwEnd, "XMLO", "HWETAB", pcpMGID,
-                                          "DATA", pcpData, 
+                                          "DATA", pcpData,
                                           "", 3, NETOUT_NO_ACK);
                 dbg(TRACE, "sendDataHweConn:: Sending data to conn2[%d]", ilTmp2);
                 igConn2RecStatus=SENT;
              }
-            
-            strcpy(pcgCurrentHwetabUrno, pcpUrno);     
-        }                       
-/*    	
+
+            strcpy(pcgCurrentHwetabUrno, pcpUrno);
+        }
+/*
         if ( (cgConnectionMask&1)==1 )
         {
             dbg(DEBUG, "sendDataHweConn:: Connection 1 connected...  Sending data");
         	ilRC = sendCedaEventWithLog(rgConfig.iConn1, 0, pcgDestName, pcgRecvName,
                                         pcgTwStart, pcgTwEnd, "XMLO", "HWETAB", "",
-                                        "DATA", pcpData, 
+                                        "DATA", pcpData,
                                         "", 3, NETOUT_NO_ACK);
-            igConn1RecStatus=SENT;                            
+            igConn1RecStatus=SENT;
             ilSend=1;
-        }       
+        }
 
         if ( (cgConnectionMask&2)==2 )
         {
       	    dbg(DEBUG, "sendDataHweConn:: Connection 2 connected...  Sending data");
        	    ilRC = sendCedaEventWithLog(rgConfig.iConn2, 0, pcgDestName, pcgRecvName,
                                         pcgTwStart, pcgTwEnd, "XMLO", "HWETAB", "",
-                                        "DATA", pcpData, 
+                                        "DATA", pcpData,
                                         "", 3, NETOUT_NO_ACK);
-            igConn2RecStatus=SENT;                            
+            igConn2RecStatus=SENT;
             ilSend=1;
         }
-            
-        if ( ilSend ) 
+
+        if ( ilSend )
         {
             getSystemDate(pclDate);
             sprintf(pclWhere, "WHERE URNO='%s' ", pcpUrno);
-            ilRC=updateHwetab(pclWhere, 4, "stat", "SENT", "sdat", pclDate);            	
+            ilRC=updateHwetab(pclWhere, 4, "stat", "SENT", "sdat", pclDate);
         }
 */
-    }	
-    
+    }
+
     dbg(TRACE, "sendDataHweConn:: End Result[%d]", ilRC);
     return ilRC;
 }
 
 
 /*******************************************************************************
-processSTAT::  Process the command STAT.  This command is use for debugging 
-               purposes.  Print out necessary information to know the current 
-               status of the system. 
+processSTAT::  Process the command STAT.  This command is use for debugging
+               purposes.  Print out necessary information to know the current
+               status of the system.
 *******************************************************************************/
 int processSTAT()
 {
     int ilRC=RC_SUCCESS;
-    
+
     dbg(TRACE, "processSTAT:: Start");
-    
+
     dbg(TRACE, "processSTAT:: Connection Mask[%d]", cgConnectionMask);
     dbg(TRACE, "processSTAT:: Connection 1 Record Status[%d], Connection 2 Record Status[%d]",
         igConn1RecStatus, igConn2RecStatus);
@@ -1849,9 +1855,9 @@ int processSTAT()
     dbg(TRACE, "processSTAT:: Notes: Connection Mask: No Connection[0], Conn1 connected[1], Conn2 connected[2], Both Conn1 and Conn2 connected[3]");
     dbg(TRACE, "processSTAT:: Record Status: IDLE[%d], SENT[%d], ACK[%d], NOACK[%d]",
         IDLE, SENT, ACK, NOACK);
-    
-    dbg(TRACE, "processSTAT:: End Result[%d]", ilRC);    
-    return ilRC;   	
+
+    dbg(TRACE, "processSTAT:: End Result[%d]", ilRC);
+    return ilRC;
 }
 
 /*******************************************************************************
@@ -1863,28 +1869,28 @@ int duplicateChar(char *pcpIn, char *pcpOut, char cpDel)
 	int ilRC=RC_SUCCESS;
 	int a=0, b=0;
 	int ilSize=strlen(pcpIn);
-	
+
     dbg(DEBUG, "duplicateChar:: Start");
     for (a=0; a<ilSize; a++)
     {
         if ( pcpIn[a]==cpDel )
         {
-            pcpOut[b++]=pcpIn[a];		
+            pcpOut[b++]=pcpIn[a];
         }
-        
-        pcpOut[b++]=pcpIn[a];	
+
+        pcpOut[b++]=pcpIn[a];
     }
-    
+
     pcpOut[b]=0;
-    
-    dbg(DEBUG, "duplicateChar:: pcpIn[%s], pcpOut[%s], Delimeter[%c]", 
+
+    dbg(DEBUG, "duplicateChar:: pcpIn[%s], pcpOut[%s], Delimeter[%c]",
         pcpIn, pcpOut, cpDel);
     dbg(DEBUG, "duplicateChar:: End Result[%d]", ilRC);
-    return ilRC;    	
+    return ilRC;
 }
 
 /*******************************************************************************
-prcessDLY:  Process the DLY command.  
+prcessDLY:  Process the DLY command.
              1. Check Any ReSend Msg Exceed Max Define, If found Reset
              2. Re-Send Msg, depend the SCNT,STAT,ESDT, and update SDAT,SCNT,ESDT
 *******************************************************************************/
@@ -1892,6 +1898,9 @@ int processDLY()
 {
     int ilRC=RC_SUCCESS;
     int ilGetRc = DB_SUCCESS;
+
+    /*fya v1.5*/
+    char *pclFunc = "processDLY";
     char pclSqlBuf[1024] = "\0";
     char pclDatBuf[32768] = "\0";
     short slCursor = 0;
@@ -1905,27 +1914,31 @@ int processDLY()
 
     if ( !cgConnectionMask )
     {
-        dbg(TRACE, "NO CONNECTION, NO RESEND");
-        return ilRC;    	
+        dbg(TRACE, "%s NO CONNECTION, NO RESEND",pclFunc);
+        return ilRC;
     }
-      
+
     GetServerTimeStamp( "UTC", 1, 0, pclCurTim);
     sprintf(pclSqlBuf,"SELECT URNO,SCNT,ESDT FROM HWETAB WHERE "
          " STAT = 'SENT' AND SCNT >= '%d' AND ESDT <= '%s' ", igReSendMax, pclCurTim);
-    dbg(TRACE,"\n%s",pclSqlBuf);
+    dbg(TRACE,"%s \n%s",pclFunc,pclSqlBuf);
     slCursor = 0;
     pclDatBuf[0] = 0x00;
     slFkt = START;
     ilGetRc = sql_if(slFkt,&slCursor,pclSqlBuf,pclDatBuf);
     close_my_cursor(&slCursor);
+
+    dbg(TRACE, "%s ilGetRc<%d> DB_SUCCESS<%d>",pclFunc,ilGetRc,DB_SUCCESS);
+
     if (ilGetRc == DB_SUCCESS)
     {
-        dbg(TRACE, "MAX RE SEND EXCEED FOR NO ACK, INI AGAIN");
+        /*fya v1.5*/
+        dbg(TRACE, "%s ++++MAX RE SEND EXCEED FOR NO ACK, INI AGAIN->Delete HWETAB and reinit hweexco and hwepde+++++", pclFunc);
     	strcpy(pclSqlBuf, "DELETE FROM hwetab ");
-        ilRC=executeSql(pclSqlBuf, pclDatBuf);
-        dbg(TRACE,"processNACK:: executing [%s][%d][%s]", pclSqlBuf, ilRC, pclDatBuf);
-        
-    	igConn1RecStatus=igConn2RecStatus=IDLE;
+        ilRC = executeSql(pclSqlBuf, pclDatBuf);
+        dbg(TRACE,"%s :: executing [%s][%d][%s]",pclFunc, pclSqlBuf, ilRC, pclDatBuf);
+
+    	igConn1RecStatus = igConn2RecStatus = IDLE;
 
     	ilRC = sendCedaEventWithLog(rgConfig.iHweexco, 0, pcgDestName, pcgRecvName,
                                     pcgTwStart, pcgTwEnd, "RES", "HWETAB",
@@ -1934,14 +1947,19 @@ int processDLY()
         ilRC = sendCedaEventWithLog(rgConfig.iHwepde, 0, pcgDestName, pcgRecvName,
                                     pcgTwStart, pcgTwEnd, "BAT", "HWETAB",
                                     "", "", "",
-                                    "", 3, NETOUT_NO_ACK);    	
- 
+                                    "", 3, NETOUT_NO_ACK);
         return ilRC;
     }
+
     /* ReSend all the Time coming Msg */
+    /*sprintf(pclSqlBuf,"SELECT URNO,DATA,MGID,SCNT,ESDT FROM HWETAB WHERE "
+         " STAT = 'SENT' AND ESDT <= '%s' ORDER BY ESDT", igReSendMax, pclCurTim);*/
+
+    /*fya v1.5*/
     sprintf(pclSqlBuf,"SELECT URNO,DATA,MGID,SCNT,ESDT FROM HWETAB WHERE "
-         " STAT = 'SENT' AND ESDT <= '%s' ORDER BY ESDT", igReSendMax, pclCurTim);
-    dbg(TRACE,"\n%s",pclSqlBuf);
+         " STAT = 'SENT' AND SCNT < '%d' AND ESDT <= '%s' ORDER BY ESDT", igReSendMax, pclCurTim);
+    dbg(TRACE,"%s \n%s",pclFunc,pclSqlBuf);
+
     slCursor = 0;
     pclDatBuf[0] = 0x00;
     slFkt = START;
@@ -1955,13 +1973,19 @@ int processDLY()
             ConvertDbStringToClient(pclData);
             get_real_item(pclMgid,pclDatBuf,3);
             get_real_item(pclScnt,pclDatBuf,4);
-    	    ilRC=sendDataHweConn(pclUrno, pclData, pclMgid, pclScnt);          
-        } 
+            /*fya v1.5
+            At this time, the sending number is sent right after retrieved from db*/
+    	    ilRC = sendDataHweConn(pclUrno, pclData, pclMgid, pclScnt);
+        }
         /* Send Wait Ack would Only Resend the First Msg, Otherwise Resend the need Msg */
         if (igSendWaitAck == TRUE)
+        {
             break;
+        }
         else
+        {
             slFkt = NEXT;
+        }
     }
     close_my_cursor(&slCursor);
 
@@ -1969,7 +1993,7 @@ int processDLY()
     if (igSendWaitAck == FALSE)
     {
         sprintf(pclSqlBuf,"SELECT URNO,DATA,MGID,SCNT,ESDT FROM HWETAB WHERE STAT = ' ' ") ;
-        dbg(TRACE,"\n%s",pclSqlBuf);
+        dbg(TRACE,"%s \n%s",pclFunc, pclSqlBuf);
         slCursor = 0;
         pclDatBuf[0] = 0x00;
         slFkt = START;
@@ -1983,8 +2007,8 @@ int processDLY()
                  ConvertDbStringToClient(pclData);
                  get_real_item(pclMgid,pclDatBuf,3);
                  get_real_item(pclScnt,pclDatBuf,4);
-    	         ilRC=sendDataHweConn(pclUrno, pclData, pclMgid, pclScnt);          
-            } 
+    	         ilRC = sendDataHweConn(pclUrno, pclData, pclMgid, pclScnt);
+            }
             slFkt = NEXT;
         }
         close_my_cursor(&slCursor);
