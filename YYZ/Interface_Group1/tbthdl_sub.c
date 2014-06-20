@@ -17,7 +17,12 @@ extern int getRotationFlightData(char *pcpTable, char *pcpUrnoSelection, char *p
 extern void showRotationFlight(char (*pclRotationData)[LISTLEN]);
 /*extern int getCodeShare(char *pcpFields, char *pcpData, char (*pcpCodeShare)[LISTLEN]);*/
 extern int getCodeShare(char *pcpFields, char *pcpData, _VIAL *pcpCodeShare, char *pcpFormat, char *pcpOption, char *pcpSelection);
-
+/*----- tvo_subroutine --------------------------------------------------*/
+extern int hardcode(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpSelection, char *pcpAdid);
+extern int map(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpSelection, char *pcpAdid);
+extern int merge(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpSelection, char *pcpAdid);
+extern int notyet(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpSelection, char *pcpAdid);
+/*-------------------------------------------------------*/
 static int UtcToLocal(char *pcpTime)
 {
 	int c;
@@ -226,7 +231,7 @@ int viaref(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpS
     }
 
     ilCount = getVial(pcpSourceValue, pclVial);
-    ili = (int)((rpLine->pclDestField)[3] - '0') - 1;
+    ili = (int)((rpLine->pclDestField)[strlen(rpLine->pclDestField)-1] - '0') - 1; /// ili = (int)((rpLine->pclDestField)[3] - '0') - 1;
     if (ili > ARRAYNUMBER || ili <= 0)
     {
         dbg(TRACE,"%s ili<%d> is invalid",pclFunc,ili);
@@ -685,7 +690,7 @@ int getCurrentTime(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, cha
 
     if(strcmp(rpLine->pclCond1, "DATELOC") == 0)
     {
-        if(atoi(pclTimeNow) == 0 || strlen(pclTimeNow) != 14)
+        if ((atoi(pclTimeNow) == 0) || (strlen(pclTimeNow) != 14))
         {
             dbg(TRACE, "%s Currnt time value<%s> is invalid for DATELOC atttibute", pclFunc, pclTimeNow);
             return RC_FAIL;
@@ -764,6 +769,10 @@ CODEFUNC[OPER_CODE] =
     {"ZON",         zon},/**/
     {"CODESHAREFORMAT",codeshareFormat},/**/
     {"URNO",        getUrno},/**/
-    {"CURRENTTIME", getCurrentTime}/**/
+    {"CURRENTTIME", getCurrentTime},/**/
+	{"HARDCODE",hardcode},
+    {"MAP",map},
+	{"MERGE",merge},
+	{"NOTYET",notyet}
     /*{"",}*/
 };
