@@ -115,6 +115,9 @@ static char pcgSourceFiledList[GROUPNUMER][LISTLEN];
 static char pcgDestFiledList[GROUPNUMER][LISTLEN];
 static char pcgSourceConflictFiledSet[GROUPNUMER][LISTLEN];
 
+static char pcgCurrent_Arrivals[64];
+static char pcgCurrent_Departures[64];
+
 static char pcgTimeWindowRefField_AFTTAB_Arr[8];
 static char pcgTimeWindowRefField_AFTTAB_Dep[8];
 static char pcgTimeWindowRefField_CCATAB[8];
@@ -1046,6 +1049,28 @@ static int getConfig()
         dbg(DEBUG,"Default igInitTable<%d>",igInitTable);
     }
 
+    ilRC = iGetConfigEntry(pcgConfigFile,"URNO","CURRENT_ARRIVALS",CFG_STRING,pclTmpBuf);
+    if (ilRC == RC_SUCCESS)
+    {
+        strcpy(pcgCurrent_Arrivals,pclTmpBuf);
+    }
+    else
+    {
+        strcpy(pcgCurrent_Arrivals,"CurrentArr");
+    }
+    dbg(DEBUG,"pcgCurrent_Arrivals<%s>",pcgCurrent_Arrivals);
+
+    ilRC = iGetConfigEntry(pcgConfigFile,"URNO","CURRENT_DEPARTURES",CFG_STRING,pclTmpBuf);
+    if (ilRC == RC_SUCCESS)
+    {
+        strcpy(pcgCurrent_Departures,pclTmpBuf);
+    }
+    else
+    {
+        strcpy(pcgCurrent_Departures,"CurrentDep");
+    }
+    dbg(DEBUG,"pcgCurrent_Departures<%s>",pcgCurrent_Departures);
+
     /*
     ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","TIME_DIFFERENCE",CFG_STRING,pclTmpBuf);
     if (ilRC == RC_SUCCESS)
@@ -1953,7 +1978,14 @@ static void buildInsertQuery(char *pcpSqlBuf, char * pcpTable, char * pcpDestFie
     if ( strcmp(pcpTable, "Current_Arrivals"  ) == 0 ||
          strcmp(pcpTable, "Current_Departures") == 0 )
     {
-		ilNextUrno = NewUrnos(pcpTable,1);
+        if ( strcmp(pcpTable, "Current_Arrivals"  ) == 0 )
+            ilNextUrno = NewUrnos(pcgCurrent_Arrivals,1);
+        else
+            ilNextUrno = NewUrnos(pcgCurrent_Departures,1);
+
+        if (ilNextUrno <= 0)
+            ilNextUrno = NewUrnos("SNOTAB",1);
+
         sprintf(pcpSqlBuf,"INSERT INTO %s (%s,CDAT,LSTU,URNO) VALUES(%s,date'%s',date'%s',%d)", pcpTable, pcpDestFieldList, pcpDestFieldData,pclTmp,pclTmp,ilNextUrno);
     }
     else /// if ( strcmp(pcpTable, "Current_Arrivals"  ) == 0 )   /* tvo_debug: bug of insert error */
@@ -2356,7 +2388,8 @@ static int mapping(char *pcpTable, char *pcpFields, char *pcpNewData, char *pcpS
     }
 	dbg(DEBUG, "INSERT = <%d>, UPDATE = <%d>, ilStatusMaster = <%d>", INSERT, UPDATE, ilStatusMaster);
     if (ilStatusMaster == INSERT)
-    {	dbg(TRACE, "%d_before for ilCount", __LINE__);
+    {
+        /*dbg(TRACE, "%d_before for ilCount", __LINE__);*/
         for(ilCount = 0; ilCount < ilDataListNo; ilCount++)
         {
             /*dbg(DEBUG,"%s pclQuery[%d].pclInsertQuery<%s>\n",pclFunc, ilCount, pclQuery[ilCount].pclInsertQuery);
@@ -2364,7 +2397,7 @@ static int mapping(char *pcpTable, char *pcpFields, char *pcpNewData, char *pcpS
 
             slLocalCursor = 0;
             slFuncCode = START;
-			dbg(TRACE, "%d_before sql_if \n<%s>", __LINE__, pclQuery[ilCount].pclInsertQuery);
+			/*dbg(TRACE, "%d_before sql_if \n<%s>", __LINE__, pclQuery[ilCount].pclInsertQuery);*/
             ilRc = sql_if(slFuncCode, &slLocalCursor, pclQuery[ilCount].pclInsertQuery, pclSqlData);
             if( ilRc != DB_SUCCESS )
             {
