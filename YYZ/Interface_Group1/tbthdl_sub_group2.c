@@ -47,6 +47,42 @@ static int GetCommand(char *pcpCommand, int *pipCmd)
  return (ilRC) ;
     
 } /* end of GetCommand */
+/*-------------------------------------------------------------------------------*/
+static int GetCommandVer2(char** prpCmdTxt, int *prpCmdDef, char *pcpCommand, int *pipCmd)
+{
+ int  ilRC   = RC_SUCCESS ;   /* Return code */
+ int  ilLoop = 0 ;
+ char clCommand [128] ;
+    
+ memset (&clCommand[0], 0x00, sizeof(clCommand)) ;
+
+ ilRC = get_real_item (&clCommand[0], pcpCommand, 1) ;
+ if (ilRC > 0)
+ {
+  ilRC = RC_FAIL ;
+ } /* end of if */
+
+ while ((ilRC != 0) && (prpCmdTxt[ilLoop] != NULL))
+ {
+  ilRC = strcmp(&clCommand[0], prpCmdTxt[ilLoop]) ;
+  ilLoop++ ;
+ } /* end of while */
+
+ if (ilRC == 0)
+ {
+  ilLoop-- ; 
+  
+  *pipCmd = prpCmdDef[ilLoop] ;
+ }
+ else
+ {
+  dbg (TRACE, "GetCommand: <%s> is not valid", &clCommand[0]) ;
+  ilRC = RC_FAIL ;
+ } /* end of if */
+
+ return (ilRC) ;
+    
+} /* end of GetCommand */
 /*------- DoSingleSelect ----------------------------------------------------------------------*/
 static int DoSingleSelect(char *pcpTable,char *pcpSelection,char *pcpFields,char *pcpDataArea)
 {
@@ -224,25 +260,6 @@ int map(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpSele
 
     ilRC = RC_SUCCESS;
 
-    return ilRC;
-}
-/*--------------------------------------------------------------------------------------------------- 
-#BMS_TNEW_DAILY.SCHEDULE_DATE = AFTTAB.STOA if AFTTAB.ADID = 'A' else BMS_TNEW_DAILY.SCHEDULE_DATE = AFTTAB.STOD
-Y;2;AFTTAB;URNO;STOA,STOD;DATE;BMS_TNEW_DAILY;UREF;SCHEDULE_DATE;;DATELOC;CHECK;ADID;A,D
-//Y;2;AFTTAB;URNO;STOD;DATE;BMS_TNEW_DAILY;UREF;SCHEDULE_DATE;;DATELOC;CHECK;ADID;'D';
----------------------------------------------------------------------------------------------------*/
-int check(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpSelection, char *pcpAdid)
-{
-    int ilRC = RC_FAIL;
-    char *pclFunc = "check";
-    memset(pcpDestValue,0,sizeof(pcpDestValue));
-    dbg(TRACE, "<%s> The operator is %s",pclFunc,pclFunc);
-    
-    if (strcmp(pcpAdid,"D") != 0)   /* condition not satisfy */     
-        return RC_FAIL;
-    if (strcmp("DATELOC",rpLine->pclCond2) == 0)
-        ilRC = dateLoc(pcpDestValue,pcpSourceValue,rpLine,pcpSelection,pcpAdid);
-    
     return ilRC;
 }
 /*----------------------------------------------------------------------------------------------------*/
@@ -480,11 +497,43 @@ int PrintValueInFormat(char* pcpDestValue, char* pclValue, char* pclFormatString
 	ilRC = RC_SUCCESS;	
 	return ilRC;
 }
+/*--------------------------------------------------------------------------------------------------------*/
+
+#define NUMBER_TYPE    (1)
+#define DATE_TYPE      (2)
+#define DATELOC_TYPE   (3)
+
+static char *prgTypeTxt[] = {  "NUMBER", "DATE", "DATELOC", NULL }; /* NULL to end array  */
+static int    rgTypeDef[] = {  NUMBER_TYPE, DATE_TYPE, DATELOC_TYPE,  0 };
+
 int notyet(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpSelection, char *pcpAdid)
-{
+{	
+	dbg(TRACE,"<notyet>: pcpSourceValue = <%s>, pcpDestType = <%s>, pclCond1 = <%s>, pclCond2 = <%s>", pcpSourceValue, rpLine->pclDestFieldType, rpLine->pclCond1, rpLine->pclCond2);
 	int ilRC = RC_FAIL;    
     char *pclFunc = "notyet";
+	int ilType = 0; 
 	
-	dbg(TRACE,"%s: pcpSourceValue = <%s>, pclCond1 = <%s>, pclCond2 = <%s>", pclFunc, pcpSourceValue, rpLine->pclCond1, rpLine->pclCond2); 
+	ilRC = GetCommandVer2(prgTypeTxt, rgTypeDef, rpLine->pclDestFieldType, &ilType);
+	if (ilRC == RC_FAIL) 
+	{
+		strcpy(pcpDestValue,"X");
+	}
+	
+	switch (ilType)
+	{
+		case NUMBER_TYPE: 
+						strcpy(pcpDestValue,"0");
+						break;
+		case DATELOC_TYPE: 		
+						strcpy(pcpDestValue,"2014-06-20");
+						break;
+		case DATE_TYPE: 
+						strcpy(pcpDestValue,"2014-06-20");
+						break;
+		default: 								
+						strcpy(pcpDestValue,"X");
+	}
+	
+	ilRC = RC_SUCCESS;	
 	return ilRC;
 }
