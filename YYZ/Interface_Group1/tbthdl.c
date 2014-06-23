@@ -1218,8 +1218,9 @@ static int GetRuleSchema(_RULE *rpRule)
         /*showLine(&rlLine);*/
         if( strcmp(pclRuleGroupNO, rlLine.pclRuleGroup) != 0 )
         {
+            strcpy(pclRuleGroupNO,rlLine.pclRuleGroup);
             /*record the group info by rule group number*/
-            getOneline(rgGroupInfo+atoi(rlLine.pclRuleGroup),pclLine);
+            getOneline(rgGroupInfo+atoi(rlLine.pclRuleGroup), pclLine);
         }
 
         /*store the required and conflicted field list group by group*/
@@ -3057,7 +3058,7 @@ static void deleteFlightsOutOfTimeWindowByGroup(int ipRuleGroup, char *pcpTimeWi
             ilRc = NOTFOUND;
             break;
         default:
-            dbg(TRACE, "<%s> Delete source data - Found <%s>", pclFunc, pclSqlData);
+            dbg(TRACE, "<%s> Delete source data - Found", pclFunc);
             ilRc = RC_SUCCESS;
             break;
     }
