@@ -22,6 +22,7 @@ extern int hardcode(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, ch
 extern int map(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpSelection, char *pcpAdid);
 extern int merge(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpSelection, char *pcpAdid);
 extern int notyet(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpSelection, char *pcpAdid);
+/*extern int RunSQL(char *pclSqlBuf, char *pcpSqlData);*/
 /*-------------------------------------------------------*/
 static int UtcToLocal(char *pcpTime)
 {

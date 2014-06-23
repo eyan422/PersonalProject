@@ -2,7 +2,7 @@
 #ifndef _DEF_mks_version
   #define _DEF_mks_version
   #include "ufisvers.h" /* sets UFIS_VERSION, must be done before mks_version */
-  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/tbthdl.c 1.7 2014/06/20 11:17:14SGT tvo Exp  $";
+  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/tbthdl.c 1.7 2014/06/23 11:17:14SGT fya Exp  $";
 #endif /* _DEF_mks_version */
 /******************************************************************************/
 /*                                                                            */
@@ -59,14 +59,14 @@ static char sccs_version[] ="@(#) UFIS44 (c) ABB AAT/I skeleton.c 44.1.0 / 11.12
 #include "tools.h"
 #include "helpful.h"
 #include "timdef.h"
-/*#include "urno_fn.h"*/
+#include "urno_fn.h"
 
 /*fya 0.1*/
 #include "tbthdl.h"
 #include "tbthdl_sub.c"
 #include "tbthdl_customized.c"
 
-#include "urno_fn.inc"
+/*#include "urno_fn.inc"*/
 #include "tbthdl_sub_group2.c"
 
 #if defined(_HPUX_SOURCE)  || defined(_AIX)
@@ -90,7 +90,7 @@ static EVENT *prgOutEvent  = NULL;
 
 static char cgProcessName[20] = "\0";
 static char  cgConfigFile[512] = "\0";
-static char  cgHopo[8] = "\0";                         /* default home airport    */
+char  cgHopo[8] = "\0";                         /* default home airport    */
 static char  cgTabEnd[8] ="\0";                       /* default table extension */
 
 static long lgEvtCnt = 0;
@@ -296,7 +296,7 @@ MAIN
 	dbg(TRACE,"Vorsicht, ich bin nur ein Skeleton und tue nichts.......... ");
 	dbg(TRACE,"=====================");
 
-    #define TVO
+    #ifdef TVO
         /*--------- tvo_test ------------------------------------------------------*/
         /* select URNO,ADID,STOA,STOD,TIFA,TIFD,ALC2 from afttab where (ADID = 'D') and (STOD like '20140612%') and (rownum < 5); */
         /* select URNO,ADID,STOA,STOD,TIFA,TIFD,ALC2 from afttab where (ADID = 'A') and (STOA like '20140612%') and (rownum < 5); */
@@ -1771,8 +1771,6 @@ static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *
                      strcpy(pclDestDataListWithCodeshare, pclDestDataList);
                 }
                 /**/
-
-
 
                 /*buildInsertQuery(pclSqlInsertBuf, rpRule->rlLine[0].pclDestTable, pcpDestFiledList, pclDestDataList);*/
                 /*buildInsertQuery(pclSqlInsertBuf, rpRule->rlLine[0].pclDestTable, pclDestFiledListWithCodeshare, pclDestDataListWithCodeshare);*/
