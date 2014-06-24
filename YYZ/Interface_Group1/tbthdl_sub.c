@@ -304,7 +304,7 @@ int via(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpSele
 
     /*getting the vial information*/
     ilCount = getVial(pcpSourceValue, pclVial);
-    ili = (int)((rpLine->pclDestField)[strlen(rpLine->pclDestField)-1] - '0') - 1;
+    ili = (int)((rpLine->pclDestField)[strlen(rpLine->pclDestField) - 1] - '0') - 1;
 
     ilRC = getDestSourceLen(ilDestLen, pclVial[ili]);
     if (ilRC == RC_SUCCESS)
@@ -662,6 +662,38 @@ int getUrno(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcp
     }
 }
 
+int actionCode(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpSelection, char *pcpAdid)
+{
+    int ilRC = RC_FAIL;
+    int ilDestLen = 0;
+    char *pclFunc = "actionCode";
+
+    ilDestLen = atoi(rpLine->pclDestFieldLen);
+    if ( ilDestLen == 0)
+    {
+        dbg(TRACE, "%s Dest Length<%d> is invalid", pclFunc, ilDestLen);
+        return RC_FAIL;
+    }
+
+    switch (pcpSourceValue[0])
+    {
+        case 'X':
+        case 'N':
+            strcpy(pcpDestValue,"15");
+            break;
+        case 'S':
+        case 'O':
+            strcpy(pcpDestValue,"20");
+            break;
+        case 'T':
+            strcpy(pcpDestValue,"15");
+            break;
+        default:
+            memset(pcpDestValue,0,sizeof(pcpDestValue));
+            break;
+    }
+}
+
 int getCurrentTime(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpSelection, char *pcpAdid)
 {
     int ilRC = RC_FAIL;
@@ -774,6 +806,7 @@ CODEFUNC[OPER_CODE] =
 	{"HARDCODE",hardcode},
     {"MAP",map},
 	{"MERGE",merge},
-	{"NOTYET",notyet}
+	{"NOTYET",notyet},
+	{"ACTION_CODE",actionCode}
     /*{"",}*/
 };
