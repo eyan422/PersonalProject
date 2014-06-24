@@ -44,6 +44,7 @@ typedef struct {
     char pclAlc2[64];
     char pclAlc3[64];
     char pclFlno[64];
+    char pclSuffix[64];
 } _VIAL;
 
 static void TrimRight(char *pcpBuffer) {

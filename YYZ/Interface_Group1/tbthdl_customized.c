@@ -22,6 +22,7 @@ int getCodeShare(char *pcpFields, char *pcpData, _VIAL *pcpCodeShare, char *pcpF
     char pclTmpALC3[256] = "\0";
     char pclTmpALC2Pack[256] = "\0";
     char pclTmpFLNO[1024] = "\0";
+    char pclTmpSuffix[1024] = "\0";
     char pclTmpFLNOPack[1024] = "\0";
     char pclTmpflightNo[1024] = "\0";
     char *pclPointer = "\0";
@@ -124,9 +125,13 @@ int getCodeShare(char *pcpFields, char *pcpData, _VIAL *pcpCodeShare, char *pcpF
 
 	    /*pclPointer += 4;*/
 	    strncpy(pclTmpFLNO,pclPointer+3,5);
+	    strncpy(pclTmpSuffix,pclPointer+8,1);
 
 		dbg(DEBUG,"calling TrimRight(pclTmpFLNO)");
 		TrimRight(pclTmpFLNO);
+
+		dbg(DEBUG,"calling TrimRight(pclTmpSuffix)");
+		TrimRight(pclTmpSuffix);
 
 	    /*if(strncmp(pclTmpFLNO," ",1) == 0) continue;*/
 	    pclPointer += 9;
@@ -296,6 +301,7 @@ int getCodeShare(char *pcpFields, char *pcpData, _VIAL *pcpCodeShare, char *pcpF
                 strcat(pclXML,pclTmpflightNo);
 
                 strcpy((pcpCodeShare+ilj)->pclFlno,pclTmpFLNO);
+                strcpy((pcpCodeShare+ilj)->pclSuffix,pclTmpSuffix);
 
                 ilj++;
 

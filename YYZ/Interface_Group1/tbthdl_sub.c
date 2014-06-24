@@ -78,6 +78,87 @@ static int UtcToLocal(char *pcpTime)
     return(0); /**** DONE WELL ****/
 }
 
+int codeshare(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpSelection, char *pcpAdid)
+{
+    int ilRC = RC_FAIL;
+    char *pclFunc = "codeshareFormat";
+    int ilJcnt = 0;
+    int ili = 0;
+    int ilCount = 0;
+    int ilDestLen = 0;
+    char pclTmp[64] = "\0";
+    char pclFields[LISTLEN] = "\0";
+    char pclData[LISTLEN] = "\0";
+    char pcpFormat[LISTLEN] = "\0";
+    _VIAL pclCodeShare[ARRAYNUMBER];
+
+    ilDestLen = atoi(rpLine->pclDestFieldLen);
+    /*if (strlen(pcpSourceValue) == 0 || ilDestLen == 0)*/
+    if ( ilDestLen == 0)
+    {
+        dbg(TRACE, "%s Dest Length<%d> is invalid", pclFunc, ilDestLen);
+        return RC_FAIL;
+    }
+
+    strncpy(pcpDestValue, "", 1);
+
+    if(strlen(pcpSourceValue) == 0 || strncmp(pcpSourceValue," ",1) == 0 )
+    {
+        dbg(TRACE,"%s pcpSourceValue<%s> is invalid",pclFunc,pcpSourceValue);
+        return ilRC;
+    }
+
+    ilJcnt = strlen(pcpSourceValue) / CODESHARE_LEN + 1;
+    dbg(DEBUG,"%s len<%d> ilNo<%d>", pclFunc, strlen(pcpSourceValue),ilJcnt);
+
+    strcat(pclFields,"JCNT,JFNO");
+    sprintf(pclData,"%d,%s", ilJcnt, pcpSourceValue);
+
+    ilCount = getCodeShare(pclFields,pclData,pclCodeShare,pcpFormat,"ALC3", pcpSelection);
+    dbg(DEBUG,"%s ilCount<%d> pcpFormat<%s>",pclFunc,ilCount, pcpFormat);
+
+    if( strstr(rpLine->pclDestField,"1") )
+    {
+        ili = 1;
+    }
+    else if( strstr(rpLine->pclDestField,"2") )
+    {
+        ili = 2;
+    }
+    else if( strstr(rpLine->pclDestField,"3") )
+    {
+        ili = 3;
+    }
+
+    if( strstr(rpLine->pclDestField,"CARRIER_CODE") )
+    {
+        ilRC = getDestSourceLen(ilDestLen, pclCodeShare[ili].pclAlc3);
+        strcpy(pclTmp,pclCodeShare[ili].pclAlc3);
+    }
+    else if( strstr(rpLine->pclDestField,"FLIGHT_NUMBER") )
+    {
+        ilRC = getDestSourceLen(ilDestLen, pclCodeShare[ili].pclFlno);
+        strcpy(pclTmp,pclCodeShare[ili].pclFlno);
+    }
+    else if( strstr(rpLine->pclDestField,"FLIGHT_SUFFIX") )
+    {
+        ilRC = getDestSourceLen(ilDestLen, pclCodeShare[ili].pclSuffix);
+        strcpy(pclTmp,pclCodeShare[ili].pclSuffix);
+    }
+
+    if (ilRC == RC_SUCCESS)
+    {
+        strcpy(pcpDestValue, pclTmp);
+    }
+    else
+    {
+        strncpy(pcpDestValue, pclTmp, ilDestLen);
+        pcpDestValue[ilDestLen] = '\0';
+    }
+
+    return RC_SUCCESS;
+}
+
 int codeshareFormat(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpSelection, char *pcpAdid)
 {
     int ilRC = RC_FAIL;
@@ -807,6 +888,7 @@ CODEFUNC[OPER_CODE] =
     {"MAP",map},
 	{"MERGE",merge},
 	{"NOTYET",notyet},
-	{"ACTION_CODE",actionCode}
+	{"ACTION_CODE",actionCode},
+	{"CODESHARE",codeshare}
     /*{"",}*/
 };

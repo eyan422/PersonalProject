@@ -862,11 +862,34 @@ static int HandleData(EVENT *prpEvent)
     }
     else /*The normal DFR, IFR and UFR command*/
     {
-        if(!strcmp(clTable,"AFTTAB"))
+        /*if(!strcmp(clTable,"AFTTAB"))*/
+        if( !strcmp(clTable,"AFTTAB"))
         {
             /*getting the ADID*/
             getFieldValue(pclFields, pclNewData, "ADID", pclAdidValue);
-            checkVialChange(pclFields,pclNewData,pclOldData,&ilVialChange);
+
+            /*
+            So far, the multiple codeshare flights are only applied for group1.
+            The critera is that the source table is afttab, and destination tables are Current_Arrivals or Current_Departures
+            */
+            for (ilCount = 0; ilCount <= igTotalNumbeoOfRule; ilCount++)
+            {
+                if ( strcmp(rgGroupInfo[ilCount].pclDestTable, "Current_Arrivals"  ) == 0 ||
+                     strcmp(rgGroupInfo[ilCount].pclDestTable, "Current_Departures") == 0 )
+                {
+                    break;
+                }
+            }
+
+            if(ilCount <= igTotalNumbeoOfRule)
+            {
+                /*group1*/
+                checkVialChange(pclFields,pclNewData,pclOldData,&ilVialChange);
+            }
+            else
+            {
+                ilVialChange = FALSE;
+            }
         }
         else
         {
@@ -878,7 +901,15 @@ static int HandleData(EVENT *prpEvent)
         {
           /*#ifndef FYA*/
             /*getting the roataion flight data beforehand, optimize this part later*/
-            ilRc = getRotationFlightData(clTable, pclUrnoSelection, pclFields, pclRotationData, pclAdidValue);
+            if (strncmp(pclAdidValue,"A",1) == 0)
+            {
+                ilRc = getRotationFlightData(clTable, pclUrnoSelection, pclFields, pclRotationData, "D");
+            }
+            else if (strncmp(pclAdidValue,"D",1) == 0)
+            {
+                ilRc = getRotationFlightData(clTable, pclUrnoSelection, pclFields, pclRotationData, "A");
+            }
+
             if (ilRc == RC_SUCCESS)
             {
                 showRotationFlight(pclRotationData);
@@ -1732,6 +1763,8 @@ static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *
         }/*end of for loop*/
         dbg(TRACE, "%s The manipulated dest data list <%s> field number<%d>\n", pclFunc, pclDestDataList, GetNoOfElements(pclDestDataList,','));
         /*dbg(TRACE, "%s The manipulated dest data list <%s>\n", pclFunc, pclDestDataList);*/
+
+
 
         if ( GetNoOfElements(pclDestDataList,',') != ilNoEleSource)
         {
