@@ -1,5 +1,5 @@
 /*
-tbthdl_sub.c
+tbthdl_sub.c version 1.2 24/06/2014 15:00:00 tvo
 
 For subroutine
 */
@@ -18,11 +18,12 @@ extern void showRotationFlight(char (*pclRotationData)[LISTLEN]);
 /*extern int getCodeShare(char *pcpFields, char *pcpData, char (*pcpCodeShare)[LISTLEN]);*/
 extern int getCodeShare(char *pcpFields, char *pcpData, _VIAL *pcpCodeShare, char *pcpFormat, char *pcpOption, char *pcpSelection);
 /*----- tvo_subroutine --------------------------------------------------*/
+/*extern int RunSQL(char *pclSqlBuf, char *pcpSqlData);*/
 extern int hardcode(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpSelection, char *pcpAdid);
 extern int map(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpSelection, char *pcpAdid);
 extern int merge(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpSelection, char *pcpAdid);
 extern int notyet(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpSelection, char *pcpAdid);
-/*extern int RunSQL(char *pclSqlBuf, char *pcpSqlData);*/
+extern int notnull(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpSelection, char *pcpAdid);
 /*-------------------------------------------------------*/
 static int UtcToLocal(char *pcpTime)
 {
@@ -385,7 +386,7 @@ int via(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpSele
 
     /*getting the vial information*/
     ilCount = getVial(pcpSourceValue, pclVial);
-    ili = (int)((rpLine->pclDestField)[strlen(rpLine->pclDestField) - 1] - '0') - 1;
+    ili = (int)((rpLine->pclDestField)[strlen(rpLine->pclDestField)-1] - '0') - 1;
 
     ilRC = getDestSourceLen(ilDestLen, pclVial[ili]);
     if (ilRC == RC_SUCCESS)
@@ -889,6 +890,7 @@ CODEFUNC[OPER_CODE] =
 	{"MERGE",merge},
 	{"NOTYET",notyet},
 	{"ACTION_CODE",actionCode},
-	{"CODESHARE",codeshare}
+	{"NOTNULL",notnull},
+    {"CODESHARE",codeshare}
     /*{"",}*/
 };
