@@ -901,14 +901,7 @@ static int HandleData(EVENT *prpEvent)
         {
           /*#ifndef FYA*/
             /*getting the roataion flight data beforehand, optimize this part later*/
-            if (strncmp(pclAdidValue,"A",1) == 0)
-            {
-                ilRc = getRotationFlightData(clTable, pclUrnoSelection, pclFields, pclRotationData, "D");
-            }
-            else if (strncmp(pclAdidValue,"D",1) == 0)
-            {
-                ilRc = getRotationFlightData(clTable, pclUrnoSelection, pclFields, pclRotationData, "A");
-            }
+            getRotationFlightData(clTable, pclUrnoSelection, pclFields, pclRotationData, pclAdidValue);
 
             if (ilRc == RC_SUCCESS)
             {
