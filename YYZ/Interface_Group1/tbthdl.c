@@ -2,7 +2,7 @@
 #ifndef _DEF_mks_version
   #define _DEF_mks_version
   #include "ufisvers.h" /* sets UFIS_VERSION, must be done before mks_version */
-  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/tbthdl.c 1.8 2014/06/25 17:02:14SGT fya Exp  $";
+  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/tbthdl.c 1.9 2014/06/25 18:24:14SGT fya Exp  $";
 #endif /* _DEF_mks_version */
 /******************************************************************************/
 /*                                                                            */
@@ -129,6 +129,7 @@ static int igEnableCodeshare;
 static int igInitTable;
 static int igDataListDelimiter;
 static char pcgDataListDelimiter[2];
+static char pcgDateFormatDelimiter[2];
 /*static int igTimeDifference;*/
 
 static char pcgTimeWindowLowerLimit[64];
@@ -1599,11 +1600,51 @@ static int isInTimeWindow(char *pcpTimeVal, char *pcpTimeWindowLowerLimit, char 
 
 static int toDetermineAppliedRuleGroup(char * pcpTable, char * pcpFields, char * pcpData, char *pcpAdidValue)
 {
+    int ilCount = 0;
     int ilRuleNumber = 0;
     int ilItemNo = 0;
     char *pclFunc = "toDetermineAppliedRuleGroup";
     char pclADID[16] = "\0";
+    char pclTmp[64] = "\0";
 
+    /*rewrite below code to determine the applied group by modname instead of hard-coded criteria*/
+    if (strcmp(mod_name, "tbthdl") == 0)
+    {
+        if ( strcmp(pcpTable,"AFTTAB") == 0 )
+        {
+            if (strcmp(pclADID, "A") == 0)
+            {
+                strcpy(pclTmp,"Current_Arrivals");
+            }
+            else if (strcmp(pclADID, "D") == 0)
+            {
+                strcpy(pclTmp,"Current_Departures");
+            }
+        }
+    }
+    else if (strcmp(mod_name, "sac1hdl") == 0)
+    {
+        strcpy(pclTmp,"T1_SAC_ALCS");
+    }
+    else if (strcmp(mod_name, "sac2hdl") == 0)
+    {
+        strcpy(pclTmp,"T3_SAC_ALCS");
+    }
+    else if (strcmp(mod_name, "tbtgrp2") == 0)
+    {
+        strcpy(pclTmp,"BMS_TNEW_DAILY");
+    }
+
+    for (ilCount = 0; ilCount <= igTotalNumbeoOfRule; ilCount++)
+    {
+        if ( strcmp(rgGroupInfo[ilCount].pclDestTable, pclTmp ) == 0)
+        {
+            ilRuleNumber = ilCount;
+            break;
+        }
+    }
+
+    #ifdef _TEST_
     /*
     ilItemNo = get_item_no(pcpFields, "ADID", 5) + 1;
     if (ilItemNo <= 0)
@@ -1631,6 +1672,7 @@ static int toDetermineAppliedRuleGroup(char * pcpTable, char * pcpFields, char *
     {
         ilRuleNumber = 3;
     }
+    #endif
 
     return ilRuleNumber;
 }
