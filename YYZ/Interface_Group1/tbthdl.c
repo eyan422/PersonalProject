@@ -2,7 +2,7 @@
 #ifndef _DEF_mks_version
   #define _DEF_mks_version
   #include "ufisvers.h" /* sets UFIS_VERSION, must be done before mks_version */
-  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/tbthdl.c 1.8 2014/06/25 15:53:14SGT fya Exp  $";
+  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/tbthdl.c 1.8 2014/06/25 17:02:14SGT fya Exp  $";
 #endif /* _DEF_mks_version */
 /******************************************************************************/
 /*                                                                            */
@@ -29,6 +29,7 @@ static char sccs_version[] ="@(#) UFIS44 (c) ABB AAT/I skeleton.c 44.1.0 / 11.12
 #define U_MAIN
 #define UGCCS_PRG
 #define STH_USE
+/*#define _TEST_*/
 #include <stdio.h>
 #include <malloc.h>
 #include <string.h>
@@ -1096,6 +1097,17 @@ static int getConfig()
         dbg(DEBUG,"pclTmpBuf<%s>pcgDataListDelimiter<%s>",pclTmpBuf,pcgDataListDelimiter);
     }
 
+    ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","DATE_FORMAT_DELIMITER",CFG_STRING,pclTmpBuf);
+    if (ilRC == RC_SUCCESS)
+    {
+        strcpy(pcgDateFormatDelimiter,pclTmpBuf);
+        dbg(DEBUG,"pcgDateFormatDelimiter<%s>",pcgDateFormatDelimiter);
+    }
+    else
+    {
+        strcpy(pcgDateFormatDelimiter,"-");
+        dbg(DEBUG,"pcgDateFormatDelimiter<%s>",pcgDateFormatDelimiter);
+    }
 
     ilRC = iGetConfigEntry(pcgConfigFile,"URNO","CURRENT_ARRIVALS",CFG_STRING,pclTmpBuf);
     if (ilRC == RC_SUCCESS)
@@ -1630,6 +1642,7 @@ static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *
     char pclMFX[64] = "\0";
     char pclMFF[64] = "\0";
 
+    char pclTmp[256] = "\0";
     char pclSelection[256] = "\0";
     char pclTmpSourceFieldName[256] = "\0";
     char pclTmpDestFieldName[256] = "\0";
@@ -1725,21 +1738,24 @@ static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *
                         {
                             if ( strlen(pclDestDataList) == 0 )
                             {
-                                if(strstr(pclTmpDestFieldValue,"-") != 0 )
+                                /*if(strstr(pclTmpDestFieldValue,"-") != 0 )*/
+                                if(strstr(pclTmpDestFieldValue,pcgDateFormatDelimiter) != 0 )
                                 {
                                     /*to_date('%s','YYYY-MM-DD HH24:MI:SS')*/
-                                    /*
+
                                     strcat(pclDestDataList, "to_date(");
                                     strcat(pclDestDataList, "'");
                                     strcat(pclDestDataList, pclTmpDestFieldValue);
                                     strcat(pclDestDataList, "'");
-                                    strcat(pclDestDataList, ",'YYYY-MM-DD HH24:MI:SS')");
-                                    */
-
+                                    /*strcat(pclDestDataList, ",'YYYY-MM-DD HH24-MI-SS')");*/
+                                    sprintf(pclTmp,",'YYYY%sMM%sDD HH24%sMI%sSS')", pcgDateFormatDelimiter,pcgDateFormatDelimiter,pcgDateFormatDelimiter,pcgDateFormatDelimiter);
+                                    strcat(pclDestDataList, pclTmp);
+                                    /*
                                     strcat(pclDestDataList, "date");
                                     strcat(pclDestDataList, "'");
                                     strcat(pclDestDataList, pclTmpDestFieldValue);
                                     strcat(pclDestDataList, "'");
+                                    */
                                 }
                                 else
                                 {
@@ -1753,19 +1769,22 @@ static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *
                             {
                                 /*strcat(pclDestDataList,",");*/
                                 strcat(pclDestDataList, pcgDataListDelimiter);
-                                if(strstr(pclTmpDestFieldValue,"-") != 0 )
+                                /*if(strstr(pclTmpDestFieldValue,"-") != 0 )*/
+                                if(strstr(pclTmpDestFieldValue,pcgDateFormatDelimiter) != 0 )
                                 {
-                                    /*
                                     strcat(pclDestDataList, "to_date(");
                                     strcat(pclDestDataList, "'");
                                     strcat(pclDestDataList, pclTmpDestFieldValue);
                                     strcat(pclDestDataList, "'");
-                                    strcat(pclDestDataList, ",'YYYY-MM-DD HH24:MI:SS')");
-                                    */
+                                    /*strcat(pclDestDataList, ",'YYYY-MM-DD HH24-MI-SS')");*/
+                                    sprintf(pclTmp,",'YYYY%sMM%sDD HH24%sMI%sSS')", pcgDateFormatDelimiter,pcgDateFormatDelimiter,pcgDateFormatDelimiter,pcgDateFormatDelimiter);
+                                    strcat(pclDestDataList, pclTmp);
+                                    /*
                                     strcat(pclDestDataList, "date");
                                     strcat(pclDestDataList, "'");
                                     strcat(pclDestDataList, pclTmpDestFieldValue);
                                     strcat(pclDestDataList, "'");
+                                    */
                                 }
                                 else
                                 {
@@ -1820,12 +1839,22 @@ static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *
                 {
                     /*Insert data list*/
                     sprintf(pclTmpInsert,"'%s',%s,%s,%s,%s",pcpHardcodeShare.pclSST,"''","''","''","''");
+
+                    #ifdef _TEST_
+                    sprintf(pclTmpInsert,"'%s',%s,%s,%s,'%s'",pcpHardcodeShare.pclSST,"''","''","''","\"x\",\"y\"");
+                    #endif
+
                     strcpy(pclDestDataListWithCodeshareInsert, pclConvertedDataList);
                     strcat(pclDestDataListWithCodeshareInsert,",");
                     strcat(pclDestDataListWithCodeshareInsert,pclTmpInsert);
 
                     /*Update data list*/
-                    sprintf(pclTmpUpdate,"'%s'%s%s%s%s%s%s%s%s",pcpHardcodeShare.pclSST,pcgDataListDelimiter,"''",pcgDataListDelimiter,"''",pcgDataListDelimiter,"''",pcgDataListDelimiter,"''");
+                   sprintf(pclTmpUpdate,"'%s'%s%s%s%s%s%s%s%s",pcpHardcodeShare.pclSST,pcgDataListDelimiter,"''",pcgDataListDelimiter,"''",pcgDataListDelimiter,"''",pcgDataListDelimiter,"''");
+
+                    #ifdef _TEST_
+                    sprintf(pclTmpUpdate,"'%s'%s%s%s%s%s%s%s'%s'",pcpHardcodeShare.pclSST,pcgDataListDelimiter,"''",pcgDataListDelimiter,"''",pcgDataListDelimiter,"''",pcgDataListDelimiter,"\"x\",\"y\"");
+                    #endif
+
                     strcpy(pclDestDataListWithCodeshareUpdate, pclDestDataList);
                     strcat(pclDestDataListWithCodeshareUpdate, pcgDataListDelimiter);
                     strcat(pclDestDataListWithCodeshareUpdate, pclTmpUpdate);
@@ -2077,10 +2106,19 @@ static void buildUpdateQuery(char *pcpSqlBuf, char * pcpTable, char * pcpDestFie
     char pclSec[16] = "\0";
 
     char pclTmp[256] = "\0";
+    char *pclTmp1 = "\0";
+    char pclTmpSelection[256] = "\0";
+    char pclUrnoSelection[256] = "\0";
     char pclTmpTime[256] = "\0";
     char pclTmpField[256] = "\0";
     char pclTmpData[256] = "\0";
     char pclString[4096] = "\0";
+
+    strcpy(pclTmpSelection, pcpSelection);
+    pclTmp1 = strstr(pclTmpSelection, "=");
+    strcpy(pclUrnoSelection, pclTmp1+1);
+
+    sprintf(pclTmpSelection,"WHERE %s=%s",rgGroupInfo[pipRuleGroup].pclDestKey,pclUrnoSelection);
 
     /*ilCount = GetNoOfElements(pcpDestFieldList,',');*/
 
@@ -2131,7 +2169,7 @@ static void buildUpdateQuery(char *pcpSqlBuf, char * pcpTable, char * pcpDestFie
          strcmp(pcpTable, "Current_Departures") == 0 )
     {
         sprintf(pclTmpTime,"%s=date'%s'","LSTU",pclTmp);
-        sprintf(pcpSqlBuf,"UPDATE %s SET %s,%s %s", pcpTable, pclString, pclTmpTime, pcpSelection);
+        sprintf(pcpSqlBuf,"UPDATE %s SET %s,%s %s", pcpTable, pclString, pclTmpTime, pclTmpSelection);
     }
     else  /* tvo_fix: use UREF not URNO */
 	if (strcmp(pcpTable, "BMS_TNEW_DAILY") == 0 || strcmp(pcpTable, "BTRS_DAILY") == 0 || strcmp(pcpTable, "ACP_ALLOCATIONS") == 0 ||
@@ -3299,8 +3337,6 @@ static void replaceDelimiter(char *pcpConvertedDataList, char *pcpOriginalDataLi
     		pcpConvertedDataList[ilCount] = pcpOriginalDataList[ilCount];
     	}
     }
-
     dbg(DEBUG,"%s DataList<%s>",pclFunc, pcpConvertedDataList);
-
 }
 /*----------------------------------------------------------------------------------------------------*/

@@ -826,7 +826,8 @@ int getCurrentTime(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, cha
 
         if ( strlen(rpLine->pclCond2) == 0 || strcmp(rpLine->pclCond2," ") == 0)
         {
-            sprintf(pclTmp,"%s-%s-%s", pclYear,pclMonth,pclDay);
+            sprintf(pclTmp,"%s%s%s%s%s %s%s%s%s%s", pclYear,pcgDateFormatDelimiter,pclMonth,pcgDateFormatDelimiter,pclDay
+                                                    pclHour,pcgDateFormatDelimiter,pclMin,pcgDateFormatDelimiter,pclSec);
         }
     }
 
