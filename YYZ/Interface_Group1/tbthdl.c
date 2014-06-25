@@ -1064,7 +1064,14 @@ static int getConfig()
     ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","INIT_TABLE_AFTER_RESTART",CFG_STRING,pclTmpBuf);
     if (ilRC == RC_SUCCESS)
     {
-        igInitTable = atoi(pclTmpBuf);
+        if (strncmp(pclTmpBuf,"Y",1) == 0)
+        {
+            igInitTable = TRUE;
+        }
+        else
+        {
+            igInitTable = FALSE;
+        }
         dbg(DEBUG,"igInitTable<%d>",igInitTable);
     }
     else
