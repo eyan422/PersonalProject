@@ -126,6 +126,8 @@ static int igTimeWindowLowerLimit;
 static int igGetDataFromSrcTable;
 static int igEnableCodeshare;
 static int igInitTable;
+static int igDataListDelimiter;
+static int pcgDataListDelimiter[2];
 /*static int igTimeDifference;*/
 
 static char pcgTimeWindowLowerLimit[64];
@@ -1080,6 +1082,21 @@ static int getConfig()
         dbg(DEBUG,"Default igInitTable<%d>",igInitTable);
     }
 
+    ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","DATALIST_DELIMITER",CFG_STRING,pclTmpBuf);
+    if (ilRC == RC_SUCCESS)
+    {
+        igDataListDelimiter = strtol(pclTmpBuf,NULL,16);
+        pcgDataListDelimiter[0] = igDataListDelimiter;
+        dbg(DEBUG,"pclTmpBuf<%s>igDataListDelimiter<%d>pcgDataListDelimiter<%s>",pclTmpBuf,igDataListDelimiter,pcgDataListDelimiter);
+    }
+    else
+    {
+        igDataListDelimiter = 0x1F;
+        pcgDataListDelimiter[0] = igDataListDelimiter;
+        dbg(DEBUG,"pclTmpBuf<%s>igDataListDelimiter<%d>pcgDataListDelimiter<%s>",pclTmpBuf,igDataListDelimiter,pcgDataListDelimiter);
+    }
+
+
     ilRC = iGetConfigEntry(pcgConfigFile,"URNO","CURRENT_ARRIVALS",CFG_STRING,pclTmpBuf);
     if (ilRC == RC_SUCCESS)
     {
@@ -1695,7 +1712,8 @@ static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *
                             }
                             else
                             {
-                                strcat(pclDestDataList,",");
+                                /*strcat(pclDestDataList,",");*/
+                                strcat(pclDestDataList, pcgDataListDelimiter[0]);
                                 strcat(pclDestDataList, pclTmpDestFieldValue);
                             }
                         }/*CHAR*/
@@ -1729,7 +1747,8 @@ static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *
                             }
                             else
                             {
-                                strcat(pclDestDataList,",");
+                                /*strcat(pclDestDataList,",");*/
+                                strcat(pclDestDataList, pcgDataListDelimiter[0]);
                                 if(strstr(pclTmpDestFieldValue,"-") != 0 )
                                 {
                                     /*
@@ -1766,7 +1785,8 @@ static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *
 
 
 
-        if ( GetNoOfElements(pclDestDataList,',') != ilNoEleSource)
+        /*if ( GetNoOfElements(pclDestDataList,',') != ilNoEleSource)*/
+        if ( GetNoOfElements(pclDestDataList, pcgDataListDelimiter[0]) != ilNoEleSource)
         {
             dbg(TRACE,"The number of field in dest data list and source field is not matched",pclFunc);
         }
