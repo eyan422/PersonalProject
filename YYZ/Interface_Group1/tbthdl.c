@@ -2,7 +2,7 @@
 #ifndef _DEF_mks_version
   #define _DEF_mks_version
   #include "ufisvers.h" /* sets UFIS_VERSION, must be done before mks_version */
-  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/tbthdl.c 1.7 2014/06/23 11:17:14SGT fya Exp  $";
+  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/tbthdl.c 1.8 2014/06/25 15:53:14SGT fya Exp  $";
 #endif /* _DEF_mks_version */
 /******************************************************************************/
 /*                                                                            */
@@ -127,7 +127,7 @@ static int igGetDataFromSrcTable;
 static int igEnableCodeshare;
 static int igInitTable;
 static int igDataListDelimiter;
-static int pcgDataListDelimiter[2];
+static char pcgDataListDelimiter[2];
 /*static int igTimeDifference;*/
 
 static char pcgTimeWindowLowerLimit[64];
@@ -191,6 +191,7 @@ static void insertFligthsNewInTimeWindow(char *pcpTimeWindowUpperLimitOriginal, 
 static void updateTimeWindow(char *pcpTimeWindowLowerLimit, char *pcpTimeWindowUpperLimit);
 static int showGroupInfo(_LINE *rlGroupInfo, int ipGroupNO);
 static int getRefTimeFiledValueFromSource(char *pcpTable, char *pcpFields, char *pcpNewData, char *pcpSelection, char *pcpTimeWindowRefFieldVal, char *pcpTimeWindowRefField);
+static void replaceDelimiter(char *pcpConvertedDataList, char *pcpOriginalDataList, char pcpOrginalDelimiter, char pcpConvertedDelimiter);
 /******************************************************************************/
 /*                                                                            */
 /* The MAIN program                                                           */
@@ -1091,9 +1092,8 @@ static int getConfig()
     }
     else
     {
-        igDataListDelimiter = 0x1F;
-        pcgDataListDelimiter[0] = igDataListDelimiter;
-        dbg(DEBUG,"pclTmpBuf<%s>igDataListDelimiter<%d>pcgDataListDelimiter<%s>",pclTmpBuf,igDataListDelimiter,pcgDataListDelimiter);
+        pcgDataListDelimiter[0] = ',';
+        dbg(DEBUG,"pclTmpBuf<%s>pcgDataListDelimiter<%s>",pclTmpBuf,pcgDataListDelimiter);
     }
 
 
@@ -1561,13 +1561,13 @@ static int isInTimeWindow(char *pcpTimeVal, char *pcpTimeWindowLowerLimit, char 
 
     if ( strcmp(pcpTimeVal, pcpTimeWindowLowerLimit) >= 0 && strcmp(pcpTimeVal, pcpTimeWindowUpperLimit) <= 0)
     {
-        dbg(TRACE,"%s <%s> is in the range", pclFunc, pcpTimeVal);
+        dbg(TRACE,"%s <%s> is in the range <%s~%s>", pclFunc, pcpTimeVal, pcpTimeWindowLowerLimit, pcpTimeWindowUpperLimit);
 
         return RC_SUCCESS;
     }
     else
     {
-        dbg(TRACE,"%s <%s> is out of the range", pclFunc, pcpTimeVal);
+        dbg(TRACE,"%s <%s> is out of the range <%s~%s>", pclFunc, pcpTimeVal, pcpTimeWindowLowerLimit, pcpTimeWindowUpperLimit);
         return RC_FAIL;
     }
 }
@@ -1619,6 +1619,7 @@ static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *
     int ilRuleCount = 0;
     int ilNoEleSource = 0;
     int ilNoEleDest = 0;
+    int ili = 0;
     char *pclFunc = "appliedRules";
     char pclDestKey[64] = "\0";
 
@@ -1640,9 +1641,12 @@ static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *
     char pclSqlUpdateBuf[4096] = "\0";
     char pclSqlInsertBuf[4096] = "\0";
 
-    char pclTmp[4096] = "\0";
+    char pclTmpInsert[4096] = "\0";
+    char pclTmpUpdate[4096] = "\0";
     char pclDestFiledListWithCodeshare[4096] = "\0";
-    char pclDestDataListWithCodeshare[4096] = "\0";
+    char pclDestDataListWithCodeshareInsert[4096] = "\0";
+    char pclDestDataListWithCodeshareUpdate[4096] = "\0";
+    char pclConvertedDataList[8192] = "\0";
     /*
     for each item in the field list:
     1 search for the single rule in the applied group using source field
@@ -1713,7 +1717,7 @@ static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *
                             else
                             {
                                 /*strcat(pclDestDataList,",");*/
-                                strcat(pclDestDataList, pcgDataListDelimiter[0]);
+                                strcat(pclDestDataList, pcgDataListDelimiter);
                                 strcat(pclDestDataList, pclTmpDestFieldValue);
                             }
                         }/*CHAR*/
@@ -1748,7 +1752,7 @@ static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *
                             else
                             {
                                 /*strcat(pclDestDataList,",");*/
-                                strcat(pclDestDataList, pcgDataListDelimiter[0]);
+                                strcat(pclDestDataList, pcgDataListDelimiter);
                                 if(strstr(pclTmpDestFieldValue,"-") != 0 )
                                 {
                                     /*
@@ -1780,15 +1784,20 @@ static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *
                 }
             }
         }/*end of for loop*/
-        dbg(TRACE, "%s The manipulated dest data list <%s> field number<%d>\n", pclFunc, pclDestDataList, GetNoOfElements(pclDestDataList,','));
+        ili = GetNoOfElements(pclDestDataList,pcgDataListDelimiter[0]);
+        dbg(TRACE, "%s The manipulated dest data list <%s> field number<%d>\n",
+            pclFunc, pclDestDataList, ili);
         /*dbg(TRACE, "%s The manipulated dest data list <%s>\n", pclFunc, pclDestDataList);*/
 
-
-
-        /*if ( GetNoOfElements(pclDestDataList,',') != ilNoEleSource)*/
-        if ( GetNoOfElements(pclDestDataList, pcgDataListDelimiter[0]) != ilNoEleSource)
+        /*convert the delimiter into comma*/
+        if (pcgDataListDelimiter[0] != ',')
         {
-            dbg(TRACE,"The number of field in dest data list and source field is not matched",pclFunc);
+            replaceDelimiter(pclConvertedDataList, pclDestDataList, pcgDataListDelimiter[0], ',');
+        }
+
+        if ( ili != ilNoEleSource)
+        {
+            dbg(TRACE,"%s The number of field in dest data list<%d> and source field<%d> is not matched",pclFunc, ili);
         }
         else
         {
@@ -1809,26 +1818,33 @@ static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *
                 if ( strcmp(rgGroupInfo[ipRuleGroup].pclDestTable, "Current_Arrivals"  ) == 0 ||
                      strcmp(rgGroupInfo[ipRuleGroup].pclDestTable, "Current_Departures") == 0 )
                 {
-                    sprintf(pclTmp,"'%s',%s,%s,%s,%s",pcpHardcodeShare.pclSST,"''","''","''","''","''");
+                    /*Insert data list*/
+                    sprintf(pclTmpInsert,"'%s',%s,%s,%s,%s",pcpHardcodeShare.pclSST,"''","''","''","''");
+                    strcpy(pclDestDataListWithCodeshareInsert, pclConvertedDataList);
+                    strcat(pclDestDataListWithCodeshareInsert,",");
+                    strcat(pclDestDataListWithCodeshareInsert,pclTmpInsert);
 
-                    strcpy(pclDestDataListWithCodeshare, pclDestDataList);
-                    strcat(pclDestDataListWithCodeshare,",");
-                    strcat(pclDestDataListWithCodeshare,pclTmp);
+                    /*Update data list*/
+                    sprintf(pclTmpUpdate,"'%s'%s%s%s%s%s%s%s%s",pcpHardcodeShare.pclSST,pcgDataListDelimiter,"''",pcgDataListDelimiter,"''",pcgDataListDelimiter,"''",pcgDataListDelimiter,"''");
+                    strcpy(pclDestDataListWithCodeshareUpdate, pclDestDataList);
+                    strcat(pclDestDataListWithCodeshareUpdate, pcgDataListDelimiter);
+                    strcat(pclDestDataListWithCodeshareUpdate, pclTmpUpdate);
                 }
                 else
                 {
-                    strcpy(pclDestDataListWithCodeshare, pclDestDataList);
+                    strcpy(pclDestDataListWithCodeshareInsert, pclDestDataList);
+                    strcpy(pclDestDataListWithCodeshareUpdate, pclDestDataList);
                 }
                 /**/
 
                 /*buildInsertQuery(pclSqlInsertBuf, rpRule->rlLine[0].pclDestTable, pcpDestFiledList, pclDestDataList);*/
                 /*buildInsertQuery(pclSqlInsertBuf, rpRule->rlLine[0].pclDestTable, pclDestFiledListWithCodeshare, pclDestDataListWithCodeshare);*/
-                buildInsertQuery(pclSqlInsertBuf, rgGroupInfo[ipRuleGroup].pclDestTable, pclDestFiledListWithCodeshare, pclDestDataListWithCodeshare);
+                buildInsertQuery(pclSqlInsertBuf, rgGroupInfo[ipRuleGroup].pclDestTable, pclDestFiledListWithCodeshare, pclDestDataListWithCodeshareInsert);
                 dbg(DEBUG, "%s __%d__insert<%s>", pclFunc, __LINE__ ,pclSqlInsertBuf);
 
                 /*buildUpdateQuery(pclSqlUpdateBuf, rpRule->rlLine[0].pclDestTable, pcpDestFiledList, pclDestDataList, pclSelection);*/
                 /*buildUpdateQuery(pclSqlUpdateBuf, rpRule->rlLine[0].pclDestTable, pclDestFiledListWithCodeshare, pclDestDataListWithCodeshare,pclSelection);*/
-                buildUpdateQuery(pclSqlUpdateBuf, rgGroupInfo[ipRuleGroup].pclDestTable, pclDestFiledListWithCodeshare, pclDestDataListWithCodeshare,pcpSelection,ipRuleGroup); /* tvo_fix: pclSelection --> pcpSelection */
+                buildUpdateQuery(pclSqlUpdateBuf, rgGroupInfo[ipRuleGroup].pclDestTable, pclDestFiledListWithCodeshare, pclDestDataListWithCodeshareUpdate,pcpSelection,ipRuleGroup); /* tvo_fix: pclSelection --> pcpSelection */
                 dbg(DEBUG, "%s update<%s>", pclFunc, pclSqlUpdateBuf);
 
                 strcpy(pcpQuery->pclInsertQuery, pclSqlInsertBuf);
@@ -1840,20 +1856,20 @@ static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *
                 if ( strcmp(rgGroupInfo[ipRuleGroup].pclDestTable, "Current_Arrivals"  ) == 0 ||
                      strcmp(rgGroupInfo[ipRuleGroup].pclDestTable, "Current_Departures") == 0 )
                 {
-                    sprintf(pclTmp,"'%s','%s','%s','%s','%s'","SL",pcpHardcodeShare.pclMFC, pcpHardcodeShare.pclMFN,pcpHardcodeShare.pclMFX,pcpHardcodeShare.pclMFF);
-                    strcpy(pclDestDataListWithCodeshare, pclDestDataList);
-                    strcat(pclDestDataListWithCodeshare,",");
-                    strcat(pclDestDataListWithCodeshare,pclTmp);
+                    sprintf(pclTmpInsert,"'%s','%s','%s','%s','%s'","SL",pcpHardcodeShare.pclMFC, pcpHardcodeShare.pclMFN,pcpHardcodeShare.pclMFX,pcpHardcodeShare.pclMFF);
+                    strcpy(pclDestDataListWithCodeshareInsert, pclDestDataList);
+                    strcat(pclDestDataListWithCodeshareInsert,",");
+                    strcat(pclDestDataListWithCodeshareInsert,pclTmpInsert);
                 }
                 else
                 {
-                     strcpy(pclDestDataListWithCodeshare, pclDestDataList);
+                     strcpy(pclDestDataListWithCodeshareInsert, pclDestDataList);
                 }
                 /**/
 
                 /*buildInsertQuery(pclSqlInsertBuf, rpRule->rlLine[0].pclDestTable, pcpDestFiledList, pclDestDataList);*/
                 /*buildInsertQuery(pclSqlInsertBuf, rpRule->rlLine[0].pclDestTable, pclDestFiledListWithCodeshare, pclDestDataListWithCodeshare);*/
-                buildInsertQuery(pclSqlInsertBuf, rgGroupInfo[ipRuleGroup].pclDestTable, pclDestFiledListWithCodeshare, pclDestDataListWithCodeshare);
+                buildInsertQuery(pclSqlInsertBuf, rgGroupInfo[ipRuleGroup].pclDestTable, pclDestFiledListWithCodeshare, pclDestDataListWithCodeshareInsert);
                 dbg(DEBUG, "%s __%d__insert<%s>", pclFunc, __LINE__, pclSqlInsertBuf);
 
                 strcpy(pcpQuery->pclInsertQuery, pclSqlInsertBuf);
@@ -2068,7 +2084,10 @@ static void buildUpdateQuery(char *pcpSqlBuf, char * pcpTable, char * pcpDestFie
 
     /*ilCount = GetNoOfElements(pcpDestFieldList,',');*/
 
-    for (ilCount = 1; ilCount <= GetNoOfElements(pcpDestFieldData,','); ilCount++)
+    /*dbg(DEBUG,"%s FieldList<%s>",pclFunc,pcpDestFieldList);
+    dbg(DEBUG,"%s DataList<%s>",pclFunc,pcpDestFieldData);*/
+
+    for (ilCount = 1; ilCount <= GetNoOfElements(pcpDestFieldData,pcgDataListDelimiter[0]); ilCount++)
     {
         memset(pclTmpField, 0, sizeof(pclTmpField));
         memset(pclTmpData, 0, sizeof(pclTmpData));
@@ -2077,8 +2096,10 @@ static void buildUpdateQuery(char *pcpSqlBuf, char * pcpTable, char * pcpDestFie
         get_item(ilCount, pcpDestFieldList, pclTmpField, 0, ",", "\0", "\0");
         TrimRight(pclTmpField);
 
-        get_item(ilCount, pcpDestFieldData, pclTmpData, 0, ",", "\0", "\0");
+        /*get_item(ilCount, pcpDestFieldData, pclTmpData, 0, ",", "\0", "\0");*/
+        get_item(ilCount, pcpDestFieldData, pclTmpData, 0, pcgDataListDelimiter, "\0", "\0");
         TrimRight(pclTmpData);
+        /*dbg(DEBUG,"%s %s=%s",pclFunc, pclTmpField,pclTmpData);*/
 
         if ( ilCount == 1)
         {
@@ -2427,7 +2448,7 @@ static int mapping(char *pcpTable, char *pcpFields, char *pcpNewData, char *pcpS
             break;
         case NOTFOUND:
             /*insert master and codeshare flights*/
-			dbg(DEBUG, "notfound: /*insert master and codeshare flights*/");
+			dbg(DEBUG, "%s notfound: /*insert master and codeshare flights*/",pclFunc);
             ilStatusMaster = INSERT;
             break;
         case RC_SUCCESS:/*FOUND*/
@@ -2439,7 +2460,8 @@ static int mapping(char *pcpTable, char *pcpFields, char *pcpNewData, char *pcpS
             return RC_FAIL;
             break;
     }
-	dbg(DEBUG, "INSERT = <%d>, UPDATE = <%d>, ilStatusMaster = <%d>", INSERT, UPDATE, ilStatusMaster);
+
+	dbg(DEBUG, "%s INSERT = <%d>, UPDATE = <%d>, ilStatusMaster = <%d>",pclFunc, INSERT, UPDATE, ilStatusMaster);
     if (ilStatusMaster == INSERT)
     {
         /*dbg(TRACE, "%d_before for ilCount", __LINE__);*/
@@ -3203,7 +3225,6 @@ static int getRefTimeFiledValueFromSource(char *pcpTable, char *pcpFields, char 
 {
     int ilRc = RC_FAIL;
     char *pclFunc = "getRefTimeFiledValueFromSource";
-    char pclTimeWindowRefFieldVal[32] = "\0";
     char pclSqlBuf[2048] = "\0";
     char pclSqlData[2048] = "\0";
 
@@ -3247,7 +3268,7 @@ static int getRefTimeFiledValueFromSource(char *pcpTable, char *pcpFields, char 
     }
     else
     {
-        if ( atoi(pclTimeWindowRefFieldVal) != 0 )
+        if ( atoi(pcpTimeWindowRefFieldVal) != 0 )
         {
             dbg(TRACE, "<%s> %s = %s", pclFunc, pcpTimeWindowRefField, pcpTimeWindowRefFieldVal);
         }
@@ -3257,5 +3278,29 @@ static int getRefTimeFiledValueFromSource(char *pcpTable, char *pcpFields, char 
             return RC_FAIL;
         }
     }
+}
+
+static void replaceDelimiter(char *pcpConvertedDataList, char *pcpOriginalDataList, char pcpOrginalDelimiter, char pcpConvertedDelimiter)
+{
+	int ilCount = 0;
+	int ilLen = 0;
+	int ilRc = RC_FAIL;
+    char *pclFunc = "replaceDelimiter";
+
+    ilLen = strlen(pcpOriginalDataList);
+    for(ilCount=0; ilCount<ilLen; ilCount++)
+    {
+    	if ( pcpOriginalDataList[ilCount] == pcpOrginalDelimiter)
+    	{
+    		pcpConvertedDataList[ilCount] = pcpConvertedDelimiter;
+    	}
+    	else
+    	{
+    		pcpConvertedDataList[ilCount] = pcpOriginalDataList[ilCount];
+    	}
+    }
+
+    dbg(DEBUG,"%s DataList<%s>",pclFunc, pcpConvertedDataList);
+
 }
 /*----------------------------------------------------------------------------------------------------*/
