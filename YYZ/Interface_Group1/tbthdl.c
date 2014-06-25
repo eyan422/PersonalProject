@@ -903,33 +903,46 @@ static int HandleData(EVENT *prpEvent)
 
         if(!strcmp(clTable,"AFTTAB"))
         {
-          /*#ifndef FYA*/
-            /*getting the roataion flight data beforehand, optimize this part later*/
-            getRotationFlightData(clTable, pclUrnoSelection, pclFields, pclRotationData, pclAdidValue);
 
-            if (ilRc == RC_SUCCESS)
+            for (ilCount = 0; ilCount <= igTotalNumbeoOfRule; ilCount++)
             {
-                showRotationFlight(pclRotationData);
-
-                /*handle rotation data*/
-                for(ilCount = 0; ilCount < ARRAYNUMBER; ilCount++)
+                if ( strcmp(rgGroupInfo[ilCount].pclDestTable, "Current_Arrivals"  ) == 0 ||
+                     strcmp(rgGroupInfo[ilCount].pclDestTable, "Current_Departures") == 0 )
                 {
-                    if (strlen(pclRotationData[ilCount]) > 0)
-                    {
-                        dbg(DEBUG,"%s <%d> Rotation Flight<%s>", pclFunc, ilCount, pclRotationData[ilCount]);
-
-                        /*
-                        Since the rotation flight has no old data, then set ilVialChange = TRUE;
-                        checkVialChange(pclFields,pclRotationData[ilCount],"",ilVialChange);
-                        */
-                        ilVialChange = TRUE;
-                        mapping(clTable, pclFields, pclRotationData[ilCount], pclSelection, pclAdidValue, ilVialChange);
-                    }
+                    break;
                 }
             }
-            else
+
+            if(ilCount <= igTotalNumbeoOfRule)
             {
-                dbg(TRACE,"%s No Rotation Flights",pclFunc);
+                /*#ifndef FYA*/
+                /*getting the roataion flight data beforehand, optimize this part later*/
+                getRotationFlightData(clTable, pclUrnoSelection, pclFields, pclRotationData, pclAdidValue);
+
+                if (ilRc == RC_SUCCESS)
+                {
+                    showRotationFlight(pclRotationData);
+
+                    /*handle rotation data*/
+                    for(ilCount = 0; ilCount < ARRAYNUMBER; ilCount++)
+                    {
+                        if (strlen(pclRotationData[ilCount]) > 0)
+                        {
+                            dbg(DEBUG,"%s <%d> Rotation Flight<%s>", pclFunc, ilCount, pclRotationData[ilCount]);
+
+                            /*
+                            Since the rotation flight has no old data, then set ilVialChange = TRUE;
+                            checkVialChange(pclFields,pclRotationData[ilCount],"",ilVialChange);
+                            */
+                            ilVialChange = TRUE;
+                            mapping(clTable, pclFields, pclRotationData[ilCount], pclSelection, pclAdidValue, ilVialChange);
+                        }
+                    }
+                }
+                else
+                {
+                    dbg(TRACE,"%s No Rotation Flights",pclFunc);
+                }
             }
         }
         /*#endif*/
@@ -1618,6 +1631,7 @@ static int toDetermineAppliedRuleGroup(char * pcpTable, char * pcpFields, char *
     {
         ilRuleNumber = 3;
     }
+
     return ilRuleNumber;
 }
 
@@ -1694,6 +1708,7 @@ static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *
 
             dbg(DEBUG,"%s <%d> The filed from source is <%s> - from dest is <%s>",pclFunc, ilEleCount, pclTmpSourceFieldName, pclTmpDestFieldName);
 
+            /*binary search - fya*/
             for (ilRuleCount = 0; ilRuleCount <= ipTotalLineOfRule; ilRuleCount++)
             {
                 memset(pclTmpSourceFieldValue,0,sizeof(pclTmpSourceFieldValue));
