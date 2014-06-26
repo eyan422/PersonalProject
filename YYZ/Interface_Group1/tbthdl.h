@@ -7,6 +7,8 @@
 
 #define FYA
 
+#define BRUTAL 4
+#define HASH 5
 #define NONBLANK 2
 #define INSERT 9
 #define UPDATE 10
@@ -16,23 +18,23 @@ static char pcgMasterSST[4] = "SL";
 
 typedef struct
 {
-    char pclActive[64];              /*ACTIVE*/
-    char pclRuleGroup[64];           /*RulGrp*/
+    char pclActive[128];              /*ACTIVE*/
+    char pclRuleGroup[128];           /*RulGrp*/
 
-    char pclSourceTable[64];         /*SrcTab*/
-    char pclSourceKey[64];           /*SrcKey*/
-    char pclSourceField[64];         /*SrcFld*/
-    //char pclSourceFieldValue[126];  /*SrcFldVal*/
-    char pclSourceFieldType[64];     /*SrcTyp*/
+    char pclSourceTable[128];         /*SrcTab*/
+    char pclSourceKey[128];           /*SrcKey*/
+    char pclSourceField[128];         /*SrcFld*/
+    //char pclSourceFieldValue[128];  /*SrcFldVal*/
+    char pclSourceFieldType[128];     /*SrcTyp*/
 
-    char pclDestTable[64];           /*Destab*/
-    char pclDestKey[64];             /*DesKey*/
-    char pclDestField[64];           /*Desfld*/
+    char pclDestTable[128];           /*Destab*/
+    char pclDestKey[128];             /*DesKey*/
+    char pclDestField[128];           /*Desfld*/
     //char pclDestFieldValue[126];    /*DesfldVal*/
-    char pclDestFieldLen[64];        /*Deslen*/
-    char pclDestFieldType[64];       /*Destyp*/
+    char pclDestFieldLen[128];        /*Deslen*/
+    char pclDestFieldType[128];       /*Destyp*/
 
-    char pclDestFieldOperator[64];   /*Operate*/
+    char pclDestFieldOperator[128];   /*Operate*/
     char pclCond1[128];      /*Con1*/
     char pclCond2[128];      /*Con2*/
 }_LINE;

@@ -2,7 +2,7 @@
 #ifndef _DEF_mks_version
   #define _DEF_mks_version
   #include "ufisvers.h" /* sets UFIS_VERSION, must be done before mks_version */
-  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/tbthdl.c 1.10 2014/06/26 11:53:14SGT fya Exp  $";
+  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/tbthdl.c 1.11 2014/06/26 15:38:14SGT fya Exp  $";
 #endif /* _DEF_mks_version */
 /******************************************************************************/
 /*                                                                            */
@@ -108,11 +108,14 @@ static char pcgServerChars[110];
 static char pcgClientChars[110];
 static char pcgUfisConfigFile[512];
 
+ght_hash_table_t *pcgHash_table = NULL;
+
 /*fya 0.1*/
 _RULE rgRule;
 _LINE rgGroupInfo[ARRAYNUMBER];
 static int igTotalLineOfRule;
 static int igTotalNumbeoOfRule;
+static int igRuleSearchMethod;
 
 static char pcgSourceFiledSet[GROUPNUMER][LISTLEN];
 static char pcgSourceFiledList[GROUPNUMER][LISTLEN];
@@ -132,7 +135,7 @@ static int igEnableCodeshare;
 static int igInitTable;
 static int igDataListDelimiter;
 static char pcgDataListDelimiter[2];
-static char pcgDateFormatDelimiter[2];
+extern char pcgDateFormatDelimiter[2];
 /*static int igTimeDifference;*/
 
 static char pcgTimeWindowLowerLimit[64];
@@ -199,6 +202,8 @@ static int getRefTimeFiledValueFromSource(char *pcpTable, char *pcpFields, char 
 static void replaceDelimiter(char *pcpConvertedDataList, char *pcpOriginalDataList, char pcpOrginalDelimiter, char pcpConvertedDelimiter);
 static int getRuleIndex_BrutalForce(char *pcpSourceFieldName, char *pcpSourceFieldValue, char *pcpDestFieldName, _RULE *rpRule, int ipRuleGroup, char *pcpFields,int ipTotalLineOfRule,char *pcpData);
 static void buildConvertedDataList(int ipType,char *pcpDestDataList, char *pcpDestFieldValue, int ipOption);
+static int buildHash(int ipTotalLineOfRule, _RULE rpRule, ght_hash_table_t **pcpHash_table);
+static int getRuleIndex_Hash(int ipRuleGroup, char *pcpDestFieldName, char *pcpFields, char *pcpData, char *pcpSourceFieldName, char *pcpSourceFieldValue);
 /******************************************************************************/
 /*                                                                            */
 /* The MAIN program                                                           */
@@ -336,7 +341,7 @@ MAIN
         ilRc = tools_send_info_flag( mod_id, mod_id , mod_name , mod_name, mod_name, "","","","","UFR", "AFTTAB",clSelection, clFields, clData, NETOUT_NO_ACK);
 
 
-			#if 0
+        #if 0
         strcpy(clTable,"CCATAB");
         strcpy(clSelection,"WHERE URNO = 934377037\n934377037");
         strcpy(clFields,"URNO,CKBS,CKES");
@@ -368,26 +373,24 @@ MAIN
 		}
 		/* Search for dest field */
 		strcpy(clHashKey, "2 LATEST_DATE");
-		if ( (p_he = ght_get(p_table,sizeof(char)*strlen(clHashKey), clHashKey)) != NULL )
+		if ( (p_he = ght_get(p_table, sizeof(char) * strlen(clHashKey), clHashKey)) != NULL )
 			dbg(DEBUG,"Found <%s> at %d\n", clHashKey, *p_he);
 		else
 			dbg(DEBUG,"Did not find <%s> !\n", clHashKey);
 
 		strcpy(clHashKey, "2LATEST_DATE");
-		if ( (p_he = ght_get(p_table,sizeof(char)*strlen(clHashKey), clHashKey)) != NULL )
+		if ( (p_he = ght_get(p_table, sizeof(char) * strlen(clHashKey), clHashKey)) != NULL )
 			dbg(DEBUG,"Found <%s> at %d\n", clHashKey, *p_he);
 		else
 			dbg(DEBUG,"Did not find <%s> !\n", clHashKey);
 
 
        /* Remove the hash table */
-		ght_finalize(p_table);
+		ght_finalize(p_table, rgRule, );
 		#endif
         dbg(DEBUG, "-------------------- end of tvo_test ---------------------------------");
         /*-------------------------------------------------------------------------*/
     #endif
-
-
 
 	for(;;)
 	{
@@ -566,6 +569,8 @@ static int Init_Process()
 		Terminate(30);
 	}
 
+	buildHash(igTotalLineOfRule, rgRule, &pcgHash_table);
+
 	if (ilRc != RC_SUCCESS)
 	{
 	    dbg(TRACE,"Init_Process failed");
@@ -609,11 +614,11 @@ static void Terminate(int ipSleep)
 
 	logoff();
 
+	dbg(TRACE,"Destroy Hashtable");
+	ght_finalize(pcgHash_table);
+
 	dbg(TRACE,"Terminate: now sleep(%d) ...",ipSleep);
-
-
 	dbg(TRACE,"Terminate: now leaving ...");
-
 	fclose(outp);
 
 	sleep(ipSleep < 1 ? 1 : ipSleep);
@@ -1155,7 +1160,7 @@ static int getConfig()
     }
     else
     {
-        pcgDataListDelimiter[0] = ',';
+        pcgDataListDelimiter[0] = '~';
         dbg(DEBUG,"pclTmpBuf<%s>pcgDataListDelimiter<%s>",pclTmpBuf,pcgDataListDelimiter);
     }
 
@@ -1170,6 +1175,28 @@ static int getConfig()
         strcpy(pcgDateFormatDelimiter,"-");
         dbg(DEBUG,"pcgDateFormatDelimiter<%s>",pcgDateFormatDelimiter);
     }
+
+    ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","RULE_SEARCH_METHOD",CFG_STRING,pclTmpBuf);
+    if (ilRC == RC_SUCCESS)
+    {
+        if (!strcmp(pclTmpBuf,"BRUTAL"))
+        {
+            igRuleSearchMethod = BRUTAL;
+        }
+        else if (!strcmp(pclTmpBuf,"HASH"))
+        {
+            igRuleSearchMethod = HASH;
+        }
+        else
+        {
+            igRuleSearchMethod = HASH;
+        }
+    }
+    else
+    {
+        igRuleSearchMethod = HASH;
+    }
+    dbg(DEBUG,"igRuleSearchMethod<%s>",igRuleSearchMethod==HASH?"HASH":"BRUTAL");
 
     ilRC = iGetConfigEntry(pcgConfigFile,"URNO","CURRENT_ARRIVALS",CFG_STRING,pclTmpBuf);
     if (ilRC == RC_SUCCESS)
@@ -1355,14 +1382,14 @@ static int GetRuleSchema(_RULE *rpRule)
             continue;
         }
 
-		if ((pclLine[0] == ' ') || (pclLine[0] == '\n'))    /* tvo_debug: fix blank line */
+		if ((pclLine[0] == ' ') || (pclLine[0] == '\n') || strlen(pclLine) == 0 )    /* tvo_debug: fix blank line */
         {
             /*dbg(DEBUG,"%s Disabled Rule -> Ignore & Continue", pclFunc);*/
             continue;
         }
 
         getOneline(&rlLine, pclLine);
-        /*showLine(&rlLine);*/
+        showLine(&rlLine);
         if( strcmp(pclRuleGroupNO, rlLine.pclRuleGroup) != 0 )
         {
             strcpy(pclRuleGroupNO,rlLine.pclRuleGroup);
@@ -1392,7 +1419,8 @@ static int GetRuleSchema(_RULE *rpRule)
             igTotalNumbeoOfRule = atoi(rlLine.pclRuleGroup);
         }
     }
-    igTotalLineOfRule = ilNoLine + 1;
+    /*igTotalLineOfRule = ilNoLine + 1;*/
+    igTotalLineOfRule = ilNoLine;
     showRule(rpRule, igTotalLineOfRule);
 
     ilRC = showGroupInfo(rgGroupInfo, igTotalNumbeoOfRule);
@@ -1500,7 +1528,7 @@ static void showRule(_RULE *rpRule, int ipTotalLineOfRule)
     {
         if(strcmp(rpRule->rlLine[ilCount].pclActive, " ") != 0 && strlen(rpRule->rlLine[ilCount].pclActive) > 0)
         {
-            dbg(DEBUG, "%s %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s", pclFunc,
+            dbg(DEBUG, "%s [%d]%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s", pclFunc,ilCount,
             rpRule->rlLine[ilCount].pclActive,
             rpRule->rlLine[ilCount].pclRuleGroup,
             rpRule->rlLine[ilCount].pclSourceTable,
@@ -1751,6 +1779,7 @@ static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *
     char pclMFX[64] = "\0";
     char pclMFF[64] = "\0";
 
+    char pclKey[256] = "\0";
     char pclSelection[256] = "\0";
     char pclTmpSourceFieldName[256] = "\0";
     char pclTmpDestFieldName[256] = "\0";
@@ -1803,8 +1832,16 @@ static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *
             dbg(DEBUG,"%s <%d> The filed from source is <%s> - from dest is <%s>",pclFunc, ilEleCount, pclTmpSourceFieldName, pclTmpDestFieldName);
 
             /*hashtable search - fya*/
+            if (igRuleSearchMethod == BRUTAL)
+            {
+                ilRuleCount = getRuleIndex_BrutalForce(pclTmpSourceFieldName, pclTmpSourceFieldValue, pclTmpDestFieldName, rpRule, ipRuleGroup, pcpFields, ipTotalLineOfRule, pcpData);
+            }
+            else if (igRuleSearchMethod == HASH)
+            {
+                /*build the key: group number+dest field name*/
+                ilRuleCount = getRuleIndex_Hash(ipRuleGroup, pclTmpDestFieldName, pcpFields, pcpData, pclTmpSourceFieldName, pclTmpSourceFieldValue);
+            }
 
-            ilRuleCount = getRuleIndex_BrutalForce(pclTmpSourceFieldName, pclTmpSourceFieldValue, pclTmpDestFieldName, rpRule, ipRuleGroup, pcpFields, ipTotalLineOfRule, pcpData);
             if(ilRuleCount == RC_FAIL)
             {
                 dbg(DEBUG,"%s Found index fails -> return",pclFunc);
@@ -1858,7 +1895,6 @@ static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *
                 {
                     /*Insert data list*/
                     sprintf(pclTmpInsert,"'%s',%s,%s,%s,%s",pcpHardcodeShare.pclSST,"''","''","''","''");
-
                     #ifdef _TEST_
                     sprintf(pclTmpInsert,"'%s',%s,%s,%s,'%s'",pcpHardcodeShare.pclSST,"''","''","''","\"x\",\"y\"");
                     #endif
@@ -1869,7 +1905,6 @@ static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *
 
                     /*Update data list*/
                    sprintf(pclTmpUpdate,"'%s'%s%s%s%s%s%s%s%s",pcpHardcodeShare.pclSST,pcgDataListDelimiter,"''",pcgDataListDelimiter,"''",pcgDataListDelimiter,"''",pcgDataListDelimiter,"''");
-
                     #ifdef _TEST_
                     sprintf(pclTmpUpdate,"'%s'%s%s%s%s%s%s%s'%s'",pcpHardcodeShare.pclSST,pcgDataListDelimiter,"''",pcgDataListDelimiter,"''",pcgDataListDelimiter,"''",pcgDataListDelimiter,"\"x\",\"y\"");
                     #endif
@@ -3694,12 +3729,14 @@ static int getRuleIndex_BrutalForce(char *pcpSourceFieldName, char *pcpSourceFie
 	        continue;
 	    }
 	}/*end of rule searching for loop*/
+
+	return RC_FAIL;
 }
 
 static void buildConvertedDataList(int ipType,char *pcpDestDataList, char *pcpDestFieldValue, int ipOption)
 {
     int ilRC = RC_SUCCESS;
-	char *pclFunc = "getRuleIndex_BrutalForce";
+	char *pclFunc = "buildConvertedDataList";
     char pclTmp[256] = "\0";
 
     if (ipOption == BLANK)
@@ -3760,7 +3797,6 @@ static void buildConvertedDataList(int ipType,char *pcpDestDataList, char *pcpDe
                     strcat(pcpDestDataList, pcpDestFieldValue);
                     strcat(pcpDestDataList, "'");
                 }
-
             }
             else
             {
@@ -3792,4 +3828,66 @@ static void buildConvertedDataList(int ipType,char *pcpDestDataList, char *pcpDe
             }
         }
     }
+}
+
+static int buildHash(int ipTotalLineOfRule, _RULE rpRule, ght_hash_table_t **pcpHash_table)
+{
+	char *pclFunc = "buildHash";
+	int  *p_data = NULL;
+    int  ilCount = 0;
+	char clHashKey[128];
+
+	*pcpHash_table = ght_create(ipTotalLineOfRule);
+
+	dbg(DEBUG,"%s ipTotalLineOfRule = <%d>", pclFunc, ipTotalLineOfRule);
+	for (ilCount = 0; ilCount <= ipTotalLineOfRule; ilCount++)
+	{
+		if ( !(p_data = (int*)malloc(sizeof(int))) )
+			return RC_FAIL;
+
+		sprintf(clHashKey,"%s%s", rpRule.rlLine[ilCount].pclRuleGroup, rpRule.rlLine[ilCount].pclDestField);
+
+        if (strlen(clHashKey) > 0)
+        {
+            /* Assign the data a value */
+            /* Insert "blabla" into the hash table */
+            *p_data = ilCount;
+            ght_insert(*pcpHash_table, p_data, sizeof(char)*strlen(clHashKey), clHashKey);
+            dbg(DEBUG, "%s clHashKey = <%s>, ilCount = <%d>", pclFunc, clHashKey, ilCount);
+        }
+	}
+	return RC_SUCCESS;
+}
+
+static int getRuleIndex_Hash(int ipRuleGroup, char *pcpDestFieldName, char *pcpFields, char *pcpData, char *pcpSourceFieldName, char *pcpSourceFieldValue)
+{
+    int ilItemNo = 0;
+    int  *p_he = NULL;
+    char *pclFunc = "getRuleIndex_Hash";
+    char pclHashKey[128] = "\0";
+
+    /*build the key: group number+dest field name*/
+    sprintf(pclHashKey,"%d%s",ipRuleGroup, pcpDestFieldName);
+
+	if ( (p_he = ght_get(pcgHash_table,sizeof(char) * strlen(pclHashKey), pclHashKey)) != NULL )
+	{
+	    dbg(DEBUG,"%s Found <%s> at %d\n",pclFunc, pclHashKey, *p_he);
+
+	    ilItemNo = get_item_no(pcpFields, pcpSourceFieldName, 5) + 1;
+        if (ilItemNo <= 0 )
+        {
+            dbg(TRACE, "<%s> No <%s> Not found in the field list, can't do anything", pclFunc, pcpSourceFieldName);
+            return RC_FAIL;
+        }
+        else
+        {
+            get_real_item(pcpSourceFieldValue, pcpData, ilItemNo);
+            return *p_he;
+        }
+	}
+	else
+	{
+	    dbg(DEBUG,"%s Did not find <%s> !\n",pclFunc, pclHashKey);
+	    return RC_FAIL;
+	}
 }

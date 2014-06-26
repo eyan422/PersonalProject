@@ -25,6 +25,8 @@ extern int merge(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char 
 extern int notyet(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpSelection, char *pcpAdid);
 extern int notnull(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpSelection, char *pcpAdid);
 /*-------------------------------------------------------*/
+char pcgDateFormatDelimiter[2];
+
 static int UtcToLocal(char *pcpTime)
 {
 	int c;
@@ -826,7 +828,7 @@ int getCurrentTime(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, cha
 
         if ( strlen(rpLine->pclCond2) == 0 || strcmp(rpLine->pclCond2," ") == 0)
         {
-            sprintf(pclTmp,"%s%s%s%s%s %s%s%s%s%s", pclYear,pcgDateFormatDelimiter,pclMonth,pcgDateFormatDelimiter,pclDay
+            sprintf(pclTmp,"%s%s%s%s%s %s%s%s%s%s", pclYear,pcgDateFormatDelimiter,pclMonth,pcgDateFormatDelimiter,pclDay,
                                                     pclHour,pcgDateFormatDelimiter,pclMin,pcgDateFormatDelimiter,pclSec);
         }
     }
