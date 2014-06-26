@@ -2,7 +2,7 @@
 #ifndef _DEF_mks_version
   #define _DEF_mks_version
   #include "ufisvers.h" /* sets UFIS_VERSION, must be done before mks_version */
-  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/tbthdl.c 1.9 2014/06/25 18:24:14SGT fya Exp  $";
+  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/tbthdl.c 1.10 2014/06/26 11:53:14SGT fya Exp  $";
 #endif /* _DEF_mks_version */
 /******************************************************************************/
 /*                                                                            */
@@ -197,6 +197,7 @@ static void updateTimeWindow(char *pcpTimeWindowLowerLimit, char *pcpTimeWindowU
 static int showGroupInfo(_LINE *rlGroupInfo, int ipGroupNO);
 static int getRefTimeFiledValueFromSource(char *pcpTable, char *pcpFields, char *pcpNewData, char *pcpSelection, char *pcpTimeWindowRefFieldVal, char *pcpTimeWindowRefField);
 static void replaceDelimiter(char *pcpConvertedDataList, char *pcpOriginalDataList, char pcpOrginalDelimiter, char pcpConvertedDelimiter);
+static int getRuleIndex_BrutalForce(char *pcpSourceFieldName, char *pcpSourceFieldValue, char *pcpDestFieldName, _RULE *rpRule, int ipRuleGroup, char *pcpFields,int ipTotalLineOfRule,char *pcpData);
 /******************************************************************************/
 /*                                                                            */
 /* The MAIN program                                                           */
@@ -1802,6 +1803,294 @@ static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *
             dbg(DEBUG,"%s <%d> The filed from source is <%s> - from dest is <%s>",pclFunc, ilEleCount, pclTmpSourceFieldName, pclTmpDestFieldName);
 
             /*hashtable search - fya*/
+
+            ilRuleCount = getRuleIndex_BrutalForce(pclTmpSourceFieldName, pclTmpSourceFieldValue, pclTmpDestFieldName, rpRule, ipRuleGroup, pcpFields, ipTotalLineOfRule, pcpData);
+            if(ilRuleCount == RC_FAIL)
+            {
+                if ( strlen(pclDestDataList) == 0 )
+                {
+                    strcat(pclDestDataList, " ");
+                }
+                else
+                {
+                    /*strcat(pclDestDataList,",");*/
+                    strcat(pclDestDataList, pcgDataListDelimiter);
+                    strcat(pclDestDataList, " ");
+                }
+            }
+            else
+            {
+                /*++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++*/
+                /*getting the operator and condition*/
+                /*dbg(TRACE,"%s The operator is <%s> and con1<%s>, con2<%s>",pclFunc, rpRule->rlLine[ilRuleCount].pclDestFieldOperator,
+                rpRule->rlLine[ilRuleCount].pclCond1, rpRule->rlLine[ilRuleCount].pclCond2);*/
+                ilRC = convertSrcValToDestVal(pclTmpSourceFieldName, pclTmpSourceFieldValue, pclTmpDestFieldName, rpRule->rlLine+ilRuleCount, pclTmpDestFieldValue, pcpSelection, pcpAdid);
+
+                /*NUMBER*/
+                if(ilRC == RC_NUMBER)
+                {
+                    if ( strlen(pclDestDataList) == 0 )
+                    {
+                        strcat(pclDestDataList, pclTmpDestFieldValue);
+                    }
+                    else
+                    {
+                        /*strcat(pclDestDataList,",");*/
+                        strcat(pclDestDataList, pcgDataListDelimiter);
+                        strcat(pclDestDataList, pclTmpDestFieldValue);
+                    }
+                }/*CHAR*/
+                else
+                {
+                    if ( strlen(pclDestDataList) == 0 )
+                    {
+                        /*if(strstr(pclTmpDestFieldValue,"-") != 0 )*/
+                        if(strstr(pclTmpDestFieldValue,pcgDateFormatDelimiter) != 0 )
+                        {
+                            /*to_date('%s','YYYY-MM-DD HH24:MI:SS')*/
+
+                            strcat(pclDestDataList, "to_date(");
+                            strcat(pclDestDataList, "'");
+                            strcat(pclDestDataList, pclTmpDestFieldValue);
+                            strcat(pclDestDataList, "'");
+                            /*strcat(pclDestDataList, ",'YYYY-MM-DD HH24-MI-SS')");*/
+                            sprintf(pclTmp,",'YYYY%sMM%sDD HH24%sMI%sSS')", pcgDateFormatDelimiter,pcgDateFormatDelimiter,pcgDateFormatDelimiter,pcgDateFormatDelimiter);
+                            strcat(pclDestDataList, pclTmp);
+                            /*
+                            strcat(pclDestDataList, "date");
+                            strcat(pclDestDataList, "'");
+                            strcat(pclDestDataList, pclTmpDestFieldValue);
+                            strcat(pclDestDataList, "'");
+                            */
+                        }
+                        else
+                        {
+                            strcat(pclDestDataList, "'");
+                            strcat(pclDestDataList, pclTmpDestFieldValue);
+                            strcat(pclDestDataList, "'");
+                        }
+
+                    }
+                    else
+                    {
+                        /*strcat(pclDestDataList,",");*/
+                        strcat(pclDestDataList, pcgDataListDelimiter);
+                        /*if(strstr(pclTmpDestFieldValue,"-") != 0 )*/
+                        if(strstr(pclTmpDestFieldValue,pcgDateFormatDelimiter) != 0 )
+                        {
+                            strcat(pclDestDataList, "to_date(");
+                            strcat(pclDestDataList, "'");
+                            strcat(pclDestDataList, pclTmpDestFieldValue);
+                            strcat(pclDestDataList, "'");
+                            /*strcat(pclDestDataList, ",'YYYY-MM-DD HH24-MI-SS')");*/
+                            sprintf(pclTmp,",'YYYY%sMM%sDD HH24%sMI%sSS')", pcgDateFormatDelimiter,pcgDateFormatDelimiter,pcgDateFormatDelimiter,pcgDateFormatDelimiter);
+                            strcat(pclDestDataList, pclTmp);
+                            /*
+                            strcat(pclDestDataList, "date");
+                            strcat(pclDestDataList, "'");
+                            strcat(pclDestDataList, pclTmpDestFieldValue);
+                            strcat(pclDestDataList, "'");
+                            */
+                        }
+                        else
+                        {
+                            strcat(pclDestDataList, "'");
+                            strcat(pclDestDataList, pclTmpDestFieldValue);
+                            strcat(pclDestDataList, "'");
+                        }
+                    }
+                }
+            }
+        }/*end of dest field for loop*/
+
+        ili = GetNoOfElements(pclDestDataList,pcgDataListDelimiter[0]);
+        dbg(TRACE, "%s The manipulated dest data list <%s> field number<%d>\n",
+            pclFunc, pclDestDataList, ili);
+        /*dbg(TRACE, "%s The manipulated dest data list <%s>\n", pclFunc, pclDestDataList);*/
+
+        /*convert the delimiter into comma*/
+        if (pcgDataListDelimiter[0] != ',')
+        {
+            replaceDelimiter(pclConvertedDataList, pclDestDataList, pcgDataListDelimiter[0], ',');
+        }
+
+        if ( ili != ilNoEleSource)
+        {
+            dbg(TRACE,"%s The number of field in dest data list<%d> and source field<%d> is not matched",pclFunc, ili);
+        }
+        else
+        {
+            strcpy(pclDestFiledListWithCodeshare, pcpDestFiledList);
+
+            /**/
+            if ( strcmp(rgGroupInfo[ipRuleGroup].pclDestTable, "Current_Arrivals"  ) == 0 ||
+                 strcmp(rgGroupInfo[ipRuleGroup].pclDestTable, "Current_Departures") == 0 )
+            {
+                strcat(pclDestFiledListWithCodeshare,",");
+                strcat(pclDestFiledListWithCodeshare,pcpHardcodeShare_DestFieldList);
+            }
+            /**/
+
+            if ( ilIsMaster == MASTER_RECORD )
+            {
+                /**/
+                if ( strcmp(rgGroupInfo[ipRuleGroup].pclDestTable, "Current_Arrivals"  ) == 0 ||
+                     strcmp(rgGroupInfo[ipRuleGroup].pclDestTable, "Current_Departures") == 0 )
+                {
+                    /*Insert data list*/
+                    sprintf(pclTmpInsert,"'%s',%s,%s,%s,%s",pcpHardcodeShare.pclSST,"''","''","''","''");
+
+                    #ifdef _TEST_
+                    sprintf(pclTmpInsert,"'%s',%s,%s,%s,'%s'",pcpHardcodeShare.pclSST,"''","''","''","\"x\",\"y\"");
+                    #endif
+
+                    strcpy(pclDestDataListWithCodeshareInsert, pclConvertedDataList);
+                    strcat(pclDestDataListWithCodeshareInsert,",");
+                    strcat(pclDestDataListWithCodeshareInsert,pclTmpInsert);
+
+                    /*Update data list*/
+                   sprintf(pclTmpUpdate,"'%s'%s%s%s%s%s%s%s%s",pcpHardcodeShare.pclSST,pcgDataListDelimiter,"''",pcgDataListDelimiter,"''",pcgDataListDelimiter,"''",pcgDataListDelimiter,"''");
+
+                    #ifdef _TEST_
+                    sprintf(pclTmpUpdate,"'%s'%s%s%s%s%s%s%s'%s'",pcpHardcodeShare.pclSST,pcgDataListDelimiter,"''",pcgDataListDelimiter,"''",pcgDataListDelimiter,"''",pcgDataListDelimiter,"\"x\",\"y\"");
+                    #endif
+
+                    strcpy(pclDestDataListWithCodeshareUpdate, pclDestDataList);
+                    strcat(pclDestDataListWithCodeshareUpdate, pcgDataListDelimiter);
+                    strcat(pclDestDataListWithCodeshareUpdate, pclTmpUpdate);
+                }
+                else
+                {
+                    strcpy(pclDestDataListWithCodeshareInsert, pclDestDataList);
+                    strcpy(pclDestDataListWithCodeshareUpdate, pclDestDataList);
+                }
+                /**/
+
+                /*buildInsertQuery(pclSqlInsertBuf, rpRule->rlLine[0].pclDestTable, pcpDestFiledList, pclDestDataList);*/
+                /*buildInsertQuery(pclSqlInsertBuf, rpRule->rlLine[0].pclDestTable, pclDestFiledListWithCodeshare, pclDestDataListWithCodeshare);*/
+                buildInsertQuery(pclSqlInsertBuf, rgGroupInfo[ipRuleGroup].pclDestTable, pclDestFiledListWithCodeshare, pclDestDataListWithCodeshareInsert);
+                dbg(DEBUG, "%s __%d__insert<%s>", pclFunc, __LINE__ ,pclSqlInsertBuf);
+
+                /*buildUpdateQuery(pclSqlUpdateBuf, rpRule->rlLine[0].pclDestTable, pcpDestFiledList, pclDestDataList, pclSelection);*/
+                /*buildUpdateQuery(pclSqlUpdateBuf, rpRule->rlLine[0].pclDestTable, pclDestFiledListWithCodeshare, pclDestDataListWithCodeshare,pclSelection);*/
+                buildUpdateQuery(pclSqlUpdateBuf, rgGroupInfo[ipRuleGroup].pclDestTable, pclDestFiledListWithCodeshare, pclDestDataListWithCodeshareUpdate,pcpSelection,ipRuleGroup); /* tvo_fix: pclSelection --> pcpSelection */
+                dbg(DEBUG, "%s update<%s>", pclFunc, pclSqlUpdateBuf);
+
+                strcpy(pcpQuery->pclInsertQuery, pclSqlInsertBuf);
+                strcpy(pcpQuery->pclUpdateQuery, pclSqlUpdateBuf);
+            }
+            else
+            {
+                /**/
+                if ( strcmp(rgGroupInfo[ipRuleGroup].pclDestTable, "Current_Arrivals"  ) == 0 ||
+                     strcmp(rgGroupInfo[ipRuleGroup].pclDestTable, "Current_Departures") == 0 )
+                {
+                    sprintf(pclTmpInsert,"'%s','%s','%s','%s','%s'","SL",pcpHardcodeShare.pclMFC, pcpHardcodeShare.pclMFN,pcpHardcodeShare.pclMFX,pcpHardcodeShare.pclMFF);
+                    strcpy(pclDestDataListWithCodeshareInsert, pclDestDataList);
+                    strcat(pclDestDataListWithCodeshareInsert,",");
+                    strcat(pclDestDataListWithCodeshareInsert,pclTmpInsert);
+                }
+                else
+                {
+                     strcpy(pclDestDataListWithCodeshareInsert, pclDestDataList);
+                }
+                /**/
+
+                /*buildInsertQuery(pclSqlInsertBuf, rpRule->rlLine[0].pclDestTable, pcpDestFiledList, pclDestDataList);*/
+                /*buildInsertQuery(pclSqlInsertBuf, rpRule->rlLine[0].pclDestTable, pclDestFiledListWithCodeshare, pclDestDataListWithCodeshare);*/
+                buildInsertQuery(pclSqlInsertBuf, rgGroupInfo[ipRuleGroup].pclDestTable, pclDestFiledListWithCodeshare, pclDestDataListWithCodeshareInsert);
+                dbg(DEBUG, "%s __%d__insert<%s>", pclFunc, __LINE__, pclSqlInsertBuf);
+
+                strcpy(pcpQuery->pclInsertQuery, pclSqlInsertBuf);
+            }
+        }
+	}
+	else
+	{
+        dbg(TRACE,"%s The number of source and dest list does not euqal <%d>!=<%d>", pclFunc, ilNoEleSource, ilNoEleDest);
+        ilRC = RC_FAIL;
+	}
+
+	return ilRC;
+}
+
+
+#if 0
+/*Original appliedRules*/
+static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *pcpSourceFiledList, char *pcpDestFiledList,
+                        _RULE *rpRule, int ipTotalLineOfRule, char * pcpSelection, char *pcpAdid, int ilIsMaster,
+                        char *pcpHardcodeShare_DestFieldList, _HARDCODE_SHARE pcpHardcodeShare, _QUERY *pcpQuery)
+{
+    int ilRC = RC_SUCCESS;
+    int ilItemNo = 0;
+    int ilEleCount = 0;
+    int ilRuleCount = 0;
+    int ilNoEleSource = 0;
+    int ilNoEleDest = 0;
+    int ili = 0;
+    char *pclFunc = "appliedRules";
+    char pclDestKey[64] = "\0";
+
+    char pclBlank[2] = "";
+    char pclSST[64] = "\0";
+    char pclMFC[64] = "\0";
+    char pclMFN[64] = "\0";
+    char pclMFX[64] = "\0";
+    char pclMFF[64] = "\0";
+
+    char pclTmp[256] = "\0";
+    char pclSelection[256] = "\0";
+    char pclTmpSourceFieldName[256] = "\0";
+    char pclTmpDestFieldName[256] = "\0";
+    char pclTmpSourceFieldValue[256] = "\0";
+    char pclTmpDestFieldValue[256] = "\0";
+    char pclDestDataList[4096] = "\0";
+    char pclSqlBuf[4096] = "\0";
+    char pclSqlData[4096] = "\0";
+    char pclSqlUpdateBuf[4096] = "\0";
+    char pclSqlInsertBuf[4096] = "\0";
+
+    char pclTmpInsert[4096] = "\0";
+    char pclTmpUpdate[4096] = "\0";
+    char pclDestFiledListWithCodeshare[4096] = "\0";
+    char pclDestDataListWithCodeshareInsert[4096] = "\0";
+    char pclDestDataListWithCodeshareUpdate[4096] = "\0";
+    char pclConvertedDataList[8192] = "\0";
+    /*
+    for each item in the field list:
+    1 search for the single rule in the applied group using source field
+    2 check the concrete data type using source filed type
+    3 manipulate the source value according to operator with con1 & con2
+    4 store the operated destination field into a list
+    */
+
+    /*
+    getting one from the source and dest list, then applying the operation based on condition
+    */
+
+	ilNoEleSource = GetNoOfElements(pcpSourceFiledList, ',');
+	ilNoEleDest   = GetNoOfElements(pcpDestFiledList, ',');
+
+	/*dbg(TRACE,"%s The number of source and dest list are <%d> and <%d>", pclFunc, ilNoEleSource, ilNoEleDest);*/
+
+	if (ilNoEleDest == ilNoEleSource)
+	{
+	    dbg(TRACE,"%s The number of source and dest list euqals <%d>==<%d>", pclFunc, ilNoEleSource, ilNoEleDest);
+
+        for(ilEleCount = 1; ilEleCount <= ilNoEleDest; ilEleCount++)
+        {
+            memset(pclTmpSourceFieldName,0,sizeof(pclTmpSourceFieldName));
+            memset(pclTmpDestFieldName,0,sizeof(pclTmpDestFieldName));
+
+            get_item(ilEleCount, pcpSourceFiledList, pclTmpSourceFieldName, 0, ",", "\0", "\0");
+            TrimRight(pclTmpSourceFieldName);
+
+            get_item(ilEleCount, pcpDestFiledList, pclTmpDestFieldName, 0, ",", "\0", "\0");
+            TrimRight(pclTmpDestFieldName);
+
+            dbg(DEBUG,"%s <%d> The filed from source is <%s> - from dest is <%s>",pclFunc, ilEleCount, pclTmpSourceFieldName, pclTmpDestFieldName);
+
+            /*hashtable search - fya*/
             for (ilRuleCount = 0; ilRuleCount <= ipTotalLineOfRule; ilRuleCount++)
             {
                 memset(pclTmpSourceFieldValue,0,sizeof(pclTmpSourceFieldValue));
@@ -2022,6 +2311,7 @@ static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *
 
 	return ilRC;
 }
+#endif
 
 static void showFieldByGroup(char (*pcpSourceFiledSet)[LISTLEN], char (*pcpConflictFiledSet)[LISTLEN], char (* pcpSourceFiledList)[LISTLEN], char (* pcpDestFiledSet)[LISTLEN])
 {
@@ -3449,3 +3739,40 @@ static void replaceDelimiter(char *pcpConvertedDataList, char *pcpOriginalDataLi
     dbg(DEBUG,"%s DataList<%s>",pclFunc, pcpConvertedDataList);
 }
 /*----------------------------------------------------------------------------------------------------*/
+
+static int getRuleIndex_BrutalForce(char *pcpSourceFieldName, char *pcpSourceFieldValue, char *pcpDestFieldName, _RULE *rpRule, int ipRuleGroup, char *pcpFields,int ipTotalLineOfRule,char *pcpData)
+{
+	int ilRC = RC_SUCCESS;
+	int ilRuleCount = 0;
+	int ilItemNo = 0;
+	char *pclFunc = "getRuleIndex_BrutalForce";
+
+	for (ilRuleCount = 0; ilRuleCount <= ipTotalLineOfRule; ilRuleCount++)
+	{
+	    memset(pcpSourceFieldValue,0,sizeof(pcpSourceFieldValue));
+	    /*matched the group number*/
+	    if ( atoi(rpRule->rlLine[ilRuleCount].pclRuleGroup) == ipRuleGroup)
+	    {
+	        if (strcmp(rpRule->rlLine[ilRuleCount].pclDestField, pcpDestFieldName) == 0)
+	        {
+	            ilItemNo = get_item_no(pcpFields, pcpSourceFieldName, 5) + 1;
+	            if (ilItemNo <= 0 )
+	            {
+	                dbg(TRACE, "<%s> No <%s> Not found in the field list, can't do anything", pclFunc, pcpSourceFieldName);
+	                return RC_FAIL;
+	            }
+	            else
+	            {
+	                get_real_item(pcpSourceFieldValue, pcpData, ilItemNo);
+	                return ilRuleCount;
+	            }
+	            dbg(DEBUG,"<%s> Source - The value for <%s> is <%s>", pclFunc, pcpSourceFieldName, pcpSourceFieldValue);
+	        }/*end of matching the dest field*/
+	    }/*end of matching the rule group*/
+	    else
+	    {
+	        /*dbg(DEBUG,"%s The group number is not matched - ipRuleGroup<%d> and <%d>",pclFunc, ipRuleGroup, atoi(rpRule->rlLine[ilRuleCount].pclRuleGroup));*/
+	        continue;
+	    }
+	}/*end of rule searching for loop*/
+}
