@@ -7,6 +7,7 @@
 
 #define FYA
 
+#define NONBLANK 2
 #define INSERT 9
 #define UPDATE 10
 #define MASTER_RECORD 0

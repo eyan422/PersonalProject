@@ -198,6 +198,7 @@ static int showGroupInfo(_LINE *rlGroupInfo, int ipGroupNO);
 static int getRefTimeFiledValueFromSource(char *pcpTable, char *pcpFields, char *pcpNewData, char *pcpSelection, char *pcpTimeWindowRefFieldVal, char *pcpTimeWindowRefField);
 static void replaceDelimiter(char *pcpConvertedDataList, char *pcpOriginalDataList, char pcpOrginalDelimiter, char pcpConvertedDelimiter);
 static int getRuleIndex_BrutalForce(char *pcpSourceFieldName, char *pcpSourceFieldValue, char *pcpDestFieldName, _RULE *rpRule, int ipRuleGroup, char *pcpFields,int ipTotalLineOfRule,char *pcpData);
+static void buildConvertedDataList(int ipType,char *pcpDestDataList, char *pcpDestFieldValue, int ipOption);
 /******************************************************************************/
 /*                                                                            */
 /* The MAIN program                                                           */
@@ -1750,7 +1751,6 @@ static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *
     char pclMFX[64] = "\0";
     char pclMFF[64] = "\0";
 
-    char pclTmp[256] = "\0";
     char pclSelection[256] = "\0";
     char pclTmpSourceFieldName[256] = "\0";
     char pclTmpDestFieldName[256] = "\0";
@@ -1807,99 +1807,18 @@ static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *
             ilRuleCount = getRuleIndex_BrutalForce(pclTmpSourceFieldName, pclTmpSourceFieldValue, pclTmpDestFieldName, rpRule, ipRuleGroup, pcpFields, ipTotalLineOfRule, pcpData);
             if(ilRuleCount == RC_FAIL)
             {
-                if ( strlen(pclDestDataList) == 0 )
-                {
-                    strcat(pclDestDataList, " ");
-                }
-                else
-                {
-                    /*strcat(pclDestDataList,",");*/
-                    strcat(pclDestDataList, pcgDataListDelimiter);
-                    strcat(pclDestDataList, " ");
-                }
+                dbg(DEBUG,"%s Found index fails -> return",pclFunc);
+                return RC_FAIL;
+                /*buildConvertedDataList(pclDestDataList, pclTmpDestFieldValue, BLANK);*/
             }
             else
             {
-                /*++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++*/
                 /*getting the operator and condition*/
                 /*dbg(TRACE,"%s The operator is <%s> and con1<%s>, con2<%s>",pclFunc, rpRule->rlLine[ilRuleCount].pclDestFieldOperator,
                 rpRule->rlLine[ilRuleCount].pclCond1, rpRule->rlLine[ilRuleCount].pclCond2);*/
                 ilRC = convertSrcValToDestVal(pclTmpSourceFieldName, pclTmpSourceFieldValue, pclTmpDestFieldName, rpRule->rlLine+ilRuleCount, pclTmpDestFieldValue, pcpSelection, pcpAdid);
 
-                /*NUMBER*/
-                if(ilRC == RC_NUMBER)
-                {
-                    if ( strlen(pclDestDataList) == 0 )
-                    {
-                        strcat(pclDestDataList, pclTmpDestFieldValue);
-                    }
-                    else
-                    {
-                        /*strcat(pclDestDataList,",");*/
-                        strcat(pclDestDataList, pcgDataListDelimiter);
-                        strcat(pclDestDataList, pclTmpDestFieldValue);
-                    }
-                }/*CHAR*/
-                else
-                {
-                    if ( strlen(pclDestDataList) == 0 )
-                    {
-                        /*if(strstr(pclTmpDestFieldValue,"-") != 0 )*/
-                        if(strstr(pclTmpDestFieldValue,pcgDateFormatDelimiter) != 0 )
-                        {
-                            /*to_date('%s','YYYY-MM-DD HH24:MI:SS')*/
-
-                            strcat(pclDestDataList, "to_date(");
-                            strcat(pclDestDataList, "'");
-                            strcat(pclDestDataList, pclTmpDestFieldValue);
-                            strcat(pclDestDataList, "'");
-                            /*strcat(pclDestDataList, ",'YYYY-MM-DD HH24-MI-SS')");*/
-                            sprintf(pclTmp,",'YYYY%sMM%sDD HH24%sMI%sSS')", pcgDateFormatDelimiter,pcgDateFormatDelimiter,pcgDateFormatDelimiter,pcgDateFormatDelimiter);
-                            strcat(pclDestDataList, pclTmp);
-                            /*
-                            strcat(pclDestDataList, "date");
-                            strcat(pclDestDataList, "'");
-                            strcat(pclDestDataList, pclTmpDestFieldValue);
-                            strcat(pclDestDataList, "'");
-                            */
-                        }
-                        else
-                        {
-                            strcat(pclDestDataList, "'");
-                            strcat(pclDestDataList, pclTmpDestFieldValue);
-                            strcat(pclDestDataList, "'");
-                        }
-
-                    }
-                    else
-                    {
-                        /*strcat(pclDestDataList,",");*/
-                        strcat(pclDestDataList, pcgDataListDelimiter);
-                        /*if(strstr(pclTmpDestFieldValue,"-") != 0 )*/
-                        if(strstr(pclTmpDestFieldValue,pcgDateFormatDelimiter) != 0 )
-                        {
-                            strcat(pclDestDataList, "to_date(");
-                            strcat(pclDestDataList, "'");
-                            strcat(pclDestDataList, pclTmpDestFieldValue);
-                            strcat(pclDestDataList, "'");
-                            /*strcat(pclDestDataList, ",'YYYY-MM-DD HH24-MI-SS')");*/
-                            sprintf(pclTmp,",'YYYY%sMM%sDD HH24%sMI%sSS')", pcgDateFormatDelimiter,pcgDateFormatDelimiter,pcgDateFormatDelimiter,pcgDateFormatDelimiter);
-                            strcat(pclDestDataList, pclTmp);
-                            /*
-                            strcat(pclDestDataList, "date");
-                            strcat(pclDestDataList, "'");
-                            strcat(pclDestDataList, pclTmpDestFieldValue);
-                            strcat(pclDestDataList, "'");
-                            */
-                        }
-                        else
-                        {
-                            strcat(pclDestDataList, "'");
-                            strcat(pclDestDataList, pclTmpDestFieldValue);
-                            strcat(pclDestDataList, "'");
-                        }
-                    }
-                }
+                buildConvertedDataList(ilRC, pclDestDataList, pclTmpDestFieldValue, NONBLANK);
             }
         }/*end of dest field for loop*/
 
@@ -3775,4 +3694,102 @@ static int getRuleIndex_BrutalForce(char *pcpSourceFieldName, char *pcpSourceFie
 	        continue;
 	    }
 	}/*end of rule searching for loop*/
+}
+
+static void buildConvertedDataList(int ipType,char *pcpDestDataList, char *pcpDestFieldValue, int ipOption)
+{
+    int ilRC = RC_SUCCESS;
+	char *pclFunc = "getRuleIndex_BrutalForce";
+    char pclTmp[256] = "\0";
+
+    if (ipOption == BLANK)
+    {
+        if ( strlen(pcpDestDataList) == 0 )
+        {
+            strcat(pcpDestDataList, " ");
+        }
+        else
+        {
+            /*strcat(pclDestDataList,",");*/
+            strcat(pcpDestDataList, pcgDataListDelimiter);
+            strcat(pcpDestDataList, " ");
+        }
+    }
+    else
+    {
+        /*NUMBER*/
+        if(ipType == RC_NUMBER)
+        {
+            if ( strlen(pcpDestDataList) == 0 )
+            {
+                strcat(pcpDestDataList, pcpDestFieldValue);
+            }
+            else
+            {
+                /*strcat(pcpDestDataList,",");*/
+                strcat(pcpDestDataList, pcgDataListDelimiter);
+                strcat(pcpDestDataList, pcpDestFieldValue);
+            }
+        }/*CHAR*/
+        else
+        {
+            if ( strlen(pcpDestDataList) == 0 )
+            {
+                /*if(strstr(pcpDestFieldValue,"-") != 0 )*/
+                if(strstr(pcpDestFieldValue,pcgDateFormatDelimiter) != 0 )
+                {
+                    /*to_date('%s','YYYY-MM-DD HH24:MI:SS')*/
+
+                    strcat(pcpDestDataList, "to_date(");
+                    strcat(pcpDestDataList, "'");
+                    strcat(pcpDestDataList, pcpDestFieldValue);
+                    strcat(pcpDestDataList, "'");
+                    /*strcat(pcpDestDataList, ",'YYYY-MM-DD HH24-MI-SS')");*/
+                    sprintf(pclTmp,",'YYYY%sMM%sDD HH24%sMI%sSS')", pcgDateFormatDelimiter,pcgDateFormatDelimiter,pcgDateFormatDelimiter,pcgDateFormatDelimiter);
+                    strcat(pcpDestDataList, pclTmp);
+                    /*
+                    strcat(pcpDestDataList, "date");
+                    strcat(pcpDestDataList, "'");
+                    strcat(pcpDestDataList, pcpDestFieldValue);
+                    strcat(pcpDestDataList, "'");
+                    */
+                }
+                else
+                {
+                    strcat(pcpDestDataList, "'");
+                    strcat(pcpDestDataList, pcpDestFieldValue);
+                    strcat(pcpDestDataList, "'");
+                }
+
+            }
+            else
+            {
+                /*strcat(pcpDestDataList,",");*/
+                strcat(pcpDestDataList, pcgDataListDelimiter);
+                /*if(strstr(pcpDestFieldValue,"-") != 0 )*/
+                if(strstr(pcpDestFieldValue,pcgDateFormatDelimiter) != 0 )
+                {
+                    strcat(pcpDestDataList, "to_date(");
+                    strcat(pcpDestDataList, "'");
+                    strcat(pcpDestDataList, pcpDestFieldValue);
+                    strcat(pcpDestDataList, "'");
+                    /*strcat(pcpDestDataList, ",'YYYY-MM-DD HH24-MI-SS')");*/
+                    sprintf(pclTmp,",'YYYY%sMM%sDD HH24%sMI%sSS')", pcgDateFormatDelimiter,pcgDateFormatDelimiter,pcgDateFormatDelimiter,pcgDateFormatDelimiter);
+                    strcat(pcpDestDataList, pclTmp);
+                    /*
+                    strcat(pcpDestDataList, "date");
+                    strcat(pcpDestDataList, "'");
+                    strcat(pcpDestDataList, pcpDestFieldValue);
+                    strcat(pcpDestDataList, "'");
+                    */
+                }
+                else
+                {
+                    strcat(pcpDestDataList, "'");
+                    strcat(pcpDestDataList, pcpDestFieldValue);
+                    strcat(pcpDestDataList, "'");
+                }
+            }
+        }
+    }
 }
