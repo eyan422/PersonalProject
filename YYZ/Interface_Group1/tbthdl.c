@@ -69,6 +69,9 @@ static char sccs_version[] ="@(#) UFIS44 (c) ABB AAT/I skeleton.c 44.1.0 / 11.12
 
 /*#include "urno_fn.inc"*/
 #include "tbthdl_sub_group2.c"
+#include "ght_hash_table.h"
+#include "hash_table.c"
+#include "hash_functions.c"
 
 #if defined(_HPUX_SOURCE)  || defined(_AIX)
 	extern int daylight;
@@ -331,15 +334,58 @@ MAIN
         ilRc = tools_send_info_flag( mod_id, mod_id , mod_name , mod_name, mod_name, "","","","","UFR", "AFTTAB",clSelection, clFields, clData, NETOUT_NO_ACK);
 
 
-
+			#if 0
         strcpy(clTable,"CCATAB");
-        strcpy(clSelection,"WHERE URNO = 573728640\n573728640");
-        strcpy(clFields,"URNO,REMA");
-        strcpy(clData,"1252938332,tvo");
-        /// tools_send_info_flag( mod_id, mod_id , mod_name , mod_name, mod_name, "","","","","UFR", clTable,clSelection, clFields, clData, NETOUT_NO_ACK);
+        strcpy(clSelection,"WHERE URNO = 934377037\n934377037");
+        strcpy(clFields,"URNO,CKBS,CKES");
+        sprintf(clData,"934377037,%s,%s\n",clTestTime,clTestTime);
+        tools_send_info_flag( 506, mod_id , mod_name , mod_name, mod_name, "","","","","URT", clTable,clSelection, clFields, clData, NETOUT_NO_ACK);
+		#endif
 
+		#if 1     /* test hash table */
+		ght_hash_table_t *p_table;
+		int  *p_data;
+		int  *p_he;
+		char clHashKey[128];
+		int  ilCount;
+
+		p_table = ght_create(igTotalLineOfRule);
+
+		dbg(DEBUG,"<tvo> igTotalLineOfRule = <%d>, igTotalNumbeoOfRule = <%d>", igTotalLineOfRule, igTotalNumbeoOfRule);
+
+		for (ilCount = 0; ilCount <= igTotalLineOfRule; ilCount++)
+		{
+			if ( !(p_data = (int*)malloc(sizeof(int))) )
+				return -1;
+			/* Assign the data a value */
+			*p_data = ilCount;
+			sprintf(clHashKey,"%s%s", rgRule.rlLine[ilCount].pclRuleGroup, rgRule.rlLine[ilCount].pclDestField);
+			/* Insert "blabla" into the hash table */
+			ght_insert(p_table, p_data, sizeof(char)*strlen(clHashKey), clHashKey);
+			dbg(DEBUG, "<tvo> clHashKey = <%s>, ilCount = <%d>", clHashKey, ilCount);
+		}
+		/* Search for dest field */
+		strcpy(clHashKey, "2 LATEST_DATE");
+		if ( (p_he = ght_get(p_table,sizeof(char)*strlen(clHashKey), clHashKey)) != NULL )
+			dbg(DEBUG,"Found <%s> at %d\n", clHashKey, *p_he);
+		else
+			dbg(DEBUG,"Did not find <%s> !\n", clHashKey);
+
+		strcpy(clHashKey, "2LATEST_DATE");
+		if ( (p_he = ght_get(p_table,sizeof(char)*strlen(clHashKey), clHashKey)) != NULL )
+			dbg(DEBUG,"Found <%s> at %d\n", clHashKey, *p_he);
+		else
+			dbg(DEBUG,"Did not find <%s> !\n", clHashKey);
+
+
+       /* Remove the hash table */
+		ght_finalize(p_table);
+		#endif
+        dbg(DEBUG, "-------------------- end of tvo_test ---------------------------------");
         /*-------------------------------------------------------------------------*/
     #endif
+
+
 
 	for(;;)
 	{
@@ -1607,6 +1653,9 @@ static int toDetermineAppliedRuleGroup(char * pcpTable, char * pcpFields, char *
     char pclADID[16] = "\0";
     char pclTmp[64] = "\0";
 
+    strcpy(pclADID, pcpAdidValue);
+    dbg(DEBUG,"<%s> The New ADID is <%s>", pclFunc, pclADID);
+
     /*rewrite below code to determine the applied group by modname instead of hard-coded criteria*/
     if (strcmp(mod_name, "tbthdl") == 0)
     {
@@ -1635,14 +1684,18 @@ static int toDetermineAppliedRuleGroup(char * pcpTable, char * pcpFields, char *
         strcpy(pclTmp,"BMS_TNEW_DAILY");
     }
 
+    dbg(DEBUG,"%s pclTmp<%s>",pclFunc,pclTmp);
+
     for (ilCount = 0; ilCount <= igTotalNumbeoOfRule; ilCount++)
     {
         if ( strcmp(rgGroupInfo[ilCount].pclDestTable, pclTmp ) == 0)
         {
             ilRuleNumber = ilCount;
+            dbg(DEBUG,"%s ilRuleNumber<%d> break",pclFunc,ilRuleNumber);
             break;
         }
     }
+    return ilRuleNumber;
 
     #ifdef _TEST_
     /*
@@ -1673,8 +1726,6 @@ static int toDetermineAppliedRuleGroup(char * pcpTable, char * pcpFields, char *
         ilRuleNumber = 3;
     }
     #endif
-
-    return ilRuleNumber;
 }
 
 static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *pcpSourceFiledList, char *pcpDestFiledList,
@@ -1750,7 +1801,7 @@ static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *
 
             dbg(DEBUG,"%s <%d> The filed from source is <%s> - from dest is <%s>",pclFunc, ilEleCount, pclTmpSourceFieldName, pclTmpDestFieldName);
 
-            /*binary search - fya*/
+            /*hashtable search - fya*/
             for (ilRuleCount = 0; ilRuleCount <= ipTotalLineOfRule; ilRuleCount++)
             {
                 memset(pclTmpSourceFieldValue,0,sizeof(pclTmpSourceFieldValue));
@@ -1860,6 +1911,7 @@ static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *
                 }
             }
         }/*end of for loop*/
+
         ili = GetNoOfElements(pclDestDataList,pcgDataListDelimiter[0]);
         dbg(TRACE, "%s The manipulated dest data list <%s> field number<%d>\n",
             pclFunc, pclDestDataList, ili);
