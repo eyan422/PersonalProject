@@ -2,7 +2,7 @@
 #ifndef _DEF_mks_version
   #define _DEF_mks_version
   #include "ufisvers.h" /* sets UFIS_VERSION, must be done before mks_version */
-  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/tbthdl.c 1.11 2014/06/26 15:38:14SGT fya Exp  $";
+  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/tbthdl.c 1.12 2014/06/27 11:28:14SGT fya Exp  $";
 #endif /* _DEF_mks_version */
 /******************************************************************************/
 /*                                                                            */
@@ -107,6 +107,7 @@ static int igDiffUtcToLocal;
 static char pcgServerChars[110];
 static char pcgClientChars[110];
 static char pcgUfisConfigFile[512];
+static char pcgDeletionStatusIndicator[512];
 
 ght_hash_table_t *pcgHash_table = NULL;
 
@@ -1197,6 +1198,17 @@ static int getConfig()
         igRuleSearchMethod = HASH;
     }
     dbg(DEBUG,"igRuleSearchMethod<%s>",igRuleSearchMethod==HASH?"HASH":"BRUTAL");
+
+    ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","DELETION_STATUS_INDICATOR",CFG_STRING,pclTmpBuf);
+    if (ilRC == RC_SUCCESS)
+    {
+        strcpy(pcgDeletionStatusIndicator, pclTmpBuf);
+    }
+    else
+    {
+        strcpy(pcgDeletionStatusIndicator, "DELETE");
+    }
+    dbg(DEBUG,"pcgDeletionStatusIndicator<%s>",pcgDeletionStatusIndicator);
 
     ilRC = iGetConfigEntry(pcgConfigFile,"URNO","CURRENT_ARRIVALS",CFG_STRING,pclTmpBuf);
     if (ilRC == RC_SUCCESS)
@@ -2916,7 +2928,15 @@ static int mapping(char *pcpTable, char *pcpFields, char *pcpNewData, char *pcpS
             sprintf(pclSqlBuf, "DELETE FROM %s WHERE %s='%s' AND SST!='%s'", rgRule.rlLine[0].pclDestTable, rgRule.rlLine[0].pclDestKey, pclUrnoSelection, pcgMasterSST);
             */
 			dbg(DEBUG, "%d_pclDestKey = (<%s>,<%s>), pcgMasterSST = <%s>", __LINE__, rgGroupInfo[ilRuleGroup].pclDestKey, pclUrnoSelection, pcgMasterSST);
-            sprintf(pclSqlBuf, "DELETE FROM %s WHERE %s='%s' AND SST!='%s'", rgGroupInfo[ilRuleGroup].pclDestTable, rgGroupInfo[ilRuleGroup].pclDestKey, pclUrnoSelection, pcgMasterSST);
+
+			if (strcmp(pcgDeletionStatusIndicator,"DELETE")==0)
+			{
+			    sprintf(pclSqlBuf, "DELETE FROM %s WHERE %s='%s' AND SST!='%s'", rgGroupInfo[ilRuleGroup].pclDestTable, rgGroupInfo[ilRuleGroup].pclDestKey, pclUrnoSelection, pcgMasterSST);
+			}
+            else
+            {
+                sprintf(pclSqlBuf, "UPDATE %s SET %s='DELETE' WHERE %s='%s' AND SST!='%s'", rgGroupInfo[ilRuleGroup].pclDestTable, pcgDeletionStatusIndicator, rgGroupInfo[ilRuleGroup].pclDestKey, pclUrnoSelection, pcgMasterSST);
+            }
             dbg(TRACE,"%s Delete Query<%s>",pclFunc, pclSqlBuf);
 
             ilRc = sql_if(slFuncCode, &slLocalCursor, pclSqlBuf, pclSqlData);
@@ -3532,16 +3552,15 @@ static void deleteFlightsOutOfTimeWindowByGroup(int ipRuleGroup, char *pcpTimeWi
     slLocalCursor = 0;
     slFuncCode = START;
 
-    if(ipRuleGroup == 1)
+    if (strcmp(pcgDeletionStatusIndicator,"DELETE") == 0)
     {
-        /*arrival fligths*/
-        sprintf(pclSqlBuf, "DELETE FROM Current_Arrivals WHERE CDAT BETWEEN %s AND %s", pclTmpOriginal,pclTmpCurrent);
+        sprintf(pclSqlBuf, "DELETE FROM %s WHERE CDAT BETWEEN %s AND %s", rgGroupInfo[ipRuleGroup].pclDestTable, pclTmpOriginal,pclTmpCurrent);
     }
-    else if(ipRuleGroup == igTotalNumbeoOfRule)
+    else
     {
-        /*departure fligths*/
-        sprintf(pclSqlBuf, "DELETE FROM Current_Departures WHERE CDAT BETWEEN %s AND %s", pclTmpOriginal,pclTmpCurrent);
+        sprintf(pclSqlBuf, "UPDATE %s SET %s='DELETE' WHERE CDAT BETWEEN %s AND %s", rgGroupInfo[ipRuleGroup].pclDestTable, pcgDeletionStatusIndicator,pclTmpOriginal,pclTmpCurrent);
     }
+
     dbg(TRACE,"%s [%d]Delete Query<%s>",pclFunc, ipRuleGroup, pclSqlBuf);
 
     ilRc = sql_if(slFuncCode, &slLocalCursor, pclSqlBuf, pclSqlData);
