@@ -201,8 +201,9 @@ static void updateTimeWindow(char *pcpTimeWindowLowerLimit, char *pcpTimeWindowU
 static int showGroupInfo(_LINE *rlGroupInfo, int ipGroupNO);
 static int getRefTimeFiledValueFromSource(char *pcpTable, char *pcpFields, char *pcpNewData, char *pcpSelection, char *pcpTimeWindowRefFieldVal, char *pcpTimeWindowRefField);
 static void replaceDelimiter(char *pcpConvertedDataList, char *pcpOriginalDataList, char pcpOrginalDelimiter, char pcpConvertedDelimiter);
+int runTestData();
 static int getRuleIndex_BrutalForce(char *pcpSourceFieldName, char *pcpSourceFieldValue, char *pcpDestFieldName, _RULE *rpRule, int ipRuleGroup, char *pcpFields,int ipTotalLineOfRule,char *pcpData);
-static void buildConvertedDataList(int ipType,char *pcpDestDataList, char *pcpDestFieldValue, int ipOption);
+static void buildConvertedDataList(char *pcpDetType, char *pcpDestDataList, char *pcpDestFieldValue, int ipOption);
 static int buildHash(int ipTotalLineOfRule, _RULE rpRule, ght_hash_table_t **pcpHash_table);
 static int getRuleIndex_Hash(int ipRuleGroup, char *pcpDestFieldName, char *pcpFields, char *pcpData, char *pcpSourceFieldName, char *pcpSourceFieldValue);
 /******************************************************************************/
@@ -315,83 +316,7 @@ MAIN
 	dbg(TRACE,"Vorsicht, ich bin nur ein Skeleton und tue nichts.......... ");
 	dbg(TRACE,"=====================");
 
-    #ifdef TVO
-        /*--------- tvo_test ------------------------------------------------------*/
-        /* select URNO,ADID,STOA,STOD,TIFA,TIFD,ALC2 from afttab where (ADID = 'D') and (STOD like '20140612%') and (rownum < 5); */
-        /* select URNO,ADID,STOA,STOD,TIFA,TIFD,ALC2 from afttab where (ADID = 'A') and (STOA like '20140612%') and (rownum < 5); */
-        debug_level = DEBUG;
-        char clSelection[128] = "WHERE URNO = 971250116\n971250116";
-        char clFields[512] = "URNO,ADID,STOA,STOD,TIFA,TIFD,ALC2";
-        char clTable[32];
-        /* azapp test departure flight */
-        char clData[1024] = "971250116,D,20140611185500,20140611101500,20140611185501,20140611101500,AZ\n";
-
-        sprintf(clSelection, "WHERE URNO = %s\n%s", "1882985177","1882985177");   /* satsvm test departure */
-        strcpy(clData,"1882985177,D,20140612065000,20140612052000,20140612065000,20140612052000,MI\n");
-
-
-        /*----route_id, orig_id, Pdst_name, Porg_name, Prcv_name, Pseq_id, Pref_seq_id, Ptw_start, Ptw_end,  -------------------*/
-        ilRc = tools_send_info_flag( mod_id, mod_id , mod_name , mod_name, mod_name, "","","","", "UFR", "AFTTAB",clSelection, clFields, clData, NETOUT_NO_ACK);
-
-        /* azapp test arrival flight */
-        sprintf(clSelection, "WHERE URNO = %s\n971286966", "971286966");
-        strcpy(clData,"971286966,A,20140611100501,20140611075000,20140611100500,20140611075000,KL\n971286966,A,20140611100500,20140611075000,20140611100500,20140611075000,KL");
-
-        sprintf(clSelection,"WHERE URNO = %s\n%s","1889950130","1889950130");   /* satsvm test arrival */
-        strcpy(clData,"1889950130,A,20140612001000,20140611223500,20140612001000,20140611223500,SQ\n");
-        ilRc = tools_send_info_flag( mod_id, mod_id , mod_name , mod_name, mod_name, "","","","","UFR", "AFTTAB",clSelection, clFields, clData, NETOUT_NO_ACK);
-
-
-        #if 0
-        strcpy(clTable,"CCATAB");
-        strcpy(clSelection,"WHERE URNO = 934377037\n934377037");
-        strcpy(clFields,"URNO,CKBS,CKES");
-        sprintf(clData,"934377037,%s,%s\n",clTestTime,clTestTime);
-        tools_send_info_flag( 506, mod_id , mod_name , mod_name, mod_name, "","","","","URT", clTable,clSelection, clFields, clData, NETOUT_NO_ACK);
-		#endif
-
-		#if 1     /* test hash table */
-		ght_hash_table_t *p_table;
-		int  *p_data;
-		int  *p_he;
-		char clHashKey[128];
-		int  ilCount;
-
-		p_table = ght_create(igTotalLineOfRule);
-
-		dbg(DEBUG,"<tvo> igTotalLineOfRule = <%d>, igTotalNumbeoOfRule = <%d>", igTotalLineOfRule, igTotalNumbeoOfRule);
-
-		for (ilCount = 0; ilCount <= igTotalLineOfRule; ilCount++)
-		{
-			if ( !(p_data = (int*)malloc(sizeof(int))) )
-				return -1;
-			/* Assign the data a value */
-			*p_data = ilCount;
-			sprintf(clHashKey,"%s%s", rgRule.rlLine[ilCount].pclRuleGroup, rgRule.rlLine[ilCount].pclDestField);
-			/* Insert "blabla" into the hash table */
-			ght_insert(p_table, p_data, sizeof(char)*strlen(clHashKey), clHashKey);
-			dbg(DEBUG, "<tvo> clHashKey = <%s>, ilCount = <%d>", clHashKey, ilCount);
-		}
-		/* Search for dest field */
-		strcpy(clHashKey, "2 LATEST_DATE");
-		if ( (p_he = ght_get(p_table, sizeof(char) * strlen(clHashKey), clHashKey)) != NULL )
-			dbg(DEBUG,"Found <%s> at %d\n", clHashKey, *p_he);
-		else
-			dbg(DEBUG,"Did not find <%s> !\n", clHashKey);
-
-		strcpy(clHashKey, "2LATEST_DATE");
-		if ( (p_he = ght_get(p_table, sizeof(char) * strlen(clHashKey), clHashKey)) != NULL )
-			dbg(DEBUG,"Found <%s> at %d\n", clHashKey, *p_he);
-		else
-			dbg(DEBUG,"Did not find <%s> !\n", clHashKey);
-
-
-       /* Remove the hash table */
-		ght_finalize(p_table, rgRule, );
-		#endif
-        dbg(DEBUG, "-------------------- end of tvo_test ---------------------------------");
-        /*-------------------------------------------------------------------------*/
-    #endif
+    runTestData();    /* run test data for AFTTAB and CCATAB */
 
 	for(;;)
 	{
@@ -491,7 +416,113 @@ MAIN
 	} /* end for */
 
 } /* end of MAIN */
+/*-----------------------------------------------------------------------------*/
+int runTestData()
+{
+	char pclTimeNow[TIMEFORMAT] = "\0";
+	char clTestTime[20];
+	char clSelection[256];
+    char clFields[512] = "URNO,ADID,STOA,STOD,TIFA,TIFD,ALC2";
+    char clTable[32] = "AFTTAB";
+    char clData[1024];
+	char pclSqlBuf[512];
 
+	debug_level = DEBUG;        /* set debug level to FULL mode */
+
+	GetServerTimeStamp( "UTC", 1, 0, pclTimeNow);
+	sprintf(clTestTime, "20140624%s", &pclTimeNow[8]);
+    /*--------- tvo_test ------------------------------------------------------*/
+    /* select URNO,ADID,STOA,STOD,TIFA,TIFD,ALC2 from afttab where (ADID = 'D') and (STOD like '20140612%') and (rownum < 5); */
+    /* select URNO,ADID,STOA,STOD,TIFA,TIFD,ALC2 from afttab where (ADID = 'A') and (STOA like '20140612%') and (rownum < 5); */
+
+    #if 0
+	/* azapp test departure flight */
+	strcpy(clSelection,"WHERE URNO = 971250116\n971250116");
+    strcpy(clData,"971250116,D,20140611185500,20140611101500,20140611185501,20140611101500,AZ\n");
+
+	sprintf(clSelection, "WHERE URNO = %s\n%s", "1882985177","1882985177");   /* satsvm test departure */
+    strcpy(clData,"1882985177,D,20140612065000,20140612052000,20140612065000,20140612052000,MI\n");
+    /*----route_id, orig_id, Pdst_name, Porg_name, Prcv_name, Pseq_id, Pref_seq_id, Ptw_start, Ptw_end,  -------------------*/
+    ilRc = tools_send_info_flag( mod_id, mod_id , mod_name , mod_name, mod_name, "","","","", "UFR", "AFTTAB",clSelection, clFields, clData, NETOUT_NO_ACK);
+
+    /* azapp test arrival flight */
+    sprintf(clSelection, "WHERE URNO = %s\n971286966", "971286966");
+    strcpy(clData,"971286966,A,20140611100501,20140611075000,20140611100500,20140611075000,KL\n971286966,A,20140611100500,20140611075000,20140611100500,20140611075000,KL");
+    sprintf(clSelection,"WHERE URNO = %s\n%s","1889950130","1889950130");   /* satsvm test arrival */
+    strcpy(clData,"1889950130,A,20140612001000,20140611223500,20140612001000,20140611223500,SQ\n");
+    ilRc = tools_send_info_flag( mod_id, mod_id , mod_name , mod_name, mod_name, "","","","","UFR", "AFTTAB",clSelection, clFields, clData, NETOUT_NO_ACK);
+	#endif
+
+	#if 1     /* yyzvm test */
+	strcpy(pclSqlBuf,"update afttab set remp = 'ABC', GTD1 = 'E76', GD1X = '20140401010539', WRO1 = 'SKL', BLT1 = 'RD04'  where URNO=932911970");
+	int ilRc = RunSQL(pclSqlBuf, clData);
+	if (ilRc == RC_SUCCESS)
+		dbg(DEBUG,"<tvo> RunSQL ok, clData = <%s>", clData);
+
+	strcpy(pclSqlBuf,"select mff from current_departures where did = 932121610");
+	ilRc = RunSQL(pclSqlBuf, clData);
+	if (ilRc == RC_SUCCESS)
+		dbg(DEBUG,"<tvo> RunSQL ok, clData = <%s>", clData);
+
+    sprintf(clSelection, "WHERE URNO = 932911970");		/* yyzvm departure flight */
+	sprintf(clData,"932911970,D,,%s,%s,%s,LH", clTestTime,clTestTime,clTestTime);
+    /*----route_id, orig_id, Pdst_name, Porg_name, Prcv_name, Pseq_id, Pref_seq_id, Ptw_start, Ptw_end,  -------------------*/
+	ilRc = tools_send_info_flag( 7800, mod_id , mod_name , mod_name, mod_name, "","","","", "UFR", "AFTTAB",clSelection, clFields, clData, NETOUT_NO_ACK);
+
+	sprintf(clSelection, "WHERE URNO = 933334954");   /* yyzvm arrival flight */
+	sprintf(clData,"933334954,A,%s,,%s,%s,5Y", clTestTime,clTestTime,clTestTime);
+    ilRc = tools_send_info_flag( 7800, mod_id , mod_name , mod_name, mod_name, "","","","","UFR", "AFTTAB",clSelection, clFields, clData, NETOUT_NO_ACK);
+	#endif
+
+	#if 1
+    strcpy(clTable,"CCATAB");
+    strcpy(clSelection,"WHERE URNO = 934377037\n934377037");
+    strcpy(clFields,"URNO,CKBS,CKES");
+    sprintf(clData,"934377037,%s,%s\n",clTestTime,clTestTime);
+    tools_send_info_flag( 506, mod_id , mod_name , mod_name, mod_name, "","","","","URT", clTable,clSelection, clFields, clData, NETOUT_NO_ACK);
+	#endif
+
+	#if 0     /* test hash table */
+	ght_hash_table_t *p_table;
+	int  *p_data;
+	int  *p_he;
+	char clHashKey[128];
+	int  ilCount;
+
+	p_table = ght_create(igTotalLineOfRule);
+
+	dbg(DEBUG,"<tvo> igTotalLineOfRule = <%d>, igTotalNumbeoOfRule = <%d>", igTotalLineOfRule, igTotalNumbeoOfRule);
+
+	for (ilCount = 0; ilCount < igTotalLineOfRule; ilCount++)
+	{
+		if ( !(p_data = (int*)malloc(sizeof(int))) )
+				return -1;
+		/* Assign the data a value */
+		*p_data = ilCount;
+		sprintf(clHashKey,"%s%s", rgRule.rlLine[ilCount].pclRuleGroup, rgRule.rlLine[ilCount].pclDestField);
+		/* Insert "blabla" into the hash table */
+		ght_insert(p_table, p_data, sizeof(char)*strlen(clHashKey), clHashKey);
+		dbg(DEBUG, "<tvo> clHashKey = <%s>, ilCount = <%d>", clHashKey, ilCount);
+	}
+	/* Search for dest field */
+	strcpy(clHashKey, "2 LATEST_DATE");
+	if ( (p_he = ght_get(p_table,sizeof(char)*strlen(clHashKey), clHashKey)) != NULL )
+		dbg(DEBUG,"Found <%s> at %d\n", clHashKey, *p_he);
+	else
+		dbg(DEBUG,"Did not find <%s> !\n", clHashKey);
+
+	strcpy(clHashKey, "2LATEST_DATE");
+	if ( (p_he = ght_get(p_table,sizeof(char)*strlen(clHashKey), clHashKey)) != NULL )
+		dbg(DEBUG,"Found <%s> at %d\n", clHashKey, *p_he);
+	else
+		dbg(DEBUG,"Did not find <%s> !\n", clHashKey);
+	/* Remove the hash table */
+	ght_finalize(p_table);
+	#endif
+
+	dbg(DEBUG, "-------------------- end of tvo_test ---------------------------------");
+    /*-------------------------------------------------------------------------*/
+}
 /******************************************************************************/
 /* The initialization routine                                                 */
 /******************************************************************************/
@@ -1161,7 +1192,7 @@ static int getConfig()
     }
     else
     {
-        pcgDataListDelimiter[0] = '~';
+        pcgDataListDelimiter[0] = 0x1F;    /* tvo_fix */
         dbg(DEBUG,"pclTmpBuf<%s>pcgDataListDelimiter<%s>",pclTmpBuf,pcgDataListDelimiter);
     }
 
@@ -1401,7 +1432,7 @@ static int GetRuleSchema(_RULE *rpRule)
         }
 
         getOneline(&rlLine, pclLine);
-        showLine(&rlLine);
+        /*showLine(&rlLine);*/
         if( strcmp(pclRuleGroupNO, rlLine.pclRuleGroup) != 0 )
         {
             strcpy(pclRuleGroupNO,rlLine.pclRuleGroup);
@@ -1695,9 +1726,13 @@ static int toDetermineAppliedRuleGroup(char * pcpTable, char * pcpFields, char *
     char pclADID[16] = "\0";
     char pclTmp[64] = "\0";
 
+	char pclSourceTable[128];
+	char pclDestTable[128];
+
+
     strcpy(pclADID, pcpAdidValue);
     dbg(DEBUG,"<%s> The New ADID is <%s>", pclFunc, pclADID);
-
+	#if 0
     /*rewrite below code to determine the applied group by modname instead of hard-coded criteria*/
     if (strcmp(mod_name, "tbthdl") == 0)
     {
@@ -1727,47 +1762,36 @@ static int toDetermineAppliedRuleGroup(char * pcpTable, char * pcpFields, char *
     }
 
     dbg(DEBUG,"%s pclTmp<%s>",pclFunc,pclTmp);
+	#endif
 
     for (ilCount = 0; ilCount <= igTotalNumbeoOfRule; ilCount++)
     {
-        if ( strcmp(rgGroupInfo[ilCount].pclDestTable, pclTmp ) == 0)
+		strcpy(pclSourceTable, rgGroupInfo[ilCount].pclSourceTable);
+		strcpy(pclDestTable,   rgGroupInfo[ilCount].pclDestTable);
+
+		dbg(DEBUG, "%s <%s><%s><%s>", pclFunc,pclSourceTable, pclDestTable, pcpTable);
+        if ( strcmp(pclSourceTable, pcpTable ) == 0)     /* the same source table */
         {
-            ilRuleNumber = ilCount;
+			if (strcmp(pclSourceTable, "AFTTAB") == 0)  /* special case of source table */
+			{
+				if (strcmp(pclADID, "A") == 0)         /* arrival rule */
+				{
+				    ilRuleNumber = 1;
+				}
+				else if (strcmp(pclADID, "D") == 0)	   /* departure rule */
+				{
+				    ilRuleNumber = 2;
+				}
+            }
+            else  /* choose the first matching group */
+            {
+                ilRuleNumber = ilCount;
+			}
             dbg(DEBUG,"%s ilRuleNumber<%d> break",pclFunc,ilRuleNumber);
             break;
         }
     }
     return ilRuleNumber;
-
-    #ifdef _TEST_
-    /*
-    ilItemNo = get_item_no(pcpFields, "ADID", 5) + 1;
-    if (ilItemNo <= 0)
-    {
-        dbg(TRACE, "<%s> No <%s> Not found in the field list, can't do anything", pclFunc, "ADID");
-        return RC_FAIL;
-    }
-    get_real_item(pclADID, pcpData, ilItemNo);
-    */
-    strcpy(pclADID, pcpAdidValue);
-    dbg(DEBUG,"<%s> The New ADID is <%s>", pclFunc, pclADID);
-
-    if ( strcmp(pcpTable,"AFTTAB") == 0 )
-    {
-        if (strcmp(pclADID, "A") == 0 )
-        {
-            ilRuleNumber = 1;
-        }
-        else if (strcmp(pclADID, "D") == 0 )
-        {
-            ilRuleNumber = 2;
-        }
-    }
-    else if ( strcmp(pcpTable,"CCATAB") == 0 )
-    {
-        ilRuleNumber = 3;
-    }
-    #endif
 }
 
 static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *pcpSourceFiledList, char *pcpDestFiledList,
@@ -1867,7 +1891,7 @@ static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *
                 rpRule->rlLine[ilRuleCount].pclCond1, rpRule->rlLine[ilRuleCount].pclCond2);*/
                 ilRC = convertSrcValToDestVal(pclTmpSourceFieldName, pclTmpSourceFieldValue, pclTmpDestFieldName, rpRule->rlLine+ilRuleCount, pclTmpDestFieldValue, pcpSelection, pcpAdid);
 
-                buildConvertedDataList(ilRC, pclDestDataList, pclTmpDestFieldValue, NONBLANK);
+                buildConvertedDataList(rpRule->rlLine[ilRuleCount].pclDestFieldType, pclDestDataList, pclTmpDestFieldValue, NONBLANK);
             }
         }/*end of dest field for loop*/
 
@@ -2180,7 +2204,7 @@ static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *
 
         if ( ili != ilNoEleSource)
         {
-            dbg(TRACE,"%s The number of field in dest data list<%d> and source field<%d> is not matched",pclFunc, ili);
+            dbg(TRACE,"%s The number of field in dest data list<%d> and source field<%d> is not matched",pclFunc, ili, ilNoEleSource);
         }
         else
         {
@@ -3752,7 +3776,58 @@ static int getRuleIndex_BrutalForce(char *pcpSourceFieldName, char *pcpSourceFie
 	return RC_FAIL;
 }
 
-static void buildConvertedDataList(int ipType,char *pcpDestDataList, char *pcpDestFieldValue, int ipOption)
+static void buildConvertedDataList(char *pcpDetType, char *pcpDestDataList, char *pcpDestFieldValue, int ipOption)
+{
+    int ilRC = RC_SUCCESS;
+	char *pclFunc = "buildConvertedDataList";
+    char pclTmp[256] = "\0";
+
+    if (ipOption == BLANK)
+    {
+        if ( strlen(pcpDestDataList) == 0 )
+        {
+            strcat(pcpDestDataList, " ");
+        }
+        else
+        {
+            /*strcat(pclDestDataList,",");*/
+            strcat(pcpDestDataList, pcgDataListDelimiter);
+            strcat(pcpDestDataList, " ");
+        }
+    }
+    else
+    {
+        if (strstr(pcpDetType,"DATE") != NULL)
+        {
+            if (strlen(pcpDestFieldValue) > 0)
+            {
+                sprintf(pclTmp,"to_date('%s','YYYY%sMM%sDD HH24%sMI%sSS')", pcpDestFieldValue, pcgDateFormatDelimiter,pcgDateFormatDelimiter,pcgDateFormatDelimiter,pcgDateFormatDelimiter);
+            }
+            else
+            {
+                strcpy(pclTmp,"''");  /* NULL value */
+            }
+        }
+        else if (strcmp(pcpDetType,"NUMBER") == 0)
+        {
+            sprintf(pclTmp,"%s",pcpDestFieldValue);   /* NUMBER: no single quote */
+        }
+        else /* VARCHAR2 */
+        {
+            sprintf(pclTmp,"'%s'",pcpDestFieldValue);
+        }
+
+        if ( strlen(pcpDestDataList) == 0 )
+        {
+            strcpy(pcpDestDataList, pclTmp);
+        }else
+        {
+            strcat(pcpDestDataList, pcgDataListDelimiter);
+            strcat(pcpDestDataList, pclTmp);
+        }
+    }
+}
+#if 0
 {
     int ilRC = RC_SUCCESS;
 	char *pclFunc = "buildConvertedDataList";
@@ -3848,6 +3923,7 @@ static void buildConvertedDataList(int ipType,char *pcpDestDataList, char *pcpDe
         }
     }
 }
+#endif
 
 static int buildHash(int ipTotalLineOfRule, _RULE rpRule, ght_hash_table_t **pcpHash_table)
 {
