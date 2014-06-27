@@ -2,7 +2,7 @@
 #ifndef _DEF_mks_version
   #define _DEF_mks_version
   #include "ufisvers.h" /* sets UFIS_VERSION, must be done before mks_version */
-  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/tbthdl.c 1.12 2014/06/27 12:18:14SGT fya Exp  $";
+  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/tbthdl.c 1.13 2014/06/27 13:03:14SGT fya Exp  $";
 #endif /* _DEF_mks_version */
 /******************************************************************************/
 /*                                                                            */
@@ -201,7 +201,7 @@ static void updateTimeWindow(char *pcpTimeWindowLowerLimit, char *pcpTimeWindowU
 static int showGroupInfo(_LINE *rlGroupInfo, int ipGroupNO);
 static int getRefTimeFiledValueFromSource(char *pcpTable, char *pcpFields, char *pcpNewData, char *pcpSelection, char *pcpTimeWindowRefFieldVal, char *pcpTimeWindowRefField);
 static void replaceDelimiter(char *pcpConvertedDataList, char *pcpOriginalDataList, char pcpOrginalDelimiter, char pcpConvertedDelimiter);
-int runTestData();
+static int runTestData();
 static int getRuleIndex_BrutalForce(char *pcpSourceFieldName, char *pcpSourceFieldValue, char *pcpDestFieldName, _RULE *rpRule, int ipRuleGroup, char *pcpFields,int ipTotalLineOfRule,char *pcpData);
 static void buildConvertedDataList(char *pcpDetType, char *pcpDestDataList, char *pcpDestFieldValue, int ipOption);
 static int buildHash(int ipTotalLineOfRule, _RULE rpRule, ght_hash_table_t **pcpHash_table);
@@ -417,7 +417,7 @@ MAIN
 
 } /* end of MAIN */
 /*-----------------------------------------------------------------------------*/
-int runTestData()
+static int runTestData()
 {
 	char pclTimeNow[TIMEFORMAT] = "\0";
 	char clTestTime[20];
@@ -1021,7 +1021,10 @@ static int HandleData(EVENT *prpEvent)
                             checkVialChange(pclFields,pclRotationData[ilCount],"",ilVialChange);
                             */
                             ilVialChange = TRUE;
-                            mapping(clTable, pclFields, pclRotationData[ilCount], pclSelection, pclAdidValue, ilVialChange);
+                            if (strcmp(pclAdidValue, "A") == 0 )
+                                mapping(clTable, pclFields, pclRotationData[ilCount], pclSelection, "D", ilVialChange);
+                            else if (strcmp(pclAdidValue, "D") == 0 )
+                                mapping(clTable, pclFields, pclRotationData[ilCount], pclSelection, "A", ilVialChange);
                         }
                     }
                 }
@@ -2458,7 +2461,7 @@ static void buildInsertQuery(char *pcpSqlBuf, char * pcpTable, char * pcpDestFie
     strncpy(pclMin,pclTimeNow+10,2);
     strncpy(pclSec,pclTimeNow+12,2);
 
-    sprintf(pclTmp,"%s-%s-%s", pclYear, pclMonth, pclDay);
+    sprintf(pclTmp,"to_date('%s%s%s%s%s %s%s%s%s%s','YYYY%sMM%sDD HH24%sMI%sSS')",pclYear, pcgDataListDelimiter,pclMonth, pcgDataListDelimiter,pclDay,pclHour,pcgDataListDelimiter, pclMin,pcgDataListDelimiter,pclSec,pcgDataListDelimiter,pcgDataListDelimiter,pcgDataListDelimiter,pcgDataListDelimiter);
 
     /*sprintf(pcpSqlBuf,"INSERT INTO %s (%s,CDAT,LSTU,URNO) VALUES(%s,to_date('%s','YYYY-MM-DD HH24:MI:SS'),to_date('%s','YYYY-MM-DD HH24:MI:SS'),%d)", pcpTable, pcpDestFieldList, pcpDestFieldData,pclTmp,pclTmp,ilNextUrno);*/
 
@@ -2473,7 +2476,7 @@ static void buildInsertQuery(char *pcpSqlBuf, char * pcpTable, char * pcpDestFie
         if (ilNextUrno <= 0)
             ilNextUrno = NewUrnos("SNOTAB",1);
 
-        sprintf(pcpSqlBuf,"INSERT INTO %s (%s,CDAT,LSTU,URNO) VALUES(%s,date'%s',date'%s',%d)", pcpTable, pcpDestFieldList, pcpDestFieldData,pclTmp,pclTmp,ilNextUrno);
+        sprintf(pcpSqlBuf,"INSERT INTO %s (%s,CDAT,LSTU,URNO) VALUES(%s,%s,%s,%d)", pcpTable, pcpDestFieldList, pcpDestFieldData,pclTmp,pclTmp,ilNextUrno);
     }
     else /// if ( strcmp(pcpTable, "Current_Arrivals"  ) == 0 )   /* tvo_debug: bug of insert error */
     {
@@ -2552,12 +2555,14 @@ static void buildUpdateQuery(char *pcpSqlBuf, char * pcpTable, char * pcpDestFie
     strncpy(pclHour,pclTimeNow+8,2);
     strncpy(pclMin,pclTimeNow+10,2);
     strncpy(pclSec,pclTimeNow+12,2);
-    sprintf(pclTmp,"%s-%s-%s", pclYear, pclMonth, pclDay);
+
+    sprintf(pclTmp,"to_date('%s%s%s%s%s %s%s%s%s%s','YYYY%sMM%sDD HH24%sMI%sSS')",pclYear, pcgDataListDelimiter,pclMonth, pcgDataListDelimiter,pclDay,pclHour,pcgDataListDelimiter, pclMin,pcgDataListDelimiter,pclSec,pcgDataListDelimiter,pcgDataListDelimiter,pcgDataListDelimiter,pcgDataListDelimiter);
+    /*sprintf(pclTmp,"%s-%s-%s", pclYear, pclMonth, pclDay);*/
 
     if ( strcmp(pcpTable, "Current_Arrivals"  ) == 0 ||
          strcmp(pcpTable, "Current_Departures") == 0 )
     {
-        sprintf(pclTmpTime,"%s=date'%s'","LSTU",pclTmp);
+        sprintf(pclTmpTime,"%s=%s","LSTU",pclTmp);
         sprintf(pcpSqlBuf,"UPDATE %s SET %s,%s %s", pcpTable, pclString, pclTmpTime, pclTmpSelection);
     }
     else  /* tvo_fix: use UREF not URNO */
@@ -2623,6 +2628,7 @@ static int convertSrcValToDestVal(char *pcpSourceFieldName, char *pcpSourceField
 int getRotationFlightData(char *pcpTable, char *pcpUrnoSelection, char *pcpFields, char (*pcpRotationData)[LISTLEN], char *pcpAdid)
 {
     int ilCount = 0;
+    int ilNoEle = 0;
     int ilRC = RC_FAIL;
     short slLocalCursor = 0, slFuncCode = 0;
     char *pclFunc = "getRotationFlightData";
@@ -2658,7 +2664,9 @@ int getRotationFlightData(char *pcpTable, char *pcpUrnoSelection, char *pcpField
     */
 
     buildSelQuery(pclSqlBuf, pcpTable, pcpFields, pclWhere);
-    dbg(DEBUG, "%s select<%s>", pclFunc, pclSqlBuf);
+    ilNoEle = GetNoOfElements(pcpFields, ',');
+    dbg(DEBUG, "%s select<%s> field NUmber<%d>", pclFunc, pclSqlBuf, ilNoEle);
+
 
     slLocalCursor = 0;
 	slFuncCode = START;
@@ -2666,11 +2674,12 @@ int getRotationFlightData(char *pcpTable, char *pcpUrnoSelection, char *pcpField
     {
         slFuncCode = NEXT;
 
+        BuildItemBuffer(pclSqlData, NULL, ilNoEle, ",");
         dbg(TRACE,"%s pclSqlData<%s>", pclFunc, pclSqlData);
 
         if (ilCount < ARRAYNUMBER)
         {
-            strcpy(pcpRotationData[ilCount],pclSqlData);
+            strcpy(pcpRotationData[ilCount], pclSqlData);
         }
         else
         {
