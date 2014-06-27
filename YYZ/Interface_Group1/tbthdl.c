@@ -2,7 +2,7 @@
 #ifndef _DEF_mks_version
   #define _DEF_mks_version
   #include "ufisvers.h" /* sets UFIS_VERSION, must be done before mks_version */
-  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/tbthdl.c 1.12 2014/06/27 11:28:14SGT fya Exp  $";
+  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/tbthdl.c 1.12 2014/06/27 12:18:14SGT fya Exp  $";
 #endif /* _DEF_mks_version */
 /******************************************************************************/
 /*                                                                            */
@@ -1951,7 +1951,7 @@ static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *
                 }
                 else
                 {
-                    strcpy(pclDestDataListWithCodeshareInsert, pclDestDataList);
+                    strcpy(pclDestDataListWithCodeshareInsert, pclConvertedDataList);
                     strcpy(pclDestDataListWithCodeshareUpdate, pclDestDataList);
                 }
                 /**/
@@ -1976,7 +1976,7 @@ static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *
                      strcmp(rgGroupInfo[ipRuleGroup].pclDestTable, "Current_Departures") == 0 )
                 {
                     sprintf(pclTmpInsert,"'%s','%s','%s','%s','%s'","SL",pcpHardcodeShare.pclMFC, pcpHardcodeShare.pclMFN,pcpHardcodeShare.pclMFX,pcpHardcodeShare.pclMFF);
-                    strcpy(pclDestDataListWithCodeshareInsert, pclDestDataList);
+                    strcpy(pclDestDataListWithCodeshareInsert, pclConvertedDataList);
                     strcat(pclDestDataListWithCodeshareInsert,",");
                     strcat(pclDestDataListWithCodeshareInsert,pclTmpInsert);
                 }
@@ -3588,12 +3588,12 @@ static int deleteFlightsOutOfTimeWindowByGroup(int ipRuleGroup, char *pcpTimeWin
     dbg(TRACE,"%s [%d]Delete Query<%s>",pclFunc, ipRuleGroup, pclSqlBuf);
 
     ilRc = sql_if(slFuncCode, &slLocalCursor, pclSqlBuf, pclSqlData);
+    close_my_cursor(&slLocalCursor);
     if( ilRc != DB_SUCCESS )
     {
         dbg(TRACE,"%s UPDATE-Deletion not succed",pclFunc);
         return RC_FAIL;
     }
-    close_my_cursor(&slLocalCursor);
 
     switch(ilRc)
     {
