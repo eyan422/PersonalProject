@@ -195,7 +195,7 @@ static int iniTables(char *pcpTimeWindowLowerLimit, char *pcpTimeWindowUpperLimi
 static int getFieldValue(char *pcpFields, char *pcpNewData, char *pcpFieldName, char *pcpFieldValue);
 static int truncateTable(int ipRuleGroup);
 static int deleteFlightsOutOfTimeWindow(char *pcpTimeWindowLowerLimitOriginal, char *pcpTimeWindowLowerLimit);
-static void deleteFlightsOutOfTimeWindowByGroup(int ipRuleGroup, char *pcpTimeWindowLowerLimitOriginal, char *pcpTimeWindowLowerLimit);
+static int deleteFlightsOutOfTimeWindowByGroup(int ipRuleGroup, char *pcpTimeWindowLowerLimitOriginal, char *pcpTimeWindowLowerLimit);
 static void insertFligthsNewInTimeWindow(char *pcpTimeWindowUpperLimitOriginal, char *pcpTimeWindowUpperLimitCurrent);
 static void updateTimeWindow(char *pcpTimeWindowLowerLimit, char *pcpTimeWindowUpperLimit);
 static int showGroupInfo(_LINE *rlGroupInfo, int ipGroupNO);
@@ -3392,7 +3392,7 @@ static int iniTables(char *pcpTimeWindowLowerLimit, char *pcpTimeWindowUpperLimi
         }
 
         /*change this part later -> group1 == A|D*/
-        #ifdef FYA
+        #if 0
         if( strcmp(rgGroupInfo[ilRuleGroup].pclDestTable, "Current_Arrivals") == 0)
         {
             /*arrival fligths*/
@@ -3407,7 +3407,8 @@ static int iniTables(char *pcpTimeWindowLowerLimit, char *pcpTimeWindowUpperLimi
         {
             sprintf(pclWhere, "WHERE %s BETWEEN '%s' and '%s' AND ROWNUM < 3", pcgTimeWindowRefField_CCATAB, pcpTimeWindowLowerLimit, pcpTimeWindowUpperLimit);
         }
-        #else
+        #endif
+
         if( strcmp(rgGroupInfo[ilRuleGroup].pclDestTable, "Current_Arrivals") == 0)
         {
             /*arrival fligths*/
@@ -3418,11 +3419,10 @@ static int iniTables(char *pcpTimeWindowLowerLimit, char *pcpTimeWindowUpperLimi
              /*departure fligths*/
             sprintf(pclWhere, "WHERE %s BETWEEN '%s' and '%s'", pcgTimeWindowRefField_AFTTAB_Dep, pcpTimeWindowLowerLimit, pcpTimeWindowUpperLimit);
         }
-        else else if( strcmp(rgGroupInfo[ilRuleGroup].pclDestTable, "") == 0)
+        else if( strcmp(rgGroupInfo[ilRuleGroup].pclDestTable, "") == 0)
         {
             sprintf(pclWhere, "WHERE %s BETWEEN '%s' and '%s'", pcgTimeWindowRefField_CCATAB, pcpTimeWindowLowerLimit, pcpTimeWindowUpperLimit);
         }
-        #endif
 
         buildSelQuery(pclSqlBuf, rgGroupInfo[ilRuleGroup].pclSourceTable, pclSourceFieldList, pclWhere);
         dbg(DEBUG, "%s [%d]select<%s>", pclFunc, ilRuleGroup, pclSqlBuf);
@@ -3537,7 +3537,7 @@ static int deleteFlightsOutOfTimeWindow(char *pcpTimeWindowLowerLimitOriginal, c
     return ilRc;
 }
 
-static void deleteFlightsOutOfTimeWindowByGroup(int ipRuleGroup, char *pcpTimeWindowLowerLimitOriginal, char *pcpTimeWindowLowerLimitCurrent)
+static int deleteFlightsOutOfTimeWindowByGroup(int ipRuleGroup, char *pcpTimeWindowLowerLimitOriginal, char *pcpTimeWindowLowerLimitCurrent)
 {
     int    ilRc   = RC_SUCCESS;         /* Return code */
     short slLocalCursor = 0, slFuncCode = 0;
@@ -3590,22 +3590,21 @@ static void deleteFlightsOutOfTimeWindowByGroup(int ipRuleGroup, char *pcpTimeWi
     ilRc = sql_if(slFuncCode, &slLocalCursor, pclSqlBuf, pclSqlData);
     if( ilRc != DB_SUCCESS )
     {
-        ilRc = RC_FAIL;
         dbg(TRACE,"%s UPDATE-Deletion not succed",pclFunc);
+        return RC_FAIL;
     }
+    close_my_cursor(&slLocalCursor);
+
     switch(ilRc)
     {
         case NOTFOUND:
             dbg(TRACE, "<%s> Delete source data - Not Found", pclFunc);
-            ilRc = NOTFOUND;
             break;
         default:
             dbg(TRACE, "<%s> Delete source data - Found", pclFunc);
-            ilRc = RC_SUCCESS;
             break;
     }
-
-    close_my_cursor(&slLocalCursor);
+    return ilRc;
 }
 
 static void insertFligthsNewInTimeWindow(char *pcpTimeWindowUpperLimitOriginal, char *pcpTimeWindowUpperLimitCurrent)
