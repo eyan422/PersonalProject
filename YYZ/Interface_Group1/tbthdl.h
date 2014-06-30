@@ -37,6 +37,7 @@ typedef struct
     char pclDestFieldOperator[128];   /*Operate*/
     char pclCond1[128];      /*Con1*/
     char pclCond2[128];      /*Con2*/
+    char pclCond3[128];
 }_LINE;
 
 typedef struct {

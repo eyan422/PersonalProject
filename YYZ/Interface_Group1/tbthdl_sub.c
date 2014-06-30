@@ -182,6 +182,7 @@ int codeshareFormat(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, ch
         return RC_FAIL;
     }
 
+
     strncpy(pcpDestValue, "", 1);
 
     if(strlen(pcpSourceValue) == 0 || strncmp(pcpSourceValue," ",1) == 0 )
@@ -302,6 +303,7 @@ int viaref(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpS
     char pclVial[ARRAYNUMBER][LISTLEN] = {"\0"};
 
     strncpy(pcpDestValue, "", 1);
+
     ilDestLen = atoi(rpLine->pclDestFieldLen);
     if ( ilDestLen == 0)
     {

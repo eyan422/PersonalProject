@@ -2,7 +2,7 @@
 #ifndef _DEF_mks_version
   #define _DEF_mks_version
   #include "ufisvers.h" /* sets UFIS_VERSION, must be done before mks_version */
-  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/tbthdl.c 1.13 2014/06/27 13:03:14SGT fya Exp  $";
+  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/tbthdl.c 1.14 2014/06/30 10:53:14SGT fya Exp  $";
 #endif /* _DEF_mks_version */
 /******************************************************************************/
 /*                                                                            */
@@ -122,6 +122,7 @@ static char pcgSourceFiledSet[GROUPNUMER][LISTLEN];
 static char pcgSourceFiledList[GROUPNUMER][LISTLEN];
 static char pcgDestFiledList[GROUPNUMER][LISTLEN];
 static char pcgSourceConflictFiledSet[GROUPNUMER][LISTLEN];
+static char pcgNullableIndicator[64];
 
 static char pcgCurrent_Arrivals[64];
 static char pcgCurrent_Departures[64];
@@ -206,6 +207,10 @@ static int getRuleIndex_BrutalForce(char *pcpSourceFieldName, char *pcpSourceFie
 static void buildConvertedDataList(char *pcpDetType, char *pcpDestDataList, char *pcpDestFieldValue, int ipOption);
 static int buildHash(int ipTotalLineOfRule, _RULE rpRule, ght_hash_table_t **pcpHash_table);
 static int getRuleIndex_Hash(int ipRuleGroup, char *pcpDestFieldName, char *pcpFields, char *pcpData, char *pcpSourceFieldName, char *pcpSourceFieldValue);
+static int checkNullable(char *pcpDestFieldValue, _LINE *rpLine);
+static void insertFligthts(int ipStartIndex, int ipDataListNo, _QUERY *pcpQuery);
+static int updateAllFlights(_QUERY *pcpQuery);
+static void deleteCodeShareFligths(char *pcpDestKey, char *pcpUrno);
 /******************************************************************************/
 /*                                                                            */
 /* The MAIN program                                                           */
@@ -216,7 +221,6 @@ MAIN
 	int	ilRc = RC_SUCCESS;			/* Return code			*/
 	int	ilCnt = 0;
 	int ilOldDebugLevel = 0;
-
 
 	INITIALIZE;			/* General initialization	*/
 
@@ -1244,6 +1248,17 @@ static int getConfig()
     }
     dbg(DEBUG,"pcgDeletionStatusIndicator<%s>",pcgDeletionStatusIndicator);
 
+    ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","NULLABLE_INDICATOR",CFG_STRING,pclTmpBuf);
+    if (ilRC == RC_SUCCESS)
+    {
+        strcpy(pcgNullableIndicator, pclTmpBuf);
+    }
+    else
+    {
+        strcpy(pcgNullableIndicator, "NOTNULL");
+    }
+    dbg(DEBUG,"pcgNullableIndicator<%s>",pcgNullableIndicator);
+
     ilRC = iGetConfigEntry(pcgConfigFile,"URNO","CURRENT_ARRIVALS",CFG_STRING,pclTmpBuf);
     if (ilRC == RC_SUCCESS)
     {
@@ -1517,13 +1532,15 @@ static void getOneline(_LINE *rpLine, char *pcpLine)
     TrimRight(rpLine->pclCond1);
     get_item(14, pcpLine, rpLine->pclCond2, 0, ";", "\0", "\0");
     TrimRight(rpLine->pclCond2);
+    get_item(15, pcpLine, rpLine->pclCond3, 0, ";", "\0", "\0");
+    TrimRight(rpLine->pclCond3);
 }
 
 static void showLine(_LINE *rpLine)
 {
     char pclFunc[] = "showLine:";
 
-    dbg(DEBUG, "%s %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s", pclFunc,
+    dbg(DEBUG, "%s %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s", pclFunc,
     rpLine->pclActive,
     rpLine->pclRuleGroup,
     rpLine->pclSourceTable,
@@ -1537,7 +1554,8 @@ static void showLine(_LINE *rpLine)
     rpLine->pclDestFieldType,
     rpLine->pclDestFieldOperator,
     rpLine->pclCond1,
-    rpLine->pclCond2);
+    rpLine->pclCond2,
+    rpLine->pclCond3);
 }
 
 static void storeRule(_LINE *rpRuleLine, _LINE *rpSingleLine)
@@ -1560,6 +1578,7 @@ static void storeRule(_LINE *rpRuleLine, _LINE *rpSingleLine)
     strcpy(rpRuleLine->pclDestFieldOperator,rpSingleLine->pclDestFieldOperator);
     strcpy(rpRuleLine->pclCond1,rpSingleLine->pclCond1);
     strcpy(rpRuleLine->pclCond2,rpSingleLine->pclCond2);
+    strcpy(rpRuleLine->pclCond3,rpSingleLine->pclCond3);
 }
 
 static void showRule(_RULE *rpRule, int ipTotalLineOfRule)
@@ -1588,7 +1607,8 @@ static void showRule(_RULE *rpRule, int ipTotalLineOfRule)
             rpRule->rlLine[ilCount].pclDestFieldType,
             rpRule->rlLine[ilCount].pclDestFieldOperator,
             rpRule->rlLine[ilCount].pclCond1,
-            rpRule->rlLine[ilCount].pclCond2);
+            rpRule->rlLine[ilCount].pclCond2,
+            rpRule->rlLine[ilCount].pclCond3);
         }
     }
 }
@@ -1893,6 +1913,24 @@ static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *
                 /*dbg(TRACE,"%s The operator is <%s> and con1<%s>, con2<%s>",pclFunc, rpRule->rlLine[ilRuleCount].pclDestFieldOperator,
                 rpRule->rlLine[ilRuleCount].pclCond1, rpRule->rlLine[ilRuleCount].pclCond2);*/
                 ilRC = convertSrcValToDestVal(pclTmpSourceFieldName, pclTmpSourceFieldValue, pclTmpDestFieldName, rpRule->rlLine+ilRuleCount, pclTmpDestFieldValue, pcpSelection, pcpAdid);
+
+                /**/
+                /*if (strcmp(rpRule->rlLine[ilRuleCount].pclCond3, pcgNullableIndicator) == 0)*/
+                if (strcmp((rpRule->rlLine+ilRuleCount)->pclCond3, pcgNullableIndicator) == 0)
+                {
+                    ilRC = checkNullable(pclTmpDestFieldValue, rpRule->rlLine+ilRuleCount);
+                    if (ilRC == RC_FAIL)
+                    {
+                        memset(pcpQuery->pclInsertQuery, 0,sizeof(pcpQuery->pclInsertQuery));
+                        memset(pcpQuery->pclUpdateQuery, 0,sizeof(pcpQuery->pclInsertQuery));
+
+                        return RC_FAIL;
+                    }
+                }
+                else
+                {
+                    dbg(TRACE,"%s NULL VALUE is allowed",pclFunc);
+                }
 
                 buildConvertedDataList(rpRule->rlLine[ilRuleCount].pclDestFieldType, pclDestDataList, pclTmpDestFieldValue, NONBLANK);
             }
@@ -2900,23 +2938,7 @@ static int mapping(char *pcpTable, char *pcpFields, char *pcpNewData, char *pcpS
 	dbg(DEBUG, "%s INSERT = <%d>, UPDATE = <%d>, ilStatusMaster = <%d>",pclFunc, INSERT, UPDATE, ilStatusMaster);
     if (ilStatusMaster == INSERT)
     {
-        /*dbg(TRACE, "%d_before for ilCount", __LINE__);*/
-        for(ilCount = 0; ilCount < ilDataListNo; ilCount++)
-        {
-            /*dbg(DEBUG,"%s pclQuery[%d].pclInsertQuery<%s>\n",pclFunc, ilCount, pclQuery[ilCount].pclInsertQuery);
-              dbg(DEBUG,"%s pclQuery[%d].pclUpdateQuery<%s>\n",pclFunc, ilCount, pclQuery[ilCount].pclUpdateQuery);*/
-
-            slLocalCursor = 0;
-            slFuncCode = START;
-			/*dbg(TRACE, "%d_before sql_if \n<%s>", __LINE__, pclQuery[ilCount].pclInsertQuery);*/
-            ilRc = sql_if(slFuncCode, &slLocalCursor, pclQuery[ilCount].pclInsertQuery, pclSqlData);
-            if( ilRc != DB_SUCCESS )
-            {
-                ilRc = RC_FAIL;
-                dbg(TRACE,"%s INSERT - Deletion Error",pclFunc);
-            }
-            close_my_cursor(&slLocalCursor);
-        }
+        insertFligthts(MASTER_RECORD, ilDataListNo, pclQuery);
     }
     else if (ilStatusMaster == UPDATE)
     {
@@ -2933,81 +2955,25 @@ static int mapping(char *pcpTable, char *pcpFields, char *pcpNewData, char *pcpS
         /*VIAL is not changed, then -> update all master and codeshare fligths in one query*/
         if (ipIsVialChange == FALSE)
         {
-            slLocalCursor = 0;
-            slFuncCode = START;
-
-			dbg(DEBUG, "%d_query=<%s>, MASTER_RECORD = <%d>", __LINE__, pclQuery[MASTER_RECORD].pclUpdateQuery, MASTER_RECORD);
-            ilRc = sql_if(slFuncCode, &slLocalCursor, pclQuery[MASTER_RECORD].pclUpdateQuery, pclSqlData);
-            if( ilRc != DB_SUCCESS )
-            {
-                ilRc = RC_FAIL;
-                dbg(TRACE,"%s Update all master and codeshare flights in one query fails",pclFunc);
-            }
-            else
-            {
-                dbg(TRACE,"%s Update all master and codeshare flights in one query succeeds",pclFunc);
-            }
-            close_my_cursor(&slLocalCursor);
+            updateAllFlights(pclQuery);
         }
         else
         {
-            slLocalCursor = 0;
-            slFuncCode = START;
-
-            memset(pclSqlBuf,0,sizeof(pclSqlBuf));
-            memset(pclSqlData,0,sizeof(pclSqlData));
-
-            /*
-            sprintf(pclSqlBuf, "DELETE FROM %s WHERE %s='%s' AND SST!='%s'", rgRule.rlLine[0].pclDestTable, rgRule.rlLine[0].pclDestKey, pclUrnoSelection, pcgMasterSST);
-            */
-			dbg(DEBUG, "%d_pclDestKey = (<%s>,<%s>), pcgMasterSST = <%s>", __LINE__, rgGroupInfo[ilRuleGroup].pclDestKey, pclUrnoSelection, pcgMasterSST);
-
-			if (strcmp(pcgDeletionStatusIndicator,"DELETE")==0)
-			{
-			    sprintf(pclSqlBuf, "DELETE FROM %s WHERE %s='%s' AND SST!='%s'", rgGroupInfo[ilRuleGroup].pclDestTable, rgGroupInfo[ilRuleGroup].pclDestKey, pclUrnoSelection, pcgMasterSST);
-			}
-            else
-            {
-                sprintf(pclSqlBuf, "UPDATE %s SET %s='DELETE' WHERE %s='%s' AND SST!='%s'", rgGroupInfo[ilRuleGroup].pclDestTable, pcgDeletionStatusIndicator, rgGroupInfo[ilRuleGroup].pclDestKey, pclUrnoSelection, pcgMasterSST);
-            }
-            dbg(TRACE,"%s Delete Query<%s>",pclFunc, pclSqlBuf);
-
-            ilRc = sql_if(slFuncCode, &slLocalCursor, pclSqlBuf, pclSqlData);
-            if( ilRc != DB_SUCCESS )
-            {
-                ilRc = RC_FAIL;
-                dbg(TRACE,"%s UPDATE-Deletion Error",pclFunc);
-            }
-            close_my_cursor(&slLocalCursor);
-
             /*later, compare each record, and only delete & insert the new ones*/
             for(ilCount = 0; ilCount < ilDataListNo; ilCount++)
             {
-                /*dbg(DEBUG,"%s pclQuery[%d].pclInsertQuery<%s>\n",pclFunc, ilCount, pclQuery[ilCount].pclInsertQuery);
-                  dbg(DEBUG,"%s pclQuery[%d].pclUpdateQuery<%s>\n",pclFunc, ilCount, pclQuery[ilCount].pclUpdateQuery);*/
-
-                slLocalCursor = 0;
-                slFuncCode = START;
-
                 if ( ilCount == MASTER_RECORD )/*update master flights*/
                 {
-                    ilRc = sql_if(slFuncCode, &slLocalCursor, pclQuery[ilCount].pclUpdateQuery, pclSqlData);
-                    if( ilRc != DB_SUCCESS )
+                    ilRc = updateAllFlights(pclQuery);
+                    if (ilRc == RC_SUCCESS)
                     {
-                        ilRc = RC_FAIL;
-                        dbg(TRACE,"%s UPDATE-UPDATE Error",pclFunc);
+                        deleteCodeShareFligths(rgGroupInfo[ilRuleGroup].pclDestKey, pclUrnoSelection);
                     }
                 }
                 else /*insert codeshare flights*/
                 {
-                    ilRc = sql_if(slFuncCode, &slLocalCursor, pclQuery[ilCount].pclInsertQuery, pclSqlData);
-                    if( ilRc != DB_SUCCESS )
-                    {
-                        ilRc = RC_FAIL;
-                        dbg(TRACE,"%s UPDATE-INSERT Error",pclFunc);
-                    }
+                    insertFligthts(ilCount, ilDataListNo, pclQuery);
                 }
-                close_my_cursor(&slLocalCursor);
             }
         }
     }
@@ -3656,7 +3622,8 @@ static int showGroupInfo(_LINE *rlGroupInfo, int ipGroupNO)
                 rlGroupInfo[ilCount].pclDestFieldType,
                 rlGroupInfo[ilCount].pclDestFieldOperator,
                 rlGroupInfo[ilCount].pclCond1,
-                rlGroupInfo[ilCount].pclCond2);
+                rlGroupInfo[ilCount].pclCond2,
+                rlGroupInfo[ilCount].pclCond3);
             }
         }
     }
@@ -3956,7 +3923,7 @@ static int buildHash(int ipTotalLineOfRule, _RULE rpRule, ght_hash_table_t **pcp
             /* Insert "blabla" into the hash table */
             *p_data = ilCount;
             ght_insert(*pcpHash_table, p_data, sizeof(char)*strlen(clHashKey), clHashKey);
-            dbg(DEBUG, "%s clHashKey = <%s>, ilCount = <%d>", pclFunc, clHashKey, ilCount);
+            /*dbg(DEBUG, "%s clHashKey = <%s>, ilCount = <%d>", pclFunc, clHashKey, ilCount);*/
         }
 	}
 	return RC_SUCCESS;
@@ -3994,3 +3961,119 @@ static int getRuleIndex_Hash(int ipRuleGroup, char *pcpDestFieldName, char *pcpF
 	    return RC_FAIL;
 	}
 }
+
+static int checkNullable(char *pcpDestFieldValue, _LINE *rpLine)
+{
+    int ilRC = RC_SUCCESS;
+    char *pclFunc = "checkNullable";
+
+    if (strlen(pcpDestFieldValue) == 0 )
+    {
+        if (strcmp(rpLine->pclDestFieldType, "NUMBER") == 0)
+        {
+            strcpy(pcpDestFieldValue,"0");
+        }
+        else if (strcmp(rpLine->pclDestFieldType, "DATE") == 0)
+        {
+            dbg(TRACE, "%s The line<sourceTable-(%s) sourceField-(%s) destTable-(%s) destField-(%s)> ->DATE type can not put null value",pclFunc, rpLine->pclSourceTable, rpLine->pclSourceField, rpLine->pclDestTable, rpLine->pclDestField);
+            return RC_FAIL;
+
+        }
+        else
+        {
+            strcpy(pcpDestFieldValue," ");
+        }
+    }
+    return RC_SUCCESS;
+}
+
+static void insertFligthts(int ipStartIndex, int ipDataListNo, _QUERY *pcpQuery)
+{
+	int ilRc = RC_FAIL;
+	int ilCount = 0;
+	short slLocalCursor = 0, slFuncCode = 0;
+	char *pclFunc = "insertFligthts";
+	char pclSqlData[2048] = "\0";
+
+	for(ilCount = ipStartIndex; ilCount < ipDataListNo; ilCount++)
+	{
+	    /*dbg(DEBUG,"%s pcpQuery[%d].pclInsertQuery<%s>\n",pclFunc, ilCount, pcpQuery[ilCount].pclInsertQuery);
+	      dbg(DEBUG,"%s pcpQuery[%d].pclUpdateQuery<%s>\n",pclFunc, ilCount, pcpQuery[ilCount].pclUpdateQuery);*/
+
+	    if (strlen(pcpQuery[ilCount].pclInsertQuery) > 0)
+	    {
+	        slLocalCursor = 0;
+	        slFuncCode = START;
+	        /*dbg(TRACE, "%d_before sql_if \n<%s>", __LINE__, pcpQuery[ilCount].pclInsertQuery);*/
+	        ilRc = sql_if(slFuncCode, &slLocalCursor, pcpQuery[ilCount].pclInsertQuery, pclSqlData);
+	        if( ilRc != DB_SUCCESS )
+	        {
+	            ilRc = RC_FAIL;
+	            dbg(TRACE,"%s INSERT Error",pclFunc);
+	        }
+	        close_my_cursor(&slLocalCursor);
+	    }
+	}
+}
+
+static int updateAllFlights(_QUERY *pcpQuery)
+{
+    int ilRc = RC_FAIL;
+    int ilCount = 0;
+    short slLocalCursor = 0, slFuncCode = 0;
+    char *pclFunc = "updateAllFlights";
+    char pclSqlData[2048] = "\0";
+
+    slLocalCursor = 0;
+    slFuncCode = START;
+
+    if(strlen(pcpQuery[MASTER_RECORD].pclUpdateQuery) > 0)
+    {
+        dbg(DEBUG, "%d_query=<%s>, MASTER_RECORD = <%d>", __LINE__, pcpQuery[MASTER_RECORD].pclUpdateQuery, MASTER_RECORD);
+        ilRc = sql_if(slFuncCode, &slLocalCursor, pcpQuery[MASTER_RECORD].pclUpdateQuery, pclSqlData);
+        if( ilRc != DB_SUCCESS )
+        {
+            dbg(TRACE,"%s Update all master and codeshare flights in one query fails",pclFunc);
+            return ilRc;
+        }
+        else
+        {
+            dbg(TRACE,"%s Update all master and codeshare flights in one query succeeds",pclFunc);
+        }
+        close_my_cursor(&slLocalCursor);
+        return RC_SUCCESS;
+    }
+}
+
+static void deleteCodeShareFligths(char *pcpDestKey, char *pcpUrno)
+{
+    int ilRc = RC_FAIL;
+    short slLocalCursor = 0;
+    short slFuncCode = START;
+    char *pclFunc = "deleteCodeShareFligths";
+    char pclSqlBuf[2048] = "\0", pclSqlData[2048] = "\0";
+
+
+    memset(pclSqlBuf,0,sizeof(pclSqlBuf));
+    memset(pclSqlData,0,sizeof(pclSqlData));
+
+    dbg(DEBUG, "%d_pclDestKey = (<%s>,<%s>), pcgMasterSST = <%s>", __LINE__, pcpDestKey, pcpUrno, pcgMasterSST);
+    if (strcmp(pcgDeletionStatusIndicator,"DELETE")==0)
+    {
+        sprintf(pclSqlBuf, "DELETE FROM %s WHERE %s='%s' AND SST!='%s'", pcpDestKey, pcpDestKey, pcpUrno, pcgMasterSST);
+    }
+    else
+    {
+        sprintf(pclSqlBuf, "UPDATE %s SET %s='DELETE' WHERE %s='%s' AND SST!='%s'", pcpDestKey, pcgDeletionStatusIndicator, pcpDestKey, pcpUrno, pcgMasterSST);
+    }
+    dbg(TRACE,"%s Delete Query<%s>",pclFunc, pclSqlBuf);
+
+    ilRc = sql_if(slFuncCode, &slLocalCursor, pclSqlBuf, pclSqlData);
+    if( ilRc != DB_SUCCESS )
+    {
+        ilRc = RC_FAIL;
+        dbg(TRACE,"%s UPDATE-Deletion Error",pclFunc);
+    }
+    close_my_cursor(&slLocalCursor);
+}
+
