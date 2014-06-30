@@ -2,7 +2,7 @@
 #ifndef _DEF_mks_version
   #define _DEF_mks_version
   #include "ufisvers.h" /* sets UFIS_VERSION, must be done before mks_version */
-  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/tbthdl.c 1.14 2014/06/30 10:53:14SGT fya Exp  $";
+  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/tbthdl.c 1.15 2014/06/30 11:31:14SGT fya Exp  $";
 #endif /* _DEF_mks_version */
 /******************************************************************************/
 /*                                                                            */
@@ -2535,6 +2535,10 @@ static void buildUpdateQuery(char *pcpSqlBuf, char * pcpTable, char * pcpDestFie
     char pclMin[16] = "\0";
     char pclSec[16] = "\0";
 
+    char clDestKey[128];
+    char pclSelection[512];
+    char *pclTmpPtr = NULL;
+
     char pclTmp[256] = "\0";
     char *pclTmp1 = "\0";
     char pclTmpSelection[256] = "\0";
@@ -2548,7 +2552,7 @@ static void buildUpdateQuery(char *pcpSqlBuf, char * pcpTable, char * pcpDestFie
     pclTmp1 = strstr(pclTmpSelection, "=");
     strcpy(pclUrnoSelection, pclTmp1+1);
 
-    sprintf(pclTmpSelection,"WHERE %s=%s",rgGroupInfo[pipRuleGroup].pclDestKey,pclUrnoSelection);
+    sprintf(pclTmpSelection,"WHERE %s=%s",rgGroupInfo[pipRuleGroup].pclDestKey, pclUrnoSelection);
 
     /*ilCount = GetNoOfElements(pcpDestFieldList,',');*/
 
@@ -2603,18 +2607,14 @@ static void buildUpdateQuery(char *pcpSqlBuf, char * pcpTable, char * pcpDestFie
         sprintf(pclTmpTime,"%s=%s","LSTU",pclTmp);
         sprintf(pcpSqlBuf,"UPDATE %s SET %s,%s %s", pcpTable, pclString, pclTmpTime, pclTmpSelection);
     }
-    else  /* tvo_fix: use UREF not URNO */
-	if (strcmp(pcpTable, "BMS_TNEW_DAILY") == 0 || strcmp(pcpTable, "BTRS_DAILY") == 0 || strcmp(pcpTable, "ACP_ALLOCATIONS") == 0 ||
+    /*else   tvo_fix: use UREF not URNO
+        if (strcmp(pcpTable, "BMS_TNEW_DAILY") == 0 || strcmp(pcpTable, "BTRS_DAILY") == 0 || strcmp(pcpTable, "ACP_ALLOCATIONS") == 0 ||
 			 strcmp(pcpTable, "ACP_ASSIGNMENTS") == 0 || strcmp(pcpTable, "TNEW_BAGGAGE_LATERALS") == 0)
 	{
-		char clDestKey[128];
-		char pclSelection[512];
-		char *pclTmpPtr = NULL;
-
 		strcpy(clDestKey, rgGroupInfo[pipRuleGroup].pclDestKey);
 		strcpy(pclSelection,pcpSelection);
 
-		if (strstr(pclSelection, clDestKey) == NULL)   /* replace URNO by dest table key */
+		if (strstr(pclSelection, clDestKey) == NULL)   // replace URNO by dest table key
         {
 			pclTmpPtr = strchr(pclSelection, '=');
 			if (pclTmpPtr != NULL)
@@ -2628,10 +2628,23 @@ static void buildUpdateQuery(char *pcpSqlBuf, char * pcpTable, char * pcpDestFie
         }
 		else
 			sprintf(pcpSqlBuf,"UPDATE %s SET %s %s", pcpTable, pclString, pcpSelection);
-	}
+	}*/
     else
     {
-        sprintf(pcpSqlBuf,"UPDATE %s SET %s %s", pcpTable, pclString, pcpSelection);
+        if (strstr(pclSelection, clDestKey) == NULL)   /* replace URNO by dest table key */
+        {
+			pclTmpPtr = strchr(pclSelection, '=');
+			if (pclTmpPtr != NULL)
+			{
+				*pclTmpPtr = '\0';
+				pclTmpPtr++;
+				sprintf(pcpSqlBuf,"UPDATE %s SET %s WHERE %s = %s", pcpTable, pclString, clDestKey, pclTmpPtr);
+			}
+			else
+				sprintf(pcpSqlBuf,"UPDATE %s SET %s %s", pcpTable, pclString, pcpSelection);
+        }
+        else
+            sprintf(pcpSqlBuf,"UPDATE %s SET %s %s", pcpTable, pclString, pcpSelection);
     }
 }
 
@@ -2965,9 +2978,14 @@ static int mapping(char *pcpTable, char *pcpFields, char *pcpNewData, char *pcpS
                 if ( ilCount == MASTER_RECORD )/*update master flights*/
                 {
                     ilRc = updateAllFlights(pclQuery);
-                    if (ilRc == RC_SUCCESS)
+                    if (ilRc == RC_SUCCESS || ilRc == NOTFOUND)
                     {
                         deleteCodeShareFligths(rgGroupInfo[ilRuleGroup].pclDestKey, pclUrnoSelection);
+                    }
+                    else
+                    {
+                        dbg(TRACE, "%s Detele error, return RC_FAIL", pclFunc);
+                        return RC_FAIL;
                     }
                 }
                 else /*insert codeshare flights*/
