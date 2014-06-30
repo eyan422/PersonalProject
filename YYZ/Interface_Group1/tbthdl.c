@@ -3362,7 +3362,7 @@ static int refreshTable(char *pcpTimeWindowLowerLimit, char *pcpTimeWindowUpperL
 static int getFieldValue(char *pcpFields, char *pcpNewData, char *pcpFieldName, char *pcpFieldValue)
 {
     int ilRc = RC_FAIL;
-    char *pclFunc = "getAdid";
+    char *pclFunc = "getFieldValue";
 
     if(strncmp(pcpFieldName," ",1) == 0 || strlen(pcpFieldName) == 0)
     {
@@ -3431,6 +3431,10 @@ static int iniTables(char *pcpTimeWindowLowerLimit, char *pcpTimeWindowUpperLimi
     {
         dbg(TRACE,"%s The number of rule group<%d> is invalid", pclFunc, igTotalNumbeoOfRule);
         return RC_FAIL;
+    }
+    else
+    {
+        dbg(TRACE,"%s The number of rule group<%d> is valid", pclFunc, igTotalNumbeoOfRule);
     }
 
     for (ilRuleGroup = 1; ilRuleGroup <= igTotalNumbeoOfRule; ilRuleGroup++)
@@ -3566,7 +3570,7 @@ static int truncateTable(int ipRuleGroup)
     strcpy(pclTable,rgGroupInfo[ipRuleGroup].pclDestTable);
 
     sprintf(pclSqlBuf, "TRUNCATE TABLE %s",pclTable);
-    dbg(DEBUG, "%s <%s>", pclFunc, pclSqlBuf);
+    dbg(DEBUG, "%s ipRuleGroup<%d><%s>", pclFunc, ipRuleGroup, pclSqlBuf);
 
     ilRC = RunSQL(pclSqlBuf, pclSqlData);
     if (ilRC != DB_SUCCESS)

@@ -1,6 +1,7 @@
 /*
 tbthdl_sub.c version 1.3 30/06/2014 01:00:00 tvo
-
+tbthdl_sub.c version 1.3a 30/06/2014 15:13:00 fya
+remove one dbg command in DefaultCopy
 For subroutine
 */
 
@@ -539,6 +540,7 @@ int operDay(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcp
     int ilDestLen = 0;
     char *pclFunc = "operDay";
     char pclTmp[64] = "\0";
+    char pclHour[64] = "\0";
 
     ilDestLen = atoi(rpLine->pclDestFieldLen);
     if ( ilDestLen == 0)
@@ -560,8 +562,20 @@ int operDay(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcp
         UtcToLocal(pclTmp);
     }
 
-    strncpy(pcpDestValue, pclTmp+6,ilDestLen);
-    pcpDestValue[ilDestLen] = '\0';
+    strncpy(pclHour, pclTmp+8, 2);
+    if (strcmp(pclHour, "04") >= 0)
+    {
+        dbg(DEBUG,"%s Bigger or euqal than 0400",pclFunc);
+        strncpy(pcpDestValue, pclTmp+6,ilDestLen);
+        pcpDestValue[ilDestLen] = '\0';
+    }
+    else
+    {
+        dbg(DEBUG,"%s Less than 0400",pclFunc);
+        AddSecondsToCEDATime(pclTmp, -1 * 24 * 60 * 60, 1);
+        strncpy(pcpDestValue, pclTmp+6,ilDestLen);
+        pcpDestValue[ilDestLen] = '\0';
+    }
 }
 
 int weekDay(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpSelection, char *pcpAdid)
@@ -648,7 +662,7 @@ int timeFormat(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * 
 
     if ( strlen(rpLine->pclCond2) == 0 || strcmp(rpLine->pclCond2," ") == 0)    /* YYYY-MM-DD HH24-MI-SS */
     {
-        sprintf(pclTmp,"%s%s%s%s%s %s%s%s%s%s", pclYear, pcgDateFormatDelimiter, pclMonth, pcgDateFormatDelimiter, pclDay, 
+        sprintf(pclTmp,"%s%s%s%s%s %s%s%s%s%s", pclYear, pcgDateFormatDelimiter, pclMonth, pcgDateFormatDelimiter, pclDay,
 												pclHour, pcgDateFormatDelimiter, pclMin, pcgDateFormatDelimiter, pclSec);   /* tvo_fix: pcgDateFormatDelimiter */
     }
     else if ( strcmp(rpLine->pclCond2,"YEAR_MON_DAY") == 0)
@@ -703,7 +717,7 @@ int defaultOperator(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, ch
         UtcToLocal(pclTmp);
     }
 
-    dbg(DEBUG,"%s pclTmp<%s>, ilDestLen<%d>, pcpDestValue<%s>, strlen(pcpDestValue)<%d>",pclFunc,pclTmp,ilDestLen,pcpDestValue,strlen(pcpDestValue));
+    /*dbg(DEBUG,"%s pclTmp<%s>, ilDestLen<%d>, pcpDestValue<%s>, strlen(pcpDestValue)<%d>",pclFunc,pclTmp,ilDestLen,pcpDestValue,strlen(pcpDestValue));*/
 
     ilRC = getDestSourceLen(ilDestLen, pclTmp);
     if (ilRC == RC_SUCCESS)
@@ -899,6 +913,6 @@ CODEFUNC[OPER_CODE] =
 	{"NOTNULL",notnull},
     {"CODESHARE",codeshare},
 	{"SEQUENCE",sequence},
-	{"TRANSTYPE",transtype}	
+	{"TRANSTYPE",transtype}
     /*{"",}*/
 };
