@@ -1,5 +1,5 @@
 /*
-tbthdl_sub.c version 1.3 30/06/2014 01:00:00 tvo
+tbthdl_sub.c version 1.2 24/06/2014 15:00:00 tvo
 
 For subroutine
 */
@@ -24,8 +24,6 @@ extern int map(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * 
 extern int merge(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpSelection, char *pcpAdid);
 extern int notyet(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpSelection, char *pcpAdid);
 extern int notnull(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpSelection, char *pcpAdid);
-extern int sequence(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpSelection, char *pcpAdid);
-extern int transtype(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpSelection, char *pcpAdid);
 /*-------------------------------------------------------*/
 char pcgDateFormatDelimiter[2];
 
@@ -184,6 +182,7 @@ int codeshareFormat(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, ch
         return RC_FAIL;
     }
 
+
     strncpy(pcpDestValue, "", 1);
 
     if(strlen(pcpSourceValue) == 0 || strncmp(pcpSourceValue," ",1) == 0 )
@@ -304,6 +303,7 @@ int viaref(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpS
     char pclVial[ARRAYNUMBER][LISTLEN] = {"\0"};
 
     strncpy(pcpDestValue, "", 1);
+
     ilDestLen = atoi(rpLine->pclDestFieldLen);
     if ( ilDestLen == 0)
     {
@@ -646,10 +646,9 @@ int timeFormat(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * 
     strncpy(pclMin,pclTmpLoc+10,2);
     strncpy(pclSec,pclTmpLoc+12,2);
 
-    if ( strlen(rpLine->pclCond2) == 0 || strcmp(rpLine->pclCond2," ") == 0)    /* YYYY-MM-DD HH24-MI-SS */
+    if ( strlen(rpLine->pclCond2) == 0 || strcmp(rpLine->pclCond2," ") == 0)
     {
-        sprintf(pclTmp,"%s%s%s%s%s %s%s%s%s%s", pclYear, pcgDateFormatDelimiter, pclMonth, pcgDateFormatDelimiter, pclDay, 
-												pclHour, pcgDateFormatDelimiter, pclMin, pcgDateFormatDelimiter, pclSec);   /* tvo_fix: pcgDateFormatDelimiter */
+        sprintf(pclTmp,"%s/%s/%s %s:%s:%s", pclDay, pclMonth, pclYear, pclHour, pclMin, pclSec);
     }
     else if ( strcmp(rpLine->pclCond2,"YEAR_MON_DAY") == 0)
     {
@@ -897,8 +896,6 @@ CODEFUNC[OPER_CODE] =
 	{"NOTYET",notyet},
 	{"ACTION_CODE",actionCode},
 	{"NOTNULL",notnull},
-    {"CODESHARE",codeshare},
-	{"SEQUENCE",sequence},
-	{"TRANSTYPE",transtype}	
+    {"CODESHARE",codeshare}
     /*{"",}*/
 };
