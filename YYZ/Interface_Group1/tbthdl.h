@@ -14,7 +14,7 @@
 #define UPDATE 10
 #define MASTER_RECORD 0
 
-static char pcgMasterSST[4] = "SL";
+static char pcgCodeShareSST[4] = "SL";
 
 typedef struct
 {

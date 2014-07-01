@@ -1066,8 +1066,8 @@ static int HandleData(EVENT *prpEvent)
                         if (strlen(pclRotationData[ilCount]) > 0)
                         {
                             ilRc = extractField(pclUrnoSelection, "URNO", pclFields, pclRotationData[ilCount]);
-                            sprintf(pclSelectionTmp, "WHERE URNO = %s", pclUrnoSelection);
-                            dbg(DEBUG,"%s <%d> Rotation Flight<%s> WHERE<%s>", pclFunc, ilCount, pclRotationData[ilCount], pclSelectionTmp);
+                            sprintf(pclSelectionTmp, "WHERE URNO=%s", pclUrnoSelection);
+                            dbg(DEBUG,"%s <%d> Rotation Flight<%s>-<%s>", pclFunc, ilCount, pclRotationData[ilCount], pclSelectionTmp);
                             /*
                             Since the rotation flight has no old data, then set ilVialChange = TRUE;
                             checkVialChange(pclFields,pclRotationData[ilCount],"",ilVialChange);
@@ -2057,9 +2057,9 @@ static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *
                      strcmp(rgGroupInfo[ipRuleGroup].pclDestTable, "Current_Departures") == 0 )
                 {
                     /*Insert data list*/
-                    sprintf(pclTmpInsert,"'%s',%s,%s,%s,%s",pcpHardcodeShare.pclSST,"''","''","''","''");
+                    sprintf(pclTmpInsert,"'%s',%s,%s,%s,%s",strcmp(pcpHardcodeShare.pclSST)==0?"0":pcpHardcodeShare.pclSST,"''","''","''","''");
                     #ifdef _TEST_
-                    sprintf(pclTmpInsert,"'%s',%s,%s,%s,'%s'",pcpHardcodeShare.pclSST,"''","''","''","\"x\",\"y\"");
+                    sprintf(pclTmpInsert,"'%s',%s,%s,%s,'%s'",strcmp(pcpHardcodeShare.pclSST)==0?"0":pcpHardcodeShare.pclSST,"''","''","''","\"x\",\"y\"");
                     #endif
 
                     strcpy(pclDestDataListWithCodeshareInsert, pclConvertedDataList);
@@ -2067,9 +2067,9 @@ static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *
                     strcat(pclDestDataListWithCodeshareInsert,pclTmpInsert);
 
                     /*Update data list*/
-                   sprintf(pclTmpUpdate,"'%s'%s%s%s%s%s%s%s%s",pcpHardcodeShare.pclSST,pcgDataListDelimiter,"''",pcgDataListDelimiter,"''",pcgDataListDelimiter,"''",pcgDataListDelimiter,"''");
+                   sprintf(pclTmpUpdate,"'%s'%s%s%s%s%s%s%s%s",strcmp(pcpHardcodeShare.pclSST)==0?"0":pcpHardcodeShare.pclSST,pcgDataListDelimiter,"''",pcgDataListDelimiter,"''",pcgDataListDelimiter,"''",pcgDataListDelimiter,"''");
                     #ifdef _TEST_
-                    sprintf(pclTmpUpdate,"'%s'%s%s%s%s%s%s%s'%s'",pcpHardcodeShare.pclSST,pcgDataListDelimiter,"''",pcgDataListDelimiter,"''",pcgDataListDelimiter,"''",pcgDataListDelimiter,"\"x\",\"y\"");
+                    sprintf(pclTmpUpdate,"'%s'%s%s%s%s%s%s%s'%s'",strcmp(pcpHardcodeShare.pclSST)==0?"0":pcpHardcodeShare.pclSST,pcgDataListDelimiter,"''",pcgDataListDelimiter,"''",pcgDataListDelimiter,"''",pcgDataListDelimiter,"\"x\",\"y\"");
                     #endif
 
                     strcpy(pclDestDataListWithCodeshareUpdate, pclDestDataList);
@@ -2102,7 +2102,7 @@ static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *
                 if ( strcmp(rgGroupInfo[ipRuleGroup].pclDestTable, "Current_Arrivals"  ) == 0 ||
                      strcmp(rgGroupInfo[ipRuleGroup].pclDestTable, "Current_Departures") == 0 )
                 {
-                    sprintf(pclTmpInsert,"'%s','%s','%s','%s','%s'","SL",pcpHardcodeShare.pclMFC, pcpHardcodeShare.pclMFN,pcpHardcodeShare.pclMFX,pcpHardcodeShare.pclMFF);
+                    sprintf(pclTmpInsert,"'%s','%s','%s','%s','%s','%s'",pcpHardcodeShare.pclMFC, pcpHardcodeShare.pclMFN,pcpHardcodeShare.pclMFX,pcpHardcodeShare.pclMFF, pcgCodeShareSST);
                     strcpy(pclDestDataListWithCodeshareInsert, pclConvertedDataList);
                     strcat(pclDestDataListWithCodeshareInsert,",");
                     strcat(pclDestDataListWithCodeshareInsert,pclTmpInsert);
@@ -2999,7 +2999,15 @@ static int mapping(char *pcpTable, char *pcpFields, char *pcpNewData, char *pcpS
 
     strcpy(pclTmpSelection, pcpSelection);
     pclTmp = strstr(pclTmpSelection, "=");
-    strcpy(pclUrnoSelection, pclTmp+1);
+
+    if(pclTmp[1] != ' ')
+    {
+       strcpy(pclUrnoSelection, pclTmp+1);
+    }
+    else
+    {
+        strcpy(pclUrnoSelection, pclTmp+2);
+    }
 
     /*ilRc = flightSearch(rgRule.rlLine[0].pclDestTable, rgRule.rlLine[0].pclDestKey, rgRule.rlLine[0].pclDestKey, pclUrnoSelection);*/
     ilRc = flightSearch(rgGroupInfo[ilRuleGroup].pclDestTable, rgGroupInfo[ilRuleGroup].pclDestKey, rgGroupInfo[ilRuleGroup].pclDestKey, pclUrnoSelection);
@@ -4159,14 +4167,14 @@ static void deleteCodeShareFligths(char *pcpDestTable ,char *pcpDestKey, char *p
     memset(pclSqlBuf,0,sizeof(pclSqlBuf));
     memset(pclSqlData,0,sizeof(pclSqlData));
 
-    dbg(DEBUG, "%d_pclDestKey = (<%s>,<%s>), pcgMasterSST = <%s>", __LINE__, pcpDestKey, pcpUrno, pcgMasterSST);
+    dbg(DEBUG, "%d_pclDestKey = (<%s>,<%s>), pcgCodeShareSST = <%s>", __LINE__, pcpDestKey, pcpUrno, pcgCodeShareSST);
     if (strcmp(pcgDeletionStatusIndicator,"DELETE")==0)
     {
-        sprintf(pclSqlBuf, "DELETE FROM %s WHERE %s='%s' AND SST!='%s'", pcpDestTable, pcpDestKey, pcpUrno, pcgMasterSST);
+        sprintf(pclSqlBuf, "DELETE FROM %s WHERE %s='%s' AND SST=='%s'", pcpDestTable, pcpDestKey, pcpUrno, pcgCodeShareSST);
     }
     else
     {
-        sprintf(pclSqlBuf, "UPDATE %s SET %s='%s' WHERE %s='%s' AND SST!='%s'", pcpDestTable, pcgDeletionStatusIndicator, pcgDelValue, pcpDestKey, pcpUrno, pcgMasterSST);
+        sprintf(pclSqlBuf, "UPDATE %s SET %s='%s' WHERE %s='%s' AND SST=='%s'", pcpDestTable, pcgDeletionStatusIndicator, pcgDelValue, pcpDestKey, pcpUrno, pcgCodeShareSST);
     }
     dbg(TRACE,"%s Delete Query<%s>",pclFunc, pclSqlBuf);
 
@@ -4225,7 +4233,7 @@ static void deleteFlight(char *pcpDestTable, char *pcpDestKey, char *pcpUrno)
     memset(pclSqlBuf,0,sizeof(pclSqlBuf));
     memset(pclSqlData,0,sizeof(pclSqlData));
 
-    dbg(DEBUG, "%d_pclDestKey = (<%s>,<%s>), pcgMasterSST = <%s>", __LINE__, pcpDestKey, pcpUrno, pcgMasterSST);
+    dbg(DEBUG, "%d_pclDestKey = (<%s>,<%s>)", __LINE__, pcpDestKey, pcpUrno);
     if (strcmp(pcgDeletionStatusIndicator,"DELETE")==0)
     {
         sprintf(pclSqlBuf, "DELETE FROM %s WHERE %s='%s'", pcpDestTable, pcpDestKey, pcpUrno);
