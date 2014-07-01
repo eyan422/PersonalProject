@@ -2,7 +2,7 @@
 #ifndef _DEF_mks_version
   #define _DEF_mks_version
   #include "ufisvers.h" /* sets UFIS_VERSION, must be done before mks_version */
-  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/tbthdl.c 1.16d 2014/06/30 12:06:14SGT fya Exp  $";
+  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/tbthdl.c 1.16e 2014/07/01 09:44:14SGT fya Exp  $";
 #endif /* _DEF_mks_version */
 /******************************************************************************/
 /*                                                                            */
@@ -1671,7 +1671,7 @@ static void showRule(_RULE *rpRule, int ipTotalLineOfRule)
     {
         if(strcmp(rpRule->rlLine[ilCount].pclActive, " ") != 0 && strlen(rpRule->rlLine[ilCount].pclActive) > 0)
         {
-            dbg(DEBUG, "%s [%d]%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s", pclFunc,ilCount,
+            dbg(DEBUG, "%s [%d]%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s", pclFunc,ilCount,   /* tvo_fix: missing %s */
             rpRule->rlLine[ilCount].pclActive,
             rpRule->rlLine[ilCount].pclRuleGroup,
             rpRule->rlLine[ilCount].pclSourceTable,
@@ -1999,6 +1999,7 @@ static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *
                 /*if (strcmp(rpRule->rlLine[ilRuleCount].pclCond3, pcgNullableIndicator) == 0)*/
                 if (strcmp((rpRule->rlLine+ilRuleCount)->pclCond3, pcgNullableIndicator) == 0)
                 {
+					dbg(DEBUG, "<tvo> <%s> <%s> <%d:%d>", (rpRule->rlLine+ilRuleCount)->pclCond3, pcgNullableIndicator, ilRuleCount, RC_FAIL);
                     ilRC = checkNullable(pclTmpDestFieldValue, rpRule->rlLine+ilRuleCount);
                     if (ilRC == RC_FAIL)
                     {
@@ -2685,6 +2686,9 @@ static void buildUpdateQuery(char *pcpSqlBuf, char * pcpTable, char * pcpDestFie
         sprintf(pcpSqlBuf,"UPDATE %s SET %s,%s %s", pcpTable, pclString, pclTmpTime, pclTmpSelection);
     }
     else  /* tvo_fix: use UREF not URNO */
+		sprintf(pcpSqlBuf,"UPDATE %s SET %s %s", pcpTable, pclString, pclTmpSelection);   /* replace pcpSelection by pclTmpSelection */
+
+	#if 0
 	if (strcmp(pcpTable, "BMS_TNEW_DAILY") == 0 || strcmp(pcpTable, "BTRS_DAILY") == 0 || strcmp(pcpTable, "ACP_ALLOCATIONS") == 0 ||
 			 strcmp(pcpTable, "ACP_ASSIGNMENTS") == 0 || strcmp(pcpTable, "TNEW_BAGGAGE_LATERALS") == 0 || strcmp(pcpTable, "BHS_TNEW_DEPARTURE_LATERALS") == 0)
 	{
@@ -2714,6 +2718,7 @@ static void buildUpdateQuery(char *pcpSqlBuf, char * pcpTable, char * pcpDestFie
     {
         sprintf(pcpSqlBuf,"UPDATE %s SET %s %s", pcpTable, pclString, pcpSelection);
     }
+	#endif
 }
 
 static int convertSrcValToDestVal(char *pcpSourceFieldName, char *pcpSourceFieldValue, char *pcpDestFieldName, _LINE * rpLine, char * pcpDestFieldValue, char * pcpSelection, char *pcpAdid)
@@ -3847,17 +3852,17 @@ static void buildConvertedDataList(char *pcpDetType, char *pcpDestDataList, char
 	char *pclFunc = "buildConvertedDataList";
     char pclTmp[256] = "\0";
 
-    if (ipOption == BLANK)
+    if (ipOption == BLANK)    /* tvo_fix: missing '' */
     {
         if ( strlen(pcpDestDataList) == 0 )
         {
-            strcat(pcpDestDataList, " ");
+            strcat(pcpDestDataList, "' '");
         }
         else
         {
             /*strcat(pclDestDataList,",");*/
             strcat(pcpDestDataList, pcgDataListDelimiter);
-            strcat(pcpDestDataList, " ");
+            strcat(pcpDestDataList, "' '");
         }
     }
     else
@@ -3875,7 +3880,10 @@ static void buildConvertedDataList(char *pcpDetType, char *pcpDestDataList, char
         }
         else if (strcmp(pcpDetType,"NUMBER") == 0)
         {
-            sprintf(pclTmp,"%s",pcpDestFieldValue);   /* NUMBER: no single quote */
+            if (strlen(pcpDestFieldValue) > 0)		/* tvo_fix: if nullable then wrong */
+            	sprintf(pclTmp,"%s",pcpDestFieldValue);   /* NUMBER: no single quote */
+			else
+				strcpy(pclTmp,"''");              /* null value */
         }
         else /* VARCHAR2 */
         {
