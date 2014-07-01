@@ -1,7 +1,11 @@
 /*
 tbthdl_sub.c version 1.3 30/06/2014 01:00:00 tvo
 tbthdl_sub.c version 1.3a 30/06/2014 15:13:00 fya
-remove one dbg command in DefaultCopy
+    remove one dbg command in DefaultCopy
+tbthdl_sub.c version 1.3b 01/07/2014 11:09:00 fya
+    add dbg in ZON subroutine
+tbthdl_sub.c version 1.3c 01/07/2014 12:34:00 fya
+    fix bug in via and viaref
 For subroutine
 */
 
@@ -259,6 +263,11 @@ int zon(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpSele
     {
         strcpy(pcpDestValue, pcpSourceValue);
         ilRC = RC_SUCCESS;
+        dbg(TRACE,"%s pcpAdid<%s> -> The value of source field",pclFunc,pcpAdid);
+    }
+    else
+    {
+        dbg(TRACE,"%s pcpAdid<%s> -> Blank",pclFunc,pcpAdid);
     }
 
     return ilRC;
@@ -270,20 +279,18 @@ int getVial(char *pcpVial, char (*pcpVialArray)[LISTLEN])
     int ilCount = 0;
     int ilRC = RC_FAIL;
     char *pclFunc = "getVial";
-
-    char *pclVial = NULL;
     char pclTmp[16] = "\0";
     char pclBuffer[LISTLEN] = "\0";
 
-    strcpy(pclBuffer, pclVial+1);
+    strcpy(pclBuffer, pcpVial+1);
     ilNO = strlen(pclBuffer) / VIAL_LEN ;
 
-    dbg(TRACE,"%s len<%d> ilNo<%d>\n", pclFunc, strlen(pclBuffer), ilNO);
+    dbg(TRACE,"%s len<%d> ilNo<%d>", pclFunc, strlen(pclBuffer), ilNO);
 
     for (ilCount = 0; ilCount <= ilNO; ilCount++)
     {
         strncpy(pclTmp, pclBuffer + ilCount * (VIAL_LEN - 1), 3);
-        dbg(DEBUG,"%s %d pclTmp<%s>\n",ilCount,pclTmp);
+        /*dbg(DEBUG,"%s %d pclTmp<%s>", pclFunc, ilCount, pclTmp);*/
 
         strcpy(pcpVialArray[ilCount], pclTmp);
     }
@@ -297,7 +304,7 @@ int viaref(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpS
     int ilCount = 0;
     int ilDestLen = 0;
     int ilRC = RC_FAIL;
-    char *pclFunc = "via";
+    char *pclFunc = "viaref";
     char pclTmp[1024] = "\0";
     char pclSqlBuf[1024] = "\0";
     char pclSqlData[1024] = "\0";
@@ -312,15 +319,15 @@ int viaref(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpS
         return RC_FAIL;
     }
 
-    if(strlen(pcpSourceValue) == 0 || strncmp(pcpSourceValue," ",1) == 0 )
+    if(strlen(pcpSourceValue) == 0 || strncmp(pcpSourceValue+1," ",1) == 0 )
     {
         dbg(TRACE,"%s pcpSourceValue<%s> is invalid",pclFunc,pcpSourceValue);
         return ilRC;
     }
 
     ilCount = getVial(pcpSourceValue, pclVial);
-    ili = (int)((rpLine->pclDestField)[strlen(rpLine->pclDestField)-1] - '0') - 1; /// ili = (int)((rpLine->pclDestField)[3] - '0') - 1;
-    if (ili > ARRAYNUMBER || ili <= 0)
+    ili = (int)((rpLine->pclDestField)[strlen(rpLine->pclDestField)-1] - '0') - 1; /* ili = (int)((rpLine->pclDestField)[3] - '0') - 1;*/
+    if (ili > ARRAYNUMBER || ili < 0)
     {
         dbg(TRACE,"%s ili<%d> is invalid",pclFunc,ili);
         return ilRC;
@@ -328,7 +335,7 @@ int viaref(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpS
 
     strcpy(pclTmp, pclVial[ili]);
 
-    sprintf(pclSelection, "WHERE %s=%s", rpLine->pclCond1, pclTmp);
+    sprintf(pclSelection, "WHERE %s='%s'", rpLine->pclCond1, pclTmp);
     buildSelQuery(pclSqlBuf, rpLine->pclSourceTable, rpLine->pclCond2, pclSelection);
     ilRC = RunSQL(pclSqlBuf, pclSqlData);
     if (ilRC != DB_SUCCESS)
@@ -344,7 +351,8 @@ int viaref(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpS
             ilRC = RC_FAIL;
             break;
         default:
-            dbg(TRACE, "<%s> Retrieving source data - Found\n <%s>", pclFunc, pclSqlData);
+            TrimRight(pclSqlData);
+            dbg(TRACE, "<%s> Retrieving source data - Found<%s>", pclFunc, pclSqlData);
             BuildItemBuffer(pclSqlData, NULL, 1, ",");
 
             ilRC = getDestSourceLen(ilDestLen, pclSqlData);
@@ -383,7 +391,7 @@ int via(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpSele
         return RC_FAIL;
     }
 
-    if(strlen(pcpSourceValue) == 0 || strncmp(pcpSourceValue," ",1) == 0 )
+    if(strlen(pcpSourceValue) == 0 || strncmp(pcpSourceValue+1," ",1) == 0 )
     {
         dbg(TRACE,"%s pcpSourceValue<%s> is invalid",pclFunc,pcpSourceValue);
         return ilRC;
@@ -448,6 +456,7 @@ int rotation(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pc
         {
             if (strlen(pclRotationData[ilCount]) > 0)
             {
+                TrimRight(pclRotationData[ilCount]);
                 dbg(DEBUG,"%s <%d> Rotation Flight<%s>", pclFunc, ilCount, pclRotationData[ilCount]);
 
                 ilRC = getDestSourceLen(ilDestLen, pclRotationData[ilCount]);
@@ -565,7 +574,7 @@ int operDay(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcp
     strncpy(pclHour, pclTmp+8, 2);
     if (strcmp(pclHour, "04") >= 0)
     {
-        dbg(DEBUG,"%s Bigger or euqal than 0400",pclFunc);
+        dbg(DEBUG,"%s pclTmp<%s> Bigger or euqal than 0400",pclFunc, pclTmp);
         strncpy(pcpDestValue, pclTmp+6,ilDestLen);
         pcpDestValue[ilDestLen] = '\0';
     }

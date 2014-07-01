@@ -2,7 +2,7 @@
 #ifndef _DEF_mks_version
   #define _DEF_mks_version
   #include "ufisvers.h" /* sets UFIS_VERSION, must be done before mks_version */
-  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/tbthdl.c 1.16e 2014/07/01 09:44:14SGT fya Exp  $";
+  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/tbthdl.c 1.16h 2014/07/01 12:07:44:14SGT fya Exp  $";
 #endif /* _DEF_mks_version */
 /******************************************************************************/
 /*                                                                            */
@@ -14,6 +14,7 @@
 /*                                                                            */
 /* Update history :                                                           */
 /* 20030630 JIM: may core!: dbg(TRACE,"Command: <%s>,prlCmdblk->command")     */
+/* 20140701 FYA: v1.16h Extend the buffer in checkVialChange
 /*                                                                            */
 /******************************************************************************/
 /*                                                                            */
@@ -328,7 +329,9 @@ MAIN
 	dbg(TRACE,"Vorsicht, ich bin nur ein Skeleton und tue nichts.......... ");
 	dbg(TRACE,"=====================");
 
-    runTestData();    /* run test data for AFTTAB and CCATAB */
+    /*
+    runTestData();    // run test data for AFTTAB and CCATAB
+    */
 
 	for(;;)
 	{
@@ -1062,8 +1065,9 @@ static int HandleData(EVENT *prpEvent)
                     {
                         if (strlen(pclRotationData[ilCount]) > 0)
                         {
-                            dbg(DEBUG,"%s <%d> Rotation Flight<%s>", pclFunc, ilCount, pclRotationData[ilCount]);
-
+                            ilRc = extractField(pclUrnoSelection, "URNO", pclFields, pclRotationData[ilCount]);
+                            sprintf(pclSelectionTmp, "WHERE URNO = %s", pclUrnoSelection);
+                            dbg(DEBUG,"%s <%d> Rotation Flight<%s> WHERE<%s>", pclFunc, ilCount, pclRotationData[ilCount], pclSelectionTmp);
                             /*
                             Since the rotation flight has no old data, then set ilVialChange = TRUE;
                             checkVialChange(pclFields,pclRotationData[ilCount],"",ilVialChange);
@@ -3264,8 +3268,8 @@ static int checkVialChange(char *pcpFields, char *pcpNewData, char *pcpOldData, 
     int ilRc = RC_SUCCESS;
     char *pclFunc = "checkVialChange";
     char pclVianValue[64] = "\0";
-    char pclVialOldValue[64] = "\0";
-    char pclVialNewValue[64] = "\0";
+    char pclVialOldValue[8192] = "\0";
+    char pclVialNewValue[8192] = "\0";
 
     /*getting the VIAN*/
     ilRc = extractField(pclVianValue, "VIAN", pcpFields, pcpNewData);
