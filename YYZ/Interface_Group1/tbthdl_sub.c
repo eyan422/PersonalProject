@@ -32,8 +32,6 @@ extern int notnull(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, cha
 extern int sequence(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpSelection, char *pcpAdid);
 extern int transtype(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpSelection, char *pcpAdid);
 /*-------------------------------------------------------*/
-char pcgDateFormatDelimiter[4];
-char pcgMultiSrcFieldDelimiter[4];
 
 static int UtcToLocal(char *pcpTime)
 {
@@ -712,6 +710,7 @@ int counterRange(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char 
     char pclTmpDestFieldName[512] = "\0";
     char pclTmpDestFieldValue[512] = "\0";
     char pclSqlBuf[1024] = "\0";
+    char pclData[1024] = "\0";
     char pclSqlData[1024] = "\0";
     char pclField[1024] = "\0";
 
@@ -722,6 +721,7 @@ int counterRange(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char 
         return RC_FAIL;
     }
 
+    /*
     ilNo = GetNoOfElements(rpLine->pclSourceField, pcgMultiSrcFieldDelimiter[0]);
 
     for(ili = 1; ili <= ilNo; ili++)
@@ -741,7 +741,10 @@ int counterRange(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char 
             strcat(pclField, pclTmpDestFieldName);
         }
     }
-
+    */
+    sprintf(pclField,"%s,%s",rpLine->pclCond1,rpLine->pclCond2);
+    ilNo = GetNoOfElements(pclField, ',');
+    /*dbg(DEBUG,"%s pclField<%s>",pclFunc,pclField);*/
     buildSelQuery(pclSqlBuf, rpLine->pclSourceTable, pclField, pcpSelection);
     ilRC = RunSQL(pclSqlBuf, pclSqlData);
     if (ilRC != DB_SUCCESS)
@@ -759,7 +762,7 @@ int counterRange(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char 
             ilRC = RC_FAIL;
             break;
         default:
-            dbg(TRACE, "<%s> Retrieving source data - Found\n <%s>", pclFunc, pclSqlData);
+            dbg(TRACE, "<%s> Retrieving source data - Found <%s>", pclFunc, pclSqlData);
             BuildItemBuffer(pclSqlData, NULL, ilNo, pcgMultiSrcFieldDelimiter);
             TrimRight(pclSqlData);
 
@@ -773,7 +776,7 @@ int counterRange(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char 
 
                 if (ili == 1 )
                 {
-                    strcat(pclData, pclTmpDestFieldName);
+                    strcat(pclData, pclTmpDestFieldValue);
                 }
                 else
                 {

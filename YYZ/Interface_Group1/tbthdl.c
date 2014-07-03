@@ -2069,9 +2069,9 @@ static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *
                      strcmp(rgGroupInfo[ipRuleGroup].pclDestTable, "Current_Departures") == 0 )
                 {
                     /*Insert data list*/
-                    sprintf(pclTmpInsert,"'%s',%s,%s,%s,%s",strcmp(pcpHardcodeShare.pclSST)==0?"0":pcpHardcodeShare.pclSST,"''","''","''","''");
+                    sprintf(pclTmpInsert,"'%s',%s,%s,%s,%s",strlen(pcpHardcodeShare.pclSST)==0?"0":pcpHardcodeShare.pclSST,"''","''","''","''");
                     #ifdef _TEST_
-                    sprintf(pclTmpInsert,"'%s',%s,%s,%s,'%s'",strcmp(pcpHardcodeShare.pclSST)==0?"0":pcpHardcodeShare.pclSST,"''","''","''","\"x\",\"y\"");
+                    sprintf(pclTmpInsert,"'%s',%s,%s,%s,'%s'",strlen(pcpHardcodeShare.pclSST)==0?"0":pcpHardcodeShare.pclSST,"''","''","''","\"x\",\"y\"");
                     #endif
 
                     strcpy(pclDestDataListWithCodeshareInsert, pclConvertedDataList);
@@ -2079,9 +2079,9 @@ static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *
                     strcat(pclDestDataListWithCodeshareInsert,pclTmpInsert);
 
                     /*Update data list*/
-                   sprintf(pclTmpUpdate,"'%s'%s%s%s%s%s%s%s%s",strcmp(pcpHardcodeShare.pclSST)==0?"0":pcpHardcodeShare.pclSST,pcgDataListDelimiter,"''",pcgDataListDelimiter,"''",pcgDataListDelimiter,"''",pcgDataListDelimiter,"''");
+                   sprintf(pclTmpUpdate,"'%s'%s%s%s%s%s%s%s%s",strlen(pcpHardcodeShare.pclSST)==0?"0":pcpHardcodeShare.pclSST,pcgDataListDelimiter,"''",pcgDataListDelimiter,"''",pcgDataListDelimiter,"''",pcgDataListDelimiter,"''");
                     #ifdef _TEST_
-                    sprintf(pclTmpUpdate,"'%s'%s%s%s%s%s%s%s'%s'",strcmp(pcpHardcodeShare.pclSST)==0?"0":pcpHardcodeShare.pclSST,pcgDataListDelimiter,"''",pcgDataListDelimiter,"''",pcgDataListDelimiter,"''",pcgDataListDelimiter,"\"x\",\"y\"");
+                    sprintf(pclTmpUpdate,"'%s'%s%s%s%s%s%s%s'%s'",strlen(pcpHardcodeShare.pclSST)==0?"0":pcpHardcodeShare.pclSST,pcgDataListDelimiter,"''",pcgDataListDelimiter,"''",pcgDataListDelimiter,"''",pcgDataListDelimiter,"\"x\",\"y\"");
                     #endif
 
                     strcpy(pclDestDataListWithCodeshareUpdate, pclDestDataList);

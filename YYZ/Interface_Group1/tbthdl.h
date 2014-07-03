@@ -1,3 +1,5 @@
+#ifndef TBTHDL_H
+#define TBTHDL_H
 /*fya v0.1*/
 #define ARRAYNUMBER 16
 #define GROUPNUMER  16
@@ -12,9 +14,18 @@
 #define NONBLANK 2
 #define INSERT 9
 #define UPDATE 10
+#define DELETE 11
 #define MASTER_RECORD 0
 
 static char pcgCodeShareSST[4] = "SL";
+char pcgDateFormatDelimiter[4];
+char pcgMultiSrcFieldDelimiter[4];
+/*------ tvo_add ------------------------------------------*/
+int  igEnableIgnoreDelete;
+int  igTransCmd;
+char cgTransTypeValue[128];
+int  igEnableInsertOnly;
+/*---------------------------------------------------------*/
 
 typedef struct
 {
@@ -68,3 +79,6 @@ typedef struct {
     char pclInsertQuery[4096];
     char pclUpdateQuery[4096];
 } _QUERY;
+
+
+#endif
