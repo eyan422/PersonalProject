@@ -139,7 +139,8 @@ static int igEnableCodeshare;
 static int igInitTable;
 static int igDataListDelimiter;
 static char pcgDataListDelimiter[2];
-extern char pcgDateFormatDelimiter[2];
+extern char pcgDateFormatDelimiter[4];
+extern char pcgMultiSrcFieldDelimiter[4];
 /*static int igTimeDifference;*/
 
 static char pcgTimeWindowLowerLimit[64];
@@ -1318,6 +1319,17 @@ static int getConfig()
         strcpy(pcgNullableIndicator, "NOTNULL");
     }
     dbg(DEBUG,"pcgNullableIndicator<%s>",pcgNullableIndicator);
+
+    ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","MULTI_SOURCE_FIELD_DELIMITER",CFG_STRING,pclTmpBuf);
+    if (ilRC == RC_SUCCESS)
+    {
+        strcpy(pcgMultiSrcFieldDelimiter, pclTmpBuf);
+    }
+    else
+    {
+        strcpy(pcgMultiSrcFieldDelimiter, "-");
+    }
+    dbg(DEBUG,"pcgMultiSrcFieldDelimiter<%s>",pcgMultiSrcFieldDelimiter);
 
     ilRC = iGetConfigEntry(pcgConfigFile,"URNO","CURRENT_ARRIVALS",CFG_STRING,pclTmpBuf);
     if (ilRC == RC_SUCCESS)

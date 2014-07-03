@@ -110,7 +110,7 @@ Y;2;AFTTAB;URNO;FTYP;;Current_Departures;DID;NAT;3;;;;;
 Y;2;AFTTAB;URNO;STYP;;Current_Departures;DID;FST;1;;;;;
 Y;2;AFTTAB;URNO;REMP;;Current_Departures;DID;REM;3;;;;;
 Y;2;AFTTAB;URNO;PAXT;;Current_Departures;DID;PAX;3;;;;;
-N;2;AFTTAB;URNO;CKIF,CKIT;;Current_Departures;DID;CID;11;;;;;
+Y;2;AFTTAB;URNO;CKIF-CKIT;;Current_Departures;DID;CID;11;;COUNTERRANGE;;;
 N;2;CCATAB;URNO;UNRO;;Current_Departures;DID;CHS;1;;COUNTER;CKBA;FLNU;
 N;2;CCATAB;URNO;URNO;;Current_Departures;DID;CIO;4;;COUNTER;CKBS;FLNU;
 N;2;CCATAB;URNO;URNO;;Current_Departures;DID;CIC;4;;COUNTER;CKES;FLNU;

@@ -32,7 +32,8 @@ extern int notnull(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, cha
 extern int sequence(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpSelection, char *pcpAdid);
 extern int transtype(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpSelection, char *pcpAdid);
 /*-------------------------------------------------------*/
-char pcgDateFormatDelimiter[2];
+char pcgDateFormatDelimiter[4];
+char pcgMultiSrcFieldDelimiter[4];
 
 static int UtcToLocal(char *pcpTime)
 {
@@ -699,6 +700,105 @@ int timeFormat(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * 
     return ilRC;
 }
 
+int counterRange(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpSelection, char *pcpAdid)
+{
+    int ilRC = RC_FAIL;
+    int ilDestLen = 0;
+    int ilNo = 0;
+    int ili = 0;
+    char *pclFunc = "counterRange";
+
+    char pclTmp[64] = "\0";
+    char pclTmpDestFieldName[512] = "\0";
+    char pclTmpDestFieldValue[512] = "\0";
+    char pclSqlBuf[1024] = "\0";
+    char pclSqlData[1024] = "\0";
+    char pclField[1024] = "\0";
+
+    ilDestLen = atoi(rpLine->pclDestFieldLen);
+    if ( ilDestLen == 0)
+    {
+        dbg(TRACE, "%s Dest Length<%d> is invalid", pclFunc, ilDestLen);
+        return RC_FAIL;
+    }
+
+    ilNo = GetNoOfElements(rpLine->pclSourceField, pcgMultiSrcFieldDelimiter[0]);
+
+    for(ili = 1; ili <= ilNo; ili++)
+    {
+        memset(pclTmpDestFieldName,0,sizeof(pclTmpDestFieldName));
+
+        get_item(ili, rpLine->pclSourceField, pclTmpDestFieldName, 0, pcgMultiSrcFieldDelimiter, "\0", "\0");
+        TrimRight(pclTmpDestFieldName);
+
+        if (ili == 1 )
+        {
+            strcat(pclField, pclTmpDestFieldName);
+        }
+        else
+        {
+            strcat(pclField, ",");
+            strcat(pclField, pclTmpDestFieldName);
+        }
+    }
+
+    buildSelQuery(pclSqlBuf, rpLine->pclSourceTable, pclField, pcpSelection);
+    ilRC = RunSQL(pclSqlBuf, pclSqlData);
+    if (ilRC != DB_SUCCESS)
+    {
+        dbg(TRACE, "<%s>: Retrieving source data - Fails", pclFunc);
+        strncpy(pcpDestValue,"",1);
+        return RC_FAIL;
+    }
+
+    switch(ilRC)
+    {
+        case NOTFOUND:
+            dbg(TRACE, "<%s> Retrieving source data - Not Found", pclFunc);
+            strncpy(pcpDestValue,"",1);
+            ilRC = RC_FAIL;
+            break;
+        default:
+            dbg(TRACE, "<%s> Retrieving source data - Found\n <%s>", pclFunc, pclSqlData);
+            BuildItemBuffer(pclSqlData, NULL, ilNo, pcgMultiSrcFieldDelimiter);
+            TrimRight(pclSqlData);
+
+            /*to do*/
+            for(ili = 1; ili <= ilNo; ili++)
+            {
+                memset(pclTmpDestFieldValue,0,sizeof(pclTmpDestFieldValue));
+
+                get_item(ili, pclSqlData, pclTmpDestFieldValue, 0, pcgMultiSrcFieldDelimiter, "\0", "\0");
+                TrimRight(pclTmpDestFieldValue);
+
+                if (ili == 1 )
+                {
+                    strcat(pclData, pclTmpDestFieldName);
+                }
+                else
+                {
+                    strcat(pclData, pcgMultiSrcFieldDelimiter);
+                    strcat(pclData, pclTmpDestFieldValue);
+                }
+            }
+
+            ilRC = getDestSourceLen(ilDestLen, pclData);
+            if (ilRC == RC_SUCCESS)
+            {
+                strcpy(pcpDestValue,  pclData);
+            }
+            else
+            {
+                strncpy(pcpDestValue, pclData, ilDestLen);
+                pcpDestValue[ilDestLen] = '\0';
+            }
+
+            ilRC = RC_SUCCESS;
+            break;
+    }
+    return ilRC;
+}
+
 int defaultOperator(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpSelection, char *pcpAdid)
 {
     int ilRC = RC_FAIL;
@@ -922,6 +1022,7 @@ CODEFUNC[OPER_CODE] =
 	{"NOTNULL",notnull},
     {"CODESHARE",codeshare},
 	{"SEQUENCE",sequence},
-	{"TRANSTYPE",transtype}
+	{"TRANSTYPE",transtype},
+	{"COUNTERRANGE",counterRange}
     /*{"",}*/
 };
