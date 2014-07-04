@@ -8,6 +8,7 @@
 #define MAX_GROUP_LINES 4000
 
 #define FYA
+#define CODESHARE
 
 #define BRUTAL 4
 #define HASH 5

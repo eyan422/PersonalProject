@@ -171,6 +171,7 @@ int codeshare(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * p
 int codeshareFormat(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpSelection, char *pcpAdid)
 {
     int ilRC = RC_FAIL;
+    int ili = 0;
     char *pclFunc = "codeshareFormat";
     int ilJcnt = 0;
     int ilCount =0;
@@ -178,6 +179,8 @@ int codeshareFormat(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, ch
     char pclFields[LISTLEN] = "\0";
     char pclData[LISTLEN] = "\0";
     char pcpFormat[LISTLEN] = "\0";
+    char pcpTmp[LISTLEN] = "\0";
+    char pcpTmpTotal[LISTLEN] = "\0";
     _VIAL pclCodeShare[ARRAYNUMBER];
 
     ilDestLen = atoi(rpLine->pclDestFieldLen);
@@ -209,17 +212,35 @@ int codeshareFormat(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, ch
 
     ilCount = getCodeShare(pclFields,pclData,pclCodeShare,pcpFormat,"ALC3", pcpSelection);
     dbg(DEBUG,"%s ilCount<%d> pcpFormat<%s>",pclFunc,ilCount, pcpFormat);
-    /*
+
     for(ili = 0; ili < ilCount; ili++)
     {
         dbg(DEBUG,"%s ili<%d>",pclFunc,ili);
         dbg(DEBUG,"%s ALC2<%s> ALC3<%s> FLNO<%s>",pclFunc,pclCodeShare[ili].pclAlc2, pclCodeShare[ili].pclAlc3, pclCodeShare[ili].pclFlno);
+        sprintf(pcpTmp,"%s %s", pclCodeShare[ili].pclAlc2, pclCodeShare[ili].pclFlno);
+
+        if (ili == 0)
+        {
+            strcat(pcpTmpTotal,pcpTmp);
+        }
+        else
+        {
+            strcat(pcpTmpTotal,"/");
+            strcat(pcpTmpTotal,pcpTmp);
+        }
     }
-    */
+
     ilRC = getDestSourceLen(ilDestLen, pcpFormat);
     if (ilRC == RC_SUCCESS)
     {
-        strcpy(pcpDestValue,  pcpFormat);
+        if(strcmp(rpLine->pclCond1,"ALC3") == 0)
+        {
+            strcpy(pcpDestValue,  pcpFormat);
+        }
+        else if(strcmp(rpLine->pclCond1,"ALC2") == 0)
+        {
+            strcpy(pcpDestValue, pcpTmpTotal);
+        }
     }
     else
     {
@@ -415,6 +436,87 @@ int via(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpSele
     return ilRC;
 }
 
+int rotationWeekday(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpSelection, char *pcpAdid)
+{
+    int ilCount = 0;
+    int ilRC = RC_FAIL;
+    int ilDestLen = 0;
+    int ilDays;
+    int ilMins;
+    int ilWeekDay;
+    char *pclFunc = "rotation";
+
+    char *pclTmp = NULL;
+    char pclTmpSelection[64] = "\0";
+    char pclUrnoSelection[64] = "\0";
+    char pclRotationData[ARRAYNUMBER][LISTLEN] = {"\0"};
+
+    ilDestLen = atoi(rpLine->pclDestFieldLen);
+    if ( ilDestLen == 0)
+    {
+        dbg(TRACE, "%s Dest Length<%d> is invalid", pclFunc, ilDestLen);
+        return RC_FAIL;
+    }
+
+    strcpy(pclTmpSelection, pcpSelection);
+    /*dbg(DEBUG,"%s pclTmpSelection<%s>",pclFunc,pclTmpSelection);*/
+
+    pclTmp = strstr(pclTmpSelection, "=");
+    /*dbg(DEBUG,"%s pclTmp<%s>",pclFunc,pclTmp);*/
+
+    strcpy(pclUrnoSelection, pclTmp+1);
+    /*dbg(DEBUG,"%s pclUrnoSelection<%s>",pclFunc,pclUrnoSelection);*/
+
+    strncpy(pcpDestValue, "", 1);
+
+    ilRC = getRotationFlightData(rpLine->pclSourceTable, pclUrnoSelection, rpLine->pclSourceField, pclRotationData, pcpAdid);
+    if (ilRC == RC_SUCCESS)
+    {
+        showRotationFlight(pclRotationData);
+
+        /*handle rotation data*/
+        for(ilCount = 0; ilCount < ARRAYNUMBER; ilCount++)
+        {
+            if (strlen(pclRotationData[ilCount]) > 0)
+            {
+                TrimRight(pclRotationData[ilCount]);
+                dbg(DEBUG,"%s <%d> Rotation Flight<%s>", pclFunc, ilCount, pclRotationData[ilCount]);
+
+                strcpy(pclTmp, pclRotationData[ilCount]);
+                if(strcmp(rpLine->pclCond1, "DATELOC") == 0)
+                {
+                    if(atoi(pclTmp) == 0 || strlen(pclTmp) != 14)
+                    {
+                        dbg(TRACE, "%s Source value<%s> is invalid for DATELOC atttibute", pclFunc, pclTmp);
+                        return RC_FAIL;
+                    }
+                    /*UTC -> LOC*/
+                    UtcToLocal(pclTmp);
+                }
+                dbg(DEBUG,"%s pclTmp<%s>",pclFunc,pclTmp);
+                GetFullDay(pclTmp,&ilDays,&ilMins,&ilWeekDay);
+                sprintf(pcpDestValue,"%d",ilWeekDay);
+
+                /*
+                ilRC = getDestSourceLen(ilDestLen, pclRotationData[ilCount]);
+                if (ilRC == RC_SUCCESS)
+                {
+                    strcpy(pcpDestValue,  pclRotationData[ilCount]);
+                }
+                else
+                {
+                    strncpy(pcpDestValue, pclRotationData[ilCount], ilDestLen);
+                    pcpDestValue[ilDestLen] = '\0';
+                }
+                */
+                ilRC = RC_SUCCESS;
+                break;
+            }
+        }
+    }
+    return ilRC;
+}
+
 int rotation(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpSelection, char *pcpAdid)
 {
     int ilCount = 0;
@@ -558,7 +660,6 @@ int operDay(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcp
     }
 
     strcpy(pclTmp, pcpSourceValue);
-
     if(strcmp(rpLine->pclCond1, "DATELOC") == 0)
     {
         if(atoi(pcpSourceValue) == 0 || strlen(pcpSourceValue) != 14)
@@ -590,6 +691,9 @@ int weekDay(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcp
 {
     int ilRC = RC_FAIL;
     int ilDestLen = 0;
+    int ilDays;
+    int ilMins;
+    int ilWeekDay;
     char *pclFunc = "weekDay";
     char pclTmp[64] = "\0";
 
@@ -601,18 +705,21 @@ int weekDay(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcp
     }
 
     strcpy(pclTmp, pcpSourceValue);
-
     if(strcmp(rpLine->pclCond1, "DATELOC") == 0)
     {
-        if(atoi(pcpSourceValue) == 0 || strlen(pcpSourceValue) != 14)
+        if(atoi(pclTmp) == 0 || strlen(pclTmp) != 14)
         {
-            dbg(TRACE, "%s Source value<%s> is invalid for DATELOC atttibute", pclFunc, pcpSourceValue);
+            dbg(TRACE, "%s Source value<%s> is invalid for DATELOC atttibute", pclFunc, pclTmp);
             return RC_FAIL;
         }
         /*UTC -> LOC*/
         UtcToLocal(pclTmp);
     }
+    dbg(DEBUG,"%s pclTmp<%s>",pclFunc,pclTmp);
+    GetFullDay(pclTmp,&ilDays,&ilMins,&ilWeekDay);
 
+    sprintf(pcpDestValue,"%d",ilWeekDay);
+    /*
     ilRC = getDestSourceLen(ilDestLen, pclTmp);
     if (ilRC == RC_SUCCESS)
     {
@@ -623,6 +730,7 @@ int weekDay(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcp
         strncpy(pcpDestValue, pclTmp, ilDestLen);
         pcpDestValue[ilDestLen] = '\0';
     }
+    */
 }
 
 int timeFormat(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpSelection, char *pcpAdid)
@@ -698,6 +806,132 @@ int timeFormat(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * 
     return ilRC;
 }
 
+int fkeyCombination(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpSelection, char *pcpAdid)
+{
+    int ilRC = RC_FAIL;
+    int ilDestLen = 0;
+    int ilNo = 0;
+    int ili = 0;
+    int ilStoxIndex = 0;
+    char *pclFunc = "fkeyCombination";
+    char pclTmp[64] = "\0";
+    char pclTmpDestFieldName[512] = "\0";
+    char pclTmpDestFieldValue[512] = "\0";
+    char pclTmpStox[512] = "\0";
+    char pclSqlBuf[1024] = "\0";
+    char pclData[1024] = "\0";
+    char pclSqlData[1024] = "\0";
+    char pclField[1024] = "\0";
+
+    ilDestLen = atoi(rpLine->pclDestFieldLen);
+    if ( ilDestLen == 0)
+    {
+        dbg(TRACE, "%s Dest Length<%d> is invalid", pclFunc, ilDestLen);
+        return RC_FAIL;
+    }
+
+    ilNo = GetNoOfElements(rpLine->pclCond1, pcgMultiSrcFieldDelimiter[0]);
+
+    for(ili = 1; ili <= ilNo; ili++)
+    {
+        memset(pclTmpDestFieldName,0,sizeof(pclTmpDestFieldName));
+
+        get_item(ili, rpLine->pclCond1, pclTmpDestFieldName, 0, pcgMultiSrcFieldDelimiter, "\0", "\0");
+        TrimRight(pclTmpDestFieldName);
+
+        if (strncmp(pclTmpDestFieldName,"STO",3)==0)
+        {
+            ilStoxIndex = ili;
+            dbg(DEBUG,"%s ilStoxIndex<%d>",pclFunc,ilStoxIndex);
+        }
+
+        if (ili == 1 )
+        {
+            strcat(pclField, pclTmpDestFieldName);
+        }
+        else
+        {
+            strcat(pclField, ",");
+            strcat(pclField, pclTmpDestFieldName);
+        }
+    }
+
+    /*dbg(DEBUG,"%s pclField<%s>",pclFunc,pclField);*/
+    buildSelQuery(pclSqlBuf, rpLine->pclSourceTable, pclField, pcpSelection);
+    ilRC = RunSQL(pclSqlBuf, pclSqlData);
+    if (ilRC != DB_SUCCESS)
+    {
+        dbg(TRACE, "<%s>: Retrieving source data - Fails", pclFunc);
+        strncpy(pcpDestValue,"",1);
+        return RC_FAIL;
+    }
+
+    switch(ilRC)
+    {
+        case NOTFOUND:
+            dbg(TRACE, "<%s> Retrieving source data - Not Found", pclFunc);
+            strncpy(pcpDestValue,"",1);
+            ilRC = RC_FAIL;
+            break;
+        default:
+            BuildItemBuffer(pclSqlData, NULL, ilNo, pcgMultiSrcFieldDelimiter);
+            dbg(TRACE, "<%s> Retrieving source data - Found <%s>", pclFunc, pclSqlData);
+            TrimRight(pclSqlData);
+
+            /*to do*/
+            for(ili = 1; ili <= ilNo; ili++)
+            {
+                memset(pclTmpDestFieldValue,0,sizeof(pclTmpDestFieldValue));
+
+                get_item(ili, pclSqlData, pclTmpDestFieldValue, 0, pcgMultiSrcFieldDelimiter, "\0", "\0");
+                TrimRight(pclTmpDestFieldValue);
+
+                if (ili == ilStoxIndex)
+                {
+                    dbg(DEBUG,"%s ilStoxIndex<%d>",pclFunc,ilStoxIndex);
+                    strcpy(pclTmp, pclTmpDestFieldValue);
+                    if(strcmp(rpLine->pclCond2, "DATELOC") == 0)
+                    {
+                        if(atoi(pclTmpDestFieldValue) == 0 || strlen(pclTmpDestFieldValue) != 14)
+                        {
+                            dbg(TRACE, "%s Source value<%s> is invalid for DATELOC atttibute", pclFunc, pclTmpDestFieldValue);
+                            return RC_FAIL;
+                        }
+                        /*UTC -> LOC*/
+                        UtcToLocal(pclTmp);
+                    }
+                    memset(pclTmpDestFieldValue,0,sizeof(pclTmpDestFieldValue));
+                    strncpy(pclTmpDestFieldValue, pclTmp+6,2);
+                }
+
+                if (ili == 1 )
+                {
+                    strcat(pclData, pclTmpDestFieldValue);
+                }
+                else
+                {
+                    strcat(pclData, "");
+                    strcat(pclData, pclTmpDestFieldValue);
+                }
+            }
+
+            ilRC = getDestSourceLen(ilDestLen, pclData);
+            if (ilRC == RC_SUCCESS)
+            {
+                strcpy(pcpDestValue,  pclData);
+            }
+            else
+            {
+                strncpy(pcpDestValue, pclData, ilDestLen);
+                pcpDestValue[ilDestLen] = '\0';
+            }
+
+            ilRC = RC_SUCCESS;
+            break;
+    }
+    return ilRC;
+}
+
 int counterRange(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpSelection, char *pcpAdid)
 {
     int ilRC = RC_FAIL;
@@ -721,14 +955,13 @@ int counterRange(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char 
         return RC_FAIL;
     }
 
-    /*
-    ilNo = GetNoOfElements(rpLine->pclSourceField, pcgMultiSrcFieldDelimiter[0]);
+    ilNo = GetNoOfElements(rpLine->pclCond1, pcgMultiSrcFieldDelimiter[0]);
 
     for(ili = 1; ili <= ilNo; ili++)
     {
         memset(pclTmpDestFieldName,0,sizeof(pclTmpDestFieldName));
 
-        get_item(ili, rpLine->pclSourceField, pclTmpDestFieldName, 0, pcgMultiSrcFieldDelimiter, "\0", "\0");
+        get_item(ili, rpLine->pclCond1, pclTmpDestFieldName, 0, pcgMultiSrcFieldDelimiter, "\0", "\0");
         TrimRight(pclTmpDestFieldName);
 
         if (ili == 1 )
@@ -741,9 +974,7 @@ int counterRange(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char 
             strcat(pclField, pclTmpDestFieldName);
         }
     }
-    */
-    sprintf(pclField,"%s,%s",rpLine->pclCond1,rpLine->pclCond2);
-    ilNo = GetNoOfElements(pclField, ',');
+
     /*dbg(DEBUG,"%s pclField<%s>",pclFunc,pclField);*/
     buildSelQuery(pclSqlBuf, rpLine->pclSourceTable, pclField, pcpSelection);
     ilRC = RunSQL(pclSqlBuf, pclSqlData);
@@ -1026,6 +1257,7 @@ CODEFUNC[OPER_CODE] =
     {"CODESHARE",codeshare},
 	{"SEQUENCE",sequence},
 	{"TRANSTYPE",transtype},
-	{"COUNTERRANGE",counterRange}
-    /*{"",}*/
+	{"COUNTERRANGE",counterRange},
+	{"FKEYCOMBINATION",fkeyCombination},
+	{"ROTATIONWEEKDAY",rotationWeekday}
 };
