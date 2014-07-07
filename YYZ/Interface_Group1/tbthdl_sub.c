@@ -317,11 +317,11 @@ int source(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpS
     ilRC = getDestSourceLen(ilDestLen, pclFunc,rpLine->pclCond1);
     if (ilRC == RC_SUCCESS)
     {
-        strcpy(pcpDestValue,  pclFunc,rpLine->pclCond1);
+        strcpy(pcpDestValue,rpLine->pclCond1);
     }
     else
     {
-        strncpy(pcpDestValue, pclFunc,rpLine->pclCond1, ilDestLen);
+        strncpy(pcpDestValue,rpLine->pclCond1, ilDestLen);
         pcpDestValue[ilDestLen] = '\0';
     }
 
@@ -622,12 +622,13 @@ int counterStatus(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char
     int ilRC = RC_FAIL;
     int ilDestLen = 0;
     int ilNoCond1 = 0;
+    int ilReturnValue = 0;
     int ili = 0;
     char *pclFunc = "counterStatus";
 
     char pclTmp[64] = "\0";
     char pclTmpDestFieldName[512] = "\0";
-    char pclTmpDestFieldValue[5][512] = "\0";
+    char pclTmpDestFieldValue[5][512] = {"\0"};
     char pclSqlBuf[1024] = "\0";
     char pclData[1024] = "\0";
     char pclSqlData[1024] = "\0";
@@ -687,8 +688,7 @@ int counterStatus(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char
             for(ili = 1; ili <= ilNoCond1; ili++)
             {
                 memset(pclTmpDestFieldValue[ili],0,sizeof(pclTmpDestFieldValue[ili]));
-
-                get_item(ili, pclSqlData, pclTmpDestFieldValue, 0, pcgMultiSrcFieldDelimiter, "\0", "\0");
+                get_item(ili, pclSqlData, pclTmpDestFieldValue[ili], 0, pcgMultiSrcFieldDelimiter, "\0", "\0");
                 TrimRight(pclTmpDestFieldValue[ili]);
             }
 
@@ -719,7 +719,7 @@ int counterStatus(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char
                     }
                     else
                     {
-                        strncpy(pcpDestValue, "O", strlen("O");
+                        strncpy(pcpDestValue, "O", strlen("O"));
                         pcpDestValue[ilDestLen] = '\0';
                     }
                     break;
@@ -736,7 +736,7 @@ int counterStatus(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char
                 }
                 else
                 {
-                    strncpy(pcpDestValue, "C", strlen("C");
+                    strncpy(pcpDestValue, "C", strlen("C"));
                     pcpDestValue[ilDestLen] = '\0';
                 }
             }
@@ -1428,6 +1428,6 @@ CODEFUNC[OPER_CODE] =
 	{"COUNTERRANGE",counterRange},
 	{"FKEYCOMBINATION",fkeyCombination},
 	{"ROTATIONWEEKDAY",rotationWeekday},
-	{"SOURCE",source}
+	{"SOURCE",source},
 	{"COUNTERSTATUS",counterStatus}
 };
