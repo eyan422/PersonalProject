@@ -293,6 +293,42 @@ int zon(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpSele
     return ilRC;
 }
 
+int source(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpSelection, char *pcpAdid)
+{
+    int ilRC = RC_FAIL;
+    int ilDestLen = 0;
+    char *pclFunc = "source";
+
+    strncpy(pcpDestValue, "", 1);
+
+    ilDestLen = atoi(rpLine->pclDestFieldLen);
+    if ( ilDestLen == 0)
+    {
+        dbg(TRACE, "%s Dest Length<%d> is invalid", pclFunc, ilDestLen);
+        return RC_FAIL;
+    }
+
+    if(strlen(rpLine->pclCond1) == 0 || strncmp(rpLine->pclCond1," ",1) == 0 )
+    {
+        dbg(TRACE,"%s rpLine->pclCond1<%s> is invalid",pclFunc,rpLine->pclCond1);
+        return ilRC;
+    }
+
+    ilRC = getDestSourceLen(ilDestLen, pclFunc,rpLine->pclCond1);
+    if (ilRC == RC_SUCCESS)
+    {
+        strcpy(pcpDestValue,  pclFunc,rpLine->pclCond1);
+    }
+    else
+    {
+        strncpy(pcpDestValue, pclFunc,rpLine->pclCond1, ilDestLen);
+        pcpDestValue[ilDestLen] = '\0';
+    }
+
+    ilRC = RC_SUCCESS;
+    return ilRC;
+}
+
 int getVial(char *pcpVial, char (*pcpVialArray)[LISTLEN])
 {
     int ilNO=0;
@@ -575,6 +611,138 @@ int rotation(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pc
                 break;
             }
         }
+    }
+    return ilRC;
+}
+
+int counterStatus(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpSelection, char *pcpAdid)
+{
+    short slSqlCursor = 0;
+    short slSqlFunc = START;
+    int ilRC = RC_FAIL;
+    int ilDestLen = 0;
+    int ilNoCond1 = 0;
+    int ili = 0;
+    char *pclFunc = "counterStatus";
+
+    char pclTmp[64] = "\0";
+    char pclTmpDestFieldName[512] = "\0";
+    char pclTmpDestFieldValue[5][512] = "\0";
+    char pclSqlBuf[1024] = "\0";
+    char pclData[1024] = "\0";
+    char pclSqlData[1024] = "\0";
+    char pclField[1024] = "\0";
+    char pclSelection[1024] = "\0";
+
+    ilDestLen = atoi(rpLine->pclDestFieldLen);
+    if ( ilDestLen == 0)
+    {
+        dbg(TRACE, "%s Dest Length<%d> is invalid", pclFunc, ilDestLen);
+        return RC_FAIL;
+    }
+
+    ilNoCond1 = GetNoOfElements(rpLine->pclCond1, pcgMultiSrcFieldDelimiter[0]);
+
+    for(ili = 1; ili <= ilNoCond1; ili++)
+    {
+        memset(pclTmpDestFieldName,0,sizeof(pclTmpDestFieldName));
+
+        get_item(ili, rpLine->pclCond1, pclTmpDestFieldName, 0, pcgMultiSrcFieldDelimiter, "\0", "\0");
+        TrimRight(pclTmpDestFieldName);
+
+        if (ili == 1 )
+        {
+            strcat(pclField, pclTmpDestFieldName);
+        }
+        else
+        {
+            strcat(pclField, ",");
+            strcat(pclField, pclTmpDestFieldName);
+        }
+    }
+
+    /*dbg(DEBUG,"%s pclField<%s>",pclFunc,pclField);*/
+    buildSelQuery(pclSqlBuf, rpLine->pclSourceTable, pclField, pcpSelection);
+    ilRC = RunSQL(pclSqlBuf, pclSqlData);
+    if (ilRC != DB_SUCCESS)
+    {
+        dbg(TRACE, "<%s>: Retrieving source data - Fails", pclFunc);
+        strncpy(pcpDestValue,"",1);
+        return RC_FAIL;
+    }
+
+    switch(ilRC)
+    {
+        case NOTFOUND:
+            dbg(TRACE, "<%s> Retrieving source data - Not Found", pclFunc);
+            strncpy(pcpDestValue,"",1);
+            ilRC = RC_FAIL;
+            break;
+        default:
+            dbg(TRACE, "<%s> Retrieving source data - Found <%s>", pclFunc, pclSqlData);
+            BuildItemBuffer(pclSqlData, NULL, ilNoCond1, pcgMultiSrcFieldDelimiter);
+            TrimRight(pclSqlData);
+
+            /*to do*/
+            for(ili = 1; ili <= ilNoCond1; ili++)
+            {
+                memset(pclTmpDestFieldValue[ili],0,sizeof(pclTmpDestFieldValue[ili]));
+
+                get_item(ili, pclSqlData, pclTmpDestFieldValue, 0, pcgMultiSrcFieldDelimiter, "\0", "\0");
+                TrimRight(pclTmpDestFieldValue[ili]);
+            }
+
+            /*build where clause*/
+            sprintf(pclSelection,"WHERE %s BETWEEN %s AND %s", rpLine->pclCond2, pclTmpDestFieldValue[0],pclTmpDestFieldValue[1]);
+
+            /*dbg(DEBUG,"%s pclField<%s>",pclFunc,pclField);*/
+            buildSelQuery(pclSqlBuf, "CCATAB", rpLine->pclCond3, pclSelection);
+
+            slSqlCursor = 0;
+            slSqlFunc = START;
+            while((ilReturnValue = sql_if(slSqlFunc,&slSqlCursor,pclSqlBuf,pclSqlData)) == DB_SUCCESS)
+            {
+                slSqlFunc = NEXT;
+                //TrimRight(pclSqlData);
+                get_fld(pclSqlData,FIELD_1,STR,20,pclTmp);
+                TrimRight(pclTmp);
+
+                /*dbg( TRACE, "<%s> SqlData <%s>", pclFunc, pclSqlData );*/
+                dbg( TRACE, "<%s> %s<%s>", pclFunc, rpLine->pclCond3, pclTmp);
+
+                if( atoi(pclTmp) > 0)
+                {
+                    ilRC = getDestSourceLen(ilDestLen, "O");
+                    if (ilRC == RC_SUCCESS)
+                    {
+                        strcpy(pcpDestValue,  "O");
+                    }
+                    else
+                    {
+                        strncpy(pcpDestValue, "O", strlen("O");
+                        pcpDestValue[ilDestLen] = '\0';
+                    }
+                    break;
+                }
+            }
+            close_my_cursor(&slSqlCursor);
+
+            if(strlen(pcpDestValue)==0)
+            {
+                ilRC = getDestSourceLen(ilDestLen, "C");
+                if (ilRC == RC_SUCCESS)
+                {
+                    strcpy(pcpDestValue,  "C");
+                }
+                else
+                {
+                    strncpy(pcpDestValue, "C", strlen("C");
+                    pcpDestValue[ilDestLen] = '\0';
+                }
+            }
+
+            ilRC = RC_SUCCESS;
+            break;
     }
     return ilRC;
 }
@@ -1259,5 +1427,7 @@ CODEFUNC[OPER_CODE] =
 	{"TRANSTYPE",transtype},
 	{"COUNTERRANGE",counterRange},
 	{"FKEYCOMBINATION",fkeyCombination},
-	{"ROTATIONWEEKDAY",rotationWeekday}
+	{"ROTATIONWEEKDAY",rotationWeekday},
+	{"SOURCE",source}
+	{"COUNTERSTATUS",counterStatus}
 };
