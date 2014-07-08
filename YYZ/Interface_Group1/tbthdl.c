@@ -3043,7 +3043,7 @@ static int mapping(char *pcpTable, char *pcpFields, char *pcpNewData, char *pcpS
 
     for(ilCount = 0; ilCount < ilDataListNo; ilCount++)
     {
-        dbg(DEBUG,"\n\n%s pclQuery[%d].pclInsertQuery<%s>\n",pclFunc, ilCount, pclQuery[ilCount].pclInsertQuery);
+        dbg(DEBUG,"%s pclQuery[%d].pclInsertQuery<%s>\n",pclFunc, ilCount, pclQuery[ilCount].pclInsertQuery);
         dbg(DEBUG,"%s pclQuery[%d].pclUpdateQuery_Master<%s>\n\n",pclFunc, ilCount, pclQuery[ilCount].pclUpdateQuery_Master);
         if (ilCount == 0)
             dbg(DEBUG,"%s pclQuery[%d].pclUpdateQuery_Codeshare<%s>\n\n",pclFunc, ilCount, pclQuery[ilCount].pclUpdateQuery_Codeshare);
