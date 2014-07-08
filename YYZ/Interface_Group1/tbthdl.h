@@ -85,7 +85,6 @@ static void TrimRight(char *pcpBuffer) {
 typedef struct {
     char pclInsertQuery[4096];
     char pclUpdateQuery_Master[4096];
-    char pclUpdateQuery_Codeshare[4096];
 } _QUERY;
 
 

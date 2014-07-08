@@ -2023,8 +2023,7 @@ static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *
                     if (ilRC == RC_FAIL)
                     {
                         memset(pcpQuery->pclInsertQuery, 0,sizeof(pcpQuery->pclInsertQuery));
-                        memset(pcpQuery->pclUpdateQuery_Master, 0,sizeof(pcpQuery->pclUpdateQuery_Master));
-                        memset(pcpQuery->pclUpdateQuery_Codeshare, 0,sizeof(pcpQuery->pclUpdateQuery_Codeshare));
+                        memset(pcpQuery->pclUpdateQuery, 0,sizeof(pcpQuery->pclUpdateQuery));
 
                         return RC_FAIL;
                     }
@@ -2121,7 +2120,7 @@ static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *
                 /*buildUpdateQuery(pclSqlUpdateBuf, rpRule->rlLine[0].pclDestTable, pclDestFiledListWithCodeshare, pclDestDataListWithCodeshare,pclSelection);*/
                 buildUpdateQuery(pclSqlUpdateBuf, rgGroupInfo[ipRuleGroup].pclDestTable, pclDestFiledListWithCodeshare, pclDestDataListWithCodeshareUpdate,pcpSelection,ipRuleGroup, TRUE); /* tvo_fix: pclSelection --> pcpSelection */
                 dbg(DEBUG, "%s update<%s>", pclFunc, pclSqlUpdateBuf);
-                strcpy(pcpQuery->pclUpdateQuery_Master, pclSqlUpdateBuf);
+                strcpy(pcpQuery->pclUpdateQuery, pclSqlUpdateBuf);
 
                 /*buildUpdateQuery(pclSqlUpdateBuf, rgGroupInfo[ipRuleGroup].pclDestTable, pcpDestFiledList, pclDestDataList, pcpSelection,ipRuleGroup,FALSE);
                 strcpy(pcpQuery->pclUpdateQuery_Codeshare, pclSqlUpdateBuf);*/
@@ -2153,7 +2152,7 @@ static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *
                 strcpy(pcpQuery->pclInsertQuery, pclSqlInsertBuf);
 
                 buildUpdateQuery(pclSqlUpdateBuf, rgGroupInfo[ipRuleGroup].pclDestTable, pcpDestFiledList, pclDestDataList, pcpSelection,ipRuleGroup,FALSE);
-                strcpy(pcpQuery->pclUpdateQuery_Codeshare, pclSqlUpdateBuf);
+                strcpy(pcpQuery->pclUpdateQuery, pclSqlUpdateBuf);
             }
         }
 	}
@@ -3127,7 +3126,7 @@ static int mapping(char *pcpTable, char *pcpFields, char *pcpNewData, char *pcpS
         /*JFNO is not changed, then -> update all master and codeshare fligths in one query*/
         if (ipIsCodeShareChange == CODESHARE_NONCHANGE)
         {
-            updateAllFlights(pclQuery);
+            updateAllFlights(pclQuery,ilDataListNo);
         }
         else /*if (ipIsCodeShareChange == TRUE)*/
         {
@@ -3136,7 +3135,7 @@ static int mapping(char *pcpTable, char *pcpFields, char *pcpNewData, char *pcpS
             {
                 deleteCodeShareFligths(rgGroupInfo[ilRuleGroup].pclDestTable, rgGroupInfo[ilRuleGroup].pclDestKey, pclUrnoSelection);
             }
-            updateAllFlights(pclQuery);
+            updateAllFlights(pclQuery,ilDataListNo);
             insertFligthts(MASTER_RECORD+1, ilDataListNo, pclQuery);
         }
     }
@@ -4277,7 +4276,7 @@ static void insertFligthts(int ipStartIndex, int ipDataListNo, _QUERY *pcpQuery)
 	}
 }
 
-static int updateAllFlights(_QUERY *pcpQuery)
+static int updateAllFlights(_QUERY *pcpQuery, int ipDataListNo)
 {
     int ilRc = RC_FAIL;
     int ilCount = 0;
@@ -4285,42 +4284,35 @@ static int updateAllFlights(_QUERY *pcpQuery)
     char *pclFunc = "updateAllFlights";
     char pclSqlData[2048] = "\0";
 
-    slLocalCursor = 0;
-    slFuncCode = START;
-    if(strlen(pcpQuery[MASTER_RECORD].pclUpdateQuery_Master) > 0)
+    for(ilCount = 0; ilCount < ipDataListNo; ilCount++)
     {
-        dbg(DEBUG, "%s %d_query=<%s>, MASTER_RECORD",pclFunc, __LINE__, pcpQuery[MASTER_RECORD].pclUpdateQuery_Master);
-        ilRc = sql_if(slFuncCode, &slLocalCursor, pcpQuery[MASTER_RECORD].pclUpdateQuery_Master, pclSqlData);
-        if( ilRc != DB_SUCCESS )
-        {
-            dbg(TRACE,"%s Update master query fails",pclFunc);
-            return ilRc;
-        }
-        else
-        {
-            dbg(TRACE,"%s Update master succeeds",pclFunc);
-        }
-        close_my_cursor(&slLocalCursor);
-        /*return RC_SUCCESS;*/
-    }
+        slLocalCursor = 0;
+        slFuncCode = START;
 
-    slLocalCursor = 0;
-    slFuncCode = START;
-    if(strlen(pcpQuery[MASTER_RECORD+1].pclUpdateQuery_Codeshare) > 0)
-    {
-        dbg(DEBUG, "%s %d_query=<%s>, CODESHARE_RECORD",pclFunc, __LINE__, pcpQuery[MASTER_RECORD+1].pclUpdateQuery_Codeshare);
-        ilRc = sql_if(slFuncCode, &slLocalCursor, pcpQuery[MASTER_RECORD+1].pclUpdateQuery_Codeshare, pclSqlData);
-        if( ilRc != DB_SUCCESS )
+        if(strlen(pcpQuery[ilCount].pclUpdateQuery) > 0)
         {
-            dbg(TRACE,"%s Update codeshare query fails",pclFunc);
-            return ilRc;
+            if (ilCount == MASTER_RECORD)
+            {
+                dbg(DEBUG, "%s %d_query=<%s>, MASTER_RECORD",pclFunc, __LINE__, pcpQuery[ilCount].pclUpdateQuery);
+            }
+            else
+            {
+                dbg(DEBUG, "%s %d_query=<%s>, CODESHARE_RECORD",pclFunc, __LINE__, pcpQuery[ilCount].pclUpdateQuery);
+            }
+
+            ilRc = sql_if(slFuncCode, &slLocalCursor, pcpQuery[ilCount].pclUpdateQuery, pclSqlData);
+            if( ilRc != DB_SUCCESS )
+            {
+                dbg(TRACE,"%s Update master query fails",pclFunc);
+                return ilRc;
+            }
+            else
+            {
+                dbg(TRACE,"%s Update master succeeds",pclFunc);
+            }
+            close_my_cursor(&slLocalCursor);
+            /*return RC_SUCCESS;*/
         }
-        else
-        {
-            dbg(TRACE,"%s Update codeshare succeeds",pclFunc);
-        }
-        close_my_cursor(&slLocalCursor);
-        /*return RC_SUCCESS;*/
     }
     return RC_SUCCESS;
 }
