@@ -18,6 +18,12 @@
 #define DELETE 11
 #define MASTER_RECORD 0
 
+#define CODESHARE_MODIFICATION  1
+#define CODESHARE_CREATION      2
+#define CODESHARE_DELETION      3
+#define CODESHARE_NONCHANGE     -1
+
+
 static char pcgCodeShareSST[4] = "SL";
 char pcgDateFormatDelimiter[4];
 char pcgMultiSrcFieldDelimiter[4];
@@ -78,7 +84,8 @@ static void TrimRight(char *pcpBuffer) {
 
 typedef struct {
     char pclInsertQuery[4096];
-    char pclUpdateQuery[4096];
+    char pclUpdateQuery_Master[4096];
+    char pclUpdateQuery_Codeshare[4096];
 } _QUERY;
 
 
