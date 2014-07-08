@@ -3008,6 +3008,7 @@ static int mapping(char *pcpTable, char *pcpFields, char *pcpNewData, char *pcpS
     /**/
     if (ilFlag == FALSE)
     {
+        /*
         if (ipIsCodeShareChange == CODESHARE_NONCHANGE)
         {
             appliedRules( ilRuleGroup, pcpFields, pclDatalist[MASTER_RECORD], pcgSourceFiledList[ilRuleGroup],
@@ -3015,6 +3016,7 @@ static int mapping(char *pcpTable, char *pcpFields, char *pcpNewData, char *pcpS
                              MASTER_RECORD, pclHardcodeShare_DestFieldList, pclHardcodeShare, pclQuery+MASTER_RECORD,ipIsCodeShareChange);
         }
         else
+        */
         {
             for(ilCount = 0; ilCount < ilDataListNo; ilCount++)
             {
@@ -3026,6 +3028,7 @@ static int mapping(char *pcpTable, char *pcpFields, char *pcpNewData, char *pcpS
     }/*this way*/
     else
     {
+        /*
         if (ipIsCodeShareChange == CODESHARE_NONCHANGE)
         {
             appliedRules( ilRuleGroup, pclSourceFieldList, pclDatalist[MASTER_RECORD], pcgSourceFiledList[ilRuleGroup],
@@ -3033,6 +3036,7 @@ static int mapping(char *pcpTable, char *pcpFields, char *pcpNewData, char *pcpS
                         MASTER_RECORD, pclHardcodeShare_DestFieldList, pclHardcodeShare, pclQuery+MASTER_RECORD,ipIsCodeShareChange);
         }
         else
+        */
         {
             for(ilCount = 0; ilCount < ilDataListNo; ilCount++)
             {
@@ -3047,8 +3051,7 @@ static int mapping(char *pcpTable, char *pcpFields, char *pcpNewData, char *pcpS
     {
         dbg(DEBUG,"%s pclQuery[%d].pclInsertQuery<%s>\n",pclFunc, ilCount, pclQuery[ilCount].pclInsertQuery);
         dbg(DEBUG,"%s pclQuery[%d].pclUpdateQuery_Master<%s>\n\n",pclFunc, ilCount, pclQuery[ilCount].pclUpdateQuery_Master);
-        if (ilCount == 0)
-            dbg(DEBUG,"%s pclQuery[%d].pclUpdateQuery_Codeshare<%s>\n\n",pclFunc, ilCount, pclQuery[ilCount].pclUpdateQuery_Codeshare);
+        dbg(DEBUG,"%s pclQuery[%d].pclUpdateQuery_Codeshare<%s>\n\n",pclFunc, ilCount, pclQuery[ilCount].pclUpdateQuery_Codeshare);
     }
     /*
     build master record searching query
