@@ -218,7 +218,7 @@ static int buildHash(int ipTotalLineOfRule, _RULE rpRule, ght_hash_table_t **pcp
 static int getRuleIndex_Hash(int ipRuleGroup, char *pcpDestFieldName, char *pcpFields, char *pcpData, char *pcpSourceFieldName, char *pcpSourceFieldValue);
 static int checkNullable(char *pcpDestFieldValue, _LINE *rpLine);
 static void insertFligthts(int ipStartIndex, int ipDataListNo, _QUERY *pcpQuery);
-static int updateAllFlights(_QUERY *pcpQuery);
+static int updateAllFlights(_QUERY *pcpQuery, int ipDataListNo);
 static void deleteCodeShareFligths(char *pcpDestTable ,char *pcpDestKey, char *pcpUrno);
 static void deleteFlight(char *pcpDestTable, char *pcpDestKey, char *pcpUrno);
 /******************************************************************************/
@@ -3049,8 +3049,7 @@ static int mapping(char *pcpTable, char *pcpFields, char *pcpNewData, char *pcpS
     for(ilCount = 0; ilCount < ilDataListNo; ilCount++)
     {
         dbg(DEBUG,"%s pclQuery[%d].pclInsertQuery<%s>\n",pclFunc, ilCount, pclQuery[ilCount].pclInsertQuery);
-        dbg(DEBUG,"%s pclQuery[%d].pclUpdateQuery_Master<%s>\n\n",pclFunc, ilCount, pclQuery[ilCount].pclUpdateQuery_Master);
-        dbg(DEBUG,"%s pclQuery[%d].pclUpdateQuery_Codeshare<%s>\n\n",pclFunc, ilCount, pclQuery[ilCount].pclUpdateQuery_Codeshare);
+        dbg(DEBUG,"%s pclQuery[%d].pclUpdateQuery<%s>\n\n",pclFunc, ilCount, pclQuery[ilCount].pclUpdateQuery);
     }
     /*
     build master record searching query
