@@ -4292,22 +4292,22 @@ static int updateAllFlights(_QUERY *pcpQuery, int ipDataListNo)
         {
             if (ilCount == MASTER_RECORD)
             {
-                dbg(DEBUG, "%s %d_query=<%s>, MASTER_RECORD",pclFunc, __LINE__, pcpQuery[ilCount].pclUpdateQuery);
+                dbg(DEBUG, "%s [%d] query=<%s>, MASTER_RECORD",pclFunc, ilCount, pcpQuery[ilCount].pclUpdateQuery);
             }
             else
             {
-                dbg(DEBUG, "%s %d_query=<%s>, CODESHARE_RECORD",pclFunc, __LINE__, pcpQuery[ilCount].pclUpdateQuery);
+                dbg(DEBUG, "%s [%d] query=<%s>, CODESHARE_RECORD",pclFunc, ilCount, pcpQuery[ilCount].pclUpdateQuery);
             }
 
             ilRc = sql_if(slFuncCode, &slLocalCursor, pcpQuery[ilCount].pclUpdateQuery, pclSqlData);
             if( ilRc != DB_SUCCESS )
             {
-                dbg(TRACE,"%s Update master query fails",pclFunc);
+                dbg(TRACE,"%s [%d] Update query fails",pclFunc, ilCount);
                 return ilRc;
             }
             else
             {
-                dbg(TRACE,"%s Update master succeeds",pclFunc);
+                dbg(TRACE,"%s [%d] Update succeeds",pclFunc, ilCount);
             }
             close_my_cursor(&slLocalCursor);
             /*return RC_SUCCESS;*/
