@@ -2,7 +2,7 @@
 #ifndef _DEF_mks_version
   #define _DEF_mks_version
   #include "ufisvers.h" /* sets UFIS_VERSION, must be done before mks_version */
-  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/tbthdl.c 1.18d 2014/07/08 10:52:44:14SGT fya Exp  $";
+  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/tbthdl.c 1.19 2014/07/08 10:52:44:14SGT fya Exp  $";
 #endif /* _DEF_mks_version */
 /******************************************************************************/
 /*                                                                            */
@@ -2123,8 +2123,8 @@ static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *
                 dbg(DEBUG, "%s update<%s>", pclFunc, pclSqlUpdateBuf);
                 strcpy(pcpQuery->pclUpdateQuery_Master, pclSqlUpdateBuf);
 
-                buildUpdateQuery(pclSqlUpdateBuf, rgGroupInfo[ipRuleGroup].pclDestTable, pcpDestFiledList, pclDestDataList, pcpSelection,ipRuleGroup,FALSE);
-                strcpy(pcpQuery->pclUpdateQuery_Codeshare, pclSqlUpdateBuf);
+                /*buildUpdateQuery(pclSqlUpdateBuf, rgGroupInfo[ipRuleGroup].pclDestTable, pcpDestFiledList, pclDestDataList, pcpSelection,ipRuleGroup,FALSE);
+                strcpy(pcpQuery->pclUpdateQuery_Codeshare, pclSqlUpdateBuf);*/
             }
             else
             {
@@ -2150,8 +2150,10 @@ static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *
                 /*buildInsertQuery(pclSqlInsertBuf, rpRule->rlLine[0].pclDestTable, pclDestFiledListWithCodeshare, pclDestDataListWithCodeshare);*/
                 buildInsertQuery(pclSqlInsertBuf, rgGroupInfo[ipRuleGroup].pclDestTable, pclDestFiledListWithCodeshare, pclDestDataListWithCodeshareInsert);
                 dbg(DEBUG, "%s __%d__insert<%s>", pclFunc, __LINE__, pclSqlInsertBuf);
-
                 strcpy(pcpQuery->pclInsertQuery, pclSqlInsertBuf);
+
+                buildUpdateQuery(pclSqlUpdateBuf, rgGroupInfo[ipRuleGroup].pclDestTable, pcpDestFiledList, pclDestDataList, pcpSelection,ipRuleGroup,FALSE);
+                strcpy(pcpQuery->pclUpdateQuery_Codeshare, pclSqlUpdateBuf);
             }
         }
 	}
@@ -2671,7 +2673,7 @@ static void buildUpdateQuery(char *pcpSqlBuf, char * pcpTable, char * pcpDestFie
     if (ipMasterFlag == TRUE)
         sprintf(pclTmpSelection,"WHERE %s=%s AND SST!='%s'",rgGroupInfo[pipRuleGroup].pclDestKey,pclUrnoSelection,pcgCodeShareSST);
     else
-        sprintf(pclTmpSelection,"WHERE %s=%s AND SST='%s'", rgGroupInfo[pipRuleGroup].pclDestKey,pclUrnoSelection,pcgCodeShareSST);
+        sprintf(pclTmpSelection,"WHERE %s=%s AND SST='%s' AND '%s'!='%s'", rgGroupInfo[pipRuleGroup].pclDestKey,pclUrnoSelection,pcgCodeShareSST, pcgDeletionStatusIndicator, pcgDelValue);
     /*ilCount = GetNoOfElements(pcpDestFieldList,',');*/
 
     /*dbg(DEBUG,"%s FieldList<%s>",pclFunc,pcpDestFieldList);
@@ -4301,10 +4303,10 @@ static int updateAllFlights(_QUERY *pcpQuery)
 
     slLocalCursor = 0;
     slFuncCode = START;
-    if(strlen(pcpQuery[MASTER_RECORD].pclUpdateQuery_Codeshare) > 0)
+    if(strlen(pcpQuery[MASTER_RECORD+1].pclUpdateQuery_Codeshare) > 0)
     {
-        dbg(DEBUG, "%s %d_query=<%s>, CODESHARE_RECORD",pclFunc, __LINE__, pcpQuery[MASTER_RECORD].pclUpdateQuery_Codeshare);
-        ilRc = sql_if(slFuncCode, &slLocalCursor, pcpQuery[MASTER_RECORD].pclUpdateQuery_Codeshare, pclSqlData);
+        dbg(DEBUG, "%s %d_query=<%s>, CODESHARE_RECORD",pclFunc, __LINE__, pcpQuery[MASTER_RECORD+1].pclUpdateQuery_Codeshare);
+        ilRc = sql_if(slFuncCode, &slLocalCursor, pcpQuery[MASTER_RECORD+1].pclUpdateQuery_Codeshare, pclSqlData);
         if( ilRc != DB_SUCCESS )
         {
             dbg(TRACE,"%s Update codeshare query fails",pclFunc);
