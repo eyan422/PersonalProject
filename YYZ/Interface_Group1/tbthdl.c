@@ -2,7 +2,7 @@
 #ifndef _DEF_mks_version
   #define _DEF_mks_version
   #include "ufisvers.h" /* sets UFIS_VERSION, must be done before mks_version */
-  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/tbthdl.c 1.20 2014/07/08 14:50:44:14SGT fya Exp  $";
+  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/tbthdl.c 1.21 2014/07/09 11:31:44:14SGT fya Exp  $";
 #endif /* _DEF_mks_version */
 /******************************************************************************/
 /*                                                                            */
@@ -119,6 +119,7 @@ _LINE rgGroupInfo[ARRAYNUMBER];
 static int igTotalLineOfRule;
 static int igTotalNumbeoOfRule;
 static int igRuleSearchMethod;
+static int igEnableRotation;
 
 static char pcgSourceFiledSet[GROUPNUMER][LISTLEN];
 static char pcgSourceFiledList[GROUPNUMER][LISTLEN];
@@ -1041,56 +1042,57 @@ static int HandleData(EVENT *prpEvent)
 
         mapping(clTable, pclFields, pclNewData, pclSelectionTmp, pclAdidValue, ilCodeShareChange);
 
-        #if 0
-        if(!strcmp(clTable,"AFTTAB"))
+        if (igEnableRotation == TRUE)
         {
-
-            for (ilCount = 0; ilCount <= igTotalNumbeoOfRule; ilCount++)
+            if(!strcmp(clTable,"AFTTAB"))
             {
-                if ( strcmp(rgGroupInfo[ilCount].pclDestTable, "Current_Arrivals"  ) == 0 ||
-                     strcmp(rgGroupInfo[ilCount].pclDestTable, "Current_Departures") == 0 )
+
+                for (ilCount = 0; ilCount <= igTotalNumbeoOfRule; ilCount++)
                 {
-                    break;
-                }
-            }
-
-            if(ilCount <= igTotalNumbeoOfRule)
-            {
-                /*#ifndef FYA*/
-                /*getting the roataion flight data beforehand, optimize this part later*/
-                getRotationFlightData(clTable, pclUrnoSelection, pclFields, pclRotationData, pclAdidValue);
-
-                if (ilRc == RC_SUCCESS)
-                {
-                    showRotationFlight(pclRotationData);
-
-                    /*handle rotation data*/
-                    for(ilCount = 0; ilCount < ARRAYNUMBER; ilCount++)
+                    if ( strcmp(rgGroupInfo[ilCount].pclDestTable, "Current_Arrivals"  ) == 0 ||
+                         strcmp(rgGroupInfo[ilCount].pclDestTable, "Current_Departures") == 0 )
                     {
-                        if (strlen(pclRotationData[ilCount]) > 0)
-                        {
-                            ilRc = extractField(pclUrnoSelection, "URNO", pclFields, pclRotationData[ilCount]);
-                            sprintf(pclSelectionTmp, "WHERE URNO=%s", pclUrnoSelection);
-                            dbg(DEBUG,"%s <%d> Rotation Flight<%s>-<%s>", pclFunc, ilCount, pclRotationData[ilCount], pclSelectionTmp);
-                            /*
-                            Since the rotation flight has no old data, then set ilCodeShareChange = TRUE;
-                            checkCodeShareChange(pclFields,pclRotationData[ilCount],"",ilCodeShareChange);
-                            */
-                            ilCodeShareChange = CODESHARE_NONCHANGE;
-                            if (strcmp(pclAdidValue, "A") == 0 )
-                                mapping(clTable, pclFields, pclRotationData[ilCount], pclSelectionTmp, "D", ilCodeShareChange);
-                            else if (strcmp(pclAdidValue, "D") == 0 )
-                                mapping(clTable, pclFields, pclRotationData[ilCount], pclSelectionTmp, "A", ilCodeShareChange);
-                        }
+                        break;
                     }
                 }
-                else
+
+                if(ilCount <= igTotalNumbeoOfRule)
                 {
-                    dbg(TRACE,"%s No Rotation Flights",pclFunc);
+                    /*#ifndef FYA*/
+                    /*getting the roataion flight data beforehand, optimize this part later*/
+                    getRotationFlightData(clTable, pclUrnoSelection, pclFields, pclRotationData, pclAdidValue);
+
+                    if (ilRc == RC_SUCCESS)
+                    {
+                        showRotationFlight(pclRotationData);
+
+                        /*handle rotation data*/
+                        for(ilCount = 0; ilCount < ARRAYNUMBER; ilCount++)
+                        {
+                            if (strlen(pclRotationData[ilCount]) > 0)
+                            {
+                                ilRc = extractField(pclUrnoSelection, "URNO", pclFields, pclRotationData[ilCount]);
+                                sprintf(pclSelectionTmp, "WHERE URNO=%s", pclUrnoSelection);
+                                dbg(DEBUG,"%s <%d> Rotation Flight<%s>-<%s>", pclFunc, ilCount, pclRotationData[ilCount], pclSelectionTmp);
+                                /*
+                                Since the rotation flight has no old data, then set ilCodeShareChange = TRUE;
+                                checkCodeShareChange(pclFields,pclRotationData[ilCount],"",ilCodeShareChange);
+                                */
+                                ilCodeShareChange = CODESHARE_NONCHANGE;
+                                if (strcmp(pclAdidValue, "A") == 0 )
+                                    mapping(clTable, pclFields, pclRotationData[ilCount], pclSelectionTmp, "D", ilCodeShareChange);
+                                else if (strcmp(pclAdidValue, "D") == 0 )
+                                    mapping(clTable, pclFields, pclRotationData[ilCount], pclSelectionTmp, "A", ilCodeShareChange);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        dbg(TRACE,"%s No Rotation Flights",pclFunc);
+                    }
                 }
             }
         }
-        #endif
         /*#endif*/
     }
 
@@ -1334,6 +1336,20 @@ static int getConfig()
         strcpy(pcgMultiSrcFieldDelimiter, "-");
     }
     dbg(DEBUG,"pcgMultiSrcFieldDelimiter<%s>",pcgMultiSrcFieldDelimiter);
+
+    ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","ENABLE_ROTATION",CFG_STRING,pclTmpBuf);
+    if (ilRC == RC_SUCCESS)
+    {
+        if (strncmp(pclTmpBuf,"Y",1) == 0 || strncmp(pclTmpBuf,"y",1) == 0)
+            igEnableRotation = TRUE;
+        else
+            igEnableRotation = FALSE;
+    }
+    else
+    {
+        igEnableRotation = FALSE;
+    }
+    dbg(DEBUG,"igEnableRotation<%d>",igEnableRotation);
 
     ilRC = iGetConfigEntry(pcgConfigFile,"URNO","CURRENT_ARRIVALS",CFG_STRING,pclTmpBuf);
     if (ilRC == RC_SUCCESS)
