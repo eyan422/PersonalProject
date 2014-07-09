@@ -1094,6 +1094,8 @@ int fkeyCombination(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, ch
                 pcpDestValue[ilDestLen] = '\0';
             }
 
+            pcpDestValue[0] = 'O';
+
             ilRC = RC_SUCCESS;
             break;
     }
