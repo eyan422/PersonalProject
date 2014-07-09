@@ -2,7 +2,7 @@
 #ifndef _DEF_mks_version
   #define _DEF_mks_version
   #include "ufisvers.h" /* sets UFIS_VERSION, must be done before mks_version */
-  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/tbthdl.c 1.17 2014/07/03 09:44:14SGT tvo Exp  $";
+  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/tbthdl.c 1.17 2014/07/06 09:44:14SGT tvo Exp  $";
 #endif /* _DEF_mks_version */
 /******************************************************************************/
 /*                                                                            */
@@ -30,7 +30,11 @@ static char sccs_version[] ="@(#) UFIS44 (c) ABB AAT/I skeleton.c 44.1.0 / 11.12
 #define U_MAIN
 #define UGCCS_PRG
 #define STH_USE
-/*#define _TEST_*/
+
+#define _TEST_
+#define _DEBUG_
+
+
 #include <stdio.h>
 #include <malloc.h>
 #include <string.h>
@@ -160,9 +164,11 @@ static char cgTransFieldName[128];
 static void showCodeFunc();
 static char pcgTimeWindowDeleteFieldName[128];
 static int  igEnableUpdatePartial; 
+static int  igEnableInsertPartial; 
 
 static int  buildDeleteQueryByTimeWindow(char *pcpSqlBuf, int ipRuleGroup, char* pcpDestFieldName, char *pcpTimeWindowLowerLimitOriginal, char *pcpTimeWindowLowerLimitCurrent);
 static void buildUpdateQueryPartial(char *pcpSqlBuf, char * pcpTable, char * pcpDestFieldList, char *pcpDestFieldData, char * pcpSelection, int pipRuleGroup);
+static void buildInsertQueryPartial(char *pcpSqlBuf, char * pcpTable, char * pcpDestFieldList, char *pcpDestFieldData);
 /******************************************************************************/
 /* Function prototypes	                                                      */
 /******************************************************************************/
@@ -341,9 +347,7 @@ MAIN
 	dbg(TRACE,"Vorsicht, ich bin nur ein Skeleton und tue nichts.......... ");
 	dbg(TRACE,"=====================");
 	
-	/*
     runTestData();    // run test data for AFTTAB and CCATAB 
-	*/
 	
 	for(;;)
 	{
@@ -514,7 +518,7 @@ static int runTestData()
 	ilRc = tools_send_info_flag( 7805, mod_id , mod_name , mod_name, mod_name, "","","","","ISF", clTable, clSelection, clFields, clData, NETOUT_NO_ACK);	
 	#endif
 
-	#if 1
+	#if 0
     strcpy(clTable,"CCATAB");
     strcpy(clSelection,"WHERE URNO = 934377037\n934377037");
     strcpy(clFields,"URNO,CKBS,CKES");
@@ -560,8 +564,25 @@ static int runTestData()
 	ght_finalize(p_table);
 	#endif
 
+	#if 0
 	showCodeFunc();
+	#endif
+	
+	strcpy(clFields, "ACFR,ACT3,ACTO,CDAT,DETY,GATE,HOPO,JOUR,LSTU,PLFR,PLTO,POSI,REGN,STAT,TEXT,UAFT,UAID,UALO,UDEL,UDRD,UDSR,UJTY,URNO,USEC,USEU,USTF,TTGF,TTGT,UEQU,UTPL,ALID,ALOC,FCCO,UDEM,UGHS");
+	strcpy(clData, "20140707045000,320,20140707060000,20140707121127,2,     ,SIN,1324338230,              ,20140707045000,20140707060000,     ,            ,P 0       ,                                                                                                                                ,2121101107,          ,1114713   ,0         ,0         ,1324281995,2000      ,1328166755,JOBHDL/JFK                      ,                                ,127015970 ,300  ,300  ,0         ,113682507 ,              ,PST       ,          ,2121102930,          ");
+	
+	char pclTmpField[10]; 
+    char pclTmpData[256];
+	int  ilNoEle = (int) GetNoOfElements(clFields, ',');
+	int  ilIndex; 
 
+	for (ilIndex = 1; ilIndex <= ilNoEle; ilIndex++)
+	{
+		get_real_item(pclTmpField,clFields,ilIndex); 		
+		get_real_item(pclTmpData,clData,ilIndex); 
+		
+		dbg(DEBUG, "ilIndex = <%d>, <%s> = <%s>", ilIndex, pclTmpField, pclTmpData);
+	}
 	dbg(DEBUG, "-------------------- end of tvo_test ---------------------------------");
     /*-------------------------------------------------------------------------*/
 }
@@ -1463,12 +1484,21 @@ static int getConfig()
 		dbg(DEBUG, "CONFIG ERROR: Time window delete field name not found"); 
 		strcpy(pcgTimeWindowDeleteFieldName, "");
 	}
-	igEnableUpdatePartial = TRUE;
+	
+	igEnableUpdatePartial = TRUE;    /* default = build update partial */
 	ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","ENABLE_UPDATE_PARTIAL",CFG_STRING,pclTmpBuf);  
 	if (ilRC == RC_SUCCESS)
 	{
-		if (strcmp(pclTmpBuf, "FALSE") == 0)
+		if (strncmp(pclTmpBuf, "NO", 2) == 0)
 			igEnableUpdatePartial = FALSE;
+	}
+	
+	igEnableInsertPartial = TRUE;	/* default = build insert partial */
+	ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","ENABLE_INSERT_PARTIAL",CFG_STRING,pclTmpBuf);  
+	if (ilRC == RC_SUCCESS)
+	{
+		if (strncmp(pclTmpBuf, "NO", 2) == 0)
+			igEnableInsertPartial = FALSE;
 	}
 	
 	ilRC = iGetConfigEntry(pcgConfigFile,"GROUP2","TRANS_TYPE_FIELD_NAME",CFG_STRING,pclTmpBuf);   /* TRANSACTION_TYPE = I:insert, U:update, D:Delete */
@@ -2176,7 +2206,9 @@ static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *
             replaceDelimiter(pclConvertedDataList, pclDestDataList, pcgDataListDelimiter[0], ',');
         }
 		*/
-
+		dbg(DEBUG, "%s: igEnableInsertPartial = <%d:%d,%d>, igEnableUpdatePartial = <%d:%d,%d>", 
+				pclFunc,igEnableInsertPartial, TRUE, FALSE, igEnableUpdatePartial, TRUE, FALSE); 
+						
         if ( ili != ilNoEleSource)
         {
             dbg(TRACE,"%s The number of field in dest data list<%d> and source field<%d> is not matched",pclFunc, ili);
@@ -2205,7 +2237,7 @@ static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *
                     sprintf(pclTmpInsert,"'%s'%s%s%s%s%s%s%s%s",
 							pcpHardcodeShare.pclSST,pcgDataListDelimiter,"''",pcgDataListDelimiter,"''",pcgDataListDelimiter,"''",pcgDataListDelimiter,"''");
 
-                    strcpy(pclDestDataListWithCodeshareInsert, pclConvertedDataList);
+                    strcpy(pclDestDataListWithCodeshareInsert, pclDestDataList);
                     strcat(pclDestDataListWithCodeshareInsert,pcgDataListDelimiter); /* strcat(pclDestDataListWithCodeshareInsert,","); */
                     strcat(pclDestDataListWithCodeshareInsert,pclTmpInsert);
 
@@ -2218,7 +2250,7 @@ static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *
                 }
                 else
                 {
-                    strcpy(pclDestDataListWithCodeshareInsert, pclConvertedDataList);
+                    strcpy(pclDestDataListWithCodeshareInsert, pclDestDataList);
                     strcpy(pclDestDataListWithCodeshareUpdate, pclDestDataList);
                 }
                 /**/
@@ -2227,8 +2259,13 @@ static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *
                 /*buildInsertQuery(pclSqlInsertBuf, rpRule->rlLine[0].pclDestTable, pclDestFiledListWithCodeshare, pclDestDataListWithCodeshare);*/
                 dbg(DEBUG, "%s __%d__before_build_insert\n pclDestDataListWithCodeshareInsert=<%s>\n pclDestDataListWithCodeshareUpdate=<%s>", 
 							pclFunc, __LINE__ , pclDestDataListWithCodeshareInsert, pclDestDataListWithCodeshareUpdate);
-				buildInsertQuery(pclSqlInsertBuf, rgGroupInfo[ipRuleGroup].pclDestTable, pclDestFiledListWithCodeshare, pclDestDataListWithCodeshareInsert);
-                dbg(DEBUG, "%s __%d__insert<%s>", pclFunc, __LINE__, pclSqlInsertBuf);
+				
+				if (igEnableInsertPartial == FALSE)       /* if not insert partial  */
+					buildInsertQuery(pclSqlInsertBuf, rgGroupInfo[ipRuleGroup].pclDestTable, pclDestFiledListWithCodeshare, pclDestDataListWithCodeshareInsert);
+				else 
+					buildInsertQueryPartial(pclSqlInsertBuf, rgGroupInfo[ipRuleGroup].pclDestTable, pclDestFiledListWithCodeshare, pclDestDataListWithCodeshareInsert);
+                
+				dbg(DEBUG, "%s __%d__insert<%s>", pclFunc, __LINE__, pclSqlInsertBuf);
 
                 /*buildUpdateQuery(pclSqlUpdateBuf, rpRule->rlLine[0].pclDestTable, pcpDestFiledList, pclDestDataList, pclSelection);*/
                 /*buildUpdateQuery(pclSqlUpdateBuf, rpRule->rlLine[0].pclDestTable, pclDestFiledListWithCodeshare, pclDestDataListWithCodeshare,pclSelection);*/
@@ -2259,7 +2296,7 @@ static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *
 					/* sprintf(pclTmpInsert,"'%s','%s','%s','%s','%s'","SL",pcpHardcodeShare.pclMFC, pcpHardcodeShare.pclMFN,pcpHardcodeShare.pclMFX,pcpHardcodeShare.pclMFF); */
 					sprintf(pclTmpInsert,"'%s'%s'%s'%s'%s'%s'%s'%s'%s'","SL",pcgDataListDelimiter,pcpHardcodeShare.pclMFC, pcgDataListDelimiter, 
 										 pcpHardcodeShare.pclMFN,pcgDataListDelimiter, pcpHardcodeShare.pclMFX,pcgDataListDelimiter,pcpHardcodeShare.pclMFF); 
-                    strcpy(pclDestDataListWithCodeshareInsert, pclConvertedDataList);
+                    strcpy(pclDestDataListWithCodeshareInsert, pclDestDataList);
                     strcat(pclDestDataListWithCodeshareInsert,pcgDataListDelimiter); /* strcat(pclDestDataListWithCodeshareInsert,","); */
                     strcat(pclDestDataListWithCodeshareInsert,pclTmpInsert);
                 }
@@ -2273,11 +2310,14 @@ static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *
                 /*buildInsertQuery(pclSqlInsertBuf, rpRule->rlLine[0].pclDestTable, pclDestFiledListWithCodeshare, pclDestDataListWithCodeshare);*/
                 dbg(DEBUG, "%s __%d__before_build_insert\n pclDestDataListWithCodeshareInsert=<%s>\n pclDestDataListWithCodeshareUpdate=<%s>", 
 							pclFunc, __LINE__ , pclDestDataListWithCodeshareInsert, pclDestDataListWithCodeshareUpdate);
-				buildInsertQuery(pclSqlInsertBuf, rgGroupInfo[ipRuleGroup].pclDestTable, pclDestFiledListWithCodeshare, pclDestDataListWithCodeshareInsert);
-                dbg(DEBUG, "%s __%d__insert<%s>", pclFunc, __LINE__, pclSqlInsertBuf);
 				
+				if (igEnableInsertPartial == FALSE)       /* if not insert partial  */
+					buildInsertQuery(pclSqlInsertBuf, rgGroupInfo[ipRuleGroup].pclDestTable, pclDestFiledListWithCodeshare, pclDestDataListWithCodeshareInsert);
+				else 
+					buildInsertQueryPartial(pclSqlInsertBuf, rgGroupInfo[ipRuleGroup].pclDestTable, pclDestFiledListWithCodeshare, pclDestDataListWithCodeshareInsert);
 
-
+				dbg(DEBUG, "%s __%d__insert<%s>", pclFunc, __LINE__, pclSqlInsertBuf);
+				
                 strcpy(pcpQuery->pclInsertQuery, pclSqlInsertBuf);
             }
         }
@@ -2515,20 +2555,12 @@ static int appliedRules( int ipRuleGroup, char *pcpFields, char *pcpData, char *
                     /*Insert data list*/
                     sprintf(pclTmpInsert,"'%s',%s,%s,%s,%s",pcpHardcodeShare.pclSST,"''","''","''","''");
 
-                    #ifdef _TEST_
-                    sprintf(pclTmpInsert,"'%s',%s,%s,%s,'%s'",pcpHardcodeShare.pclSST,"''","''","''","\"x\",\"y\"");
-                    #endif
-
                     strcpy(pclDestDataListWithCodeshareInsert, pclConvertedDataList);
                     strcat(pclDestDataListWithCodeshareInsert,",");
                     strcat(pclDestDataListWithCodeshareInsert,pclTmpInsert);
 
                     /*Update data list*/
-                   sprintf(pclTmpUpdate,"'%s'%s%s%s%s%s%s%s%s",pcpHardcodeShare.pclSST,pcgDataListDelimiter,"''",pcgDataListDelimiter,"''",pcgDataListDelimiter,"''",pcgDataListDelimiter,"''");
-
-                    #ifdef _TEST_
-                    sprintf(pclTmpUpdate,"'%s'%s%s%s%s%s%s%s'%s'",pcpHardcodeShare.pclSST,pcgDataListDelimiter,"''",pcgDataListDelimiter,"''",pcgDataListDelimiter,"''",pcgDataListDelimiter,"\"x\",\"y\"");
-                    #endif
+                    sprintf(pclTmpUpdate,"'%s'%s%s%s%s%s%s%s%s",pcpHardcodeShare.pclSST,pcgDataListDelimiter,"''",pcgDataListDelimiter,"''",pcgDataListDelimiter,"''",pcgDataListDelimiter,"''");
 
                     strcpy(pclDestDataListWithCodeshareUpdate, pclDestDataList);
                     strcat(pclDestDataListWithCodeshareUpdate, pcgDataListDelimiter);
@@ -2791,8 +2823,43 @@ static void buildInsertQueryPartial(char *pcpSqlBuf, char * pcpTable, char * pcp
     char pclMin[16] = "\0";
     char pclSec[16] = "\0";
     char pclTmp[64] = "\0";
+	
+	char pclTmpFieldList[4096] = "\0"; 
+	char pclTmpDataList[8192] = "\0";
+	char pclTmpField[256] = "\0";
+    char pclTmpData[256] = "\0";
+	int  ilCount; 
 
-    GetServerTimeStamp( "UTC", 1, 0, pclTimeNow);
+	memset(pclTmpFieldList, 0x0, sizeof(pclTmpFieldList));
+	memset(pclTmpDataList, 0x0, sizeof(pclTmpDataList));
+    
+	for (ilCount = 1; ilCount <= GetNoOfElements(pcpDestFieldData,pcgDataListDelimiter[0]); ilCount++)
+    {
+        memset(pclTmpField, 0, sizeof(pclTmpField));
+        memset(pclTmpData, 0, sizeof(pclTmpData));
+        memset(pclTmp, 0, sizeof(pclTmp));
+
+        get_item(ilCount, pcpDestFieldList, pclTmpField, 0, ",", "\0", "\0");   				   /* get field item */
+        TrimRight(pclTmpField);
+        
+        get_item(ilCount, pcpDestFieldData, pclTmpData, 0, pcgDataListDelimiter, "\0", "\0");	   /* get value of field */
+        TrimRight(pclTmpData);
+        /*dbg(DEBUG,"%s %s=%s",pclFunc, pclTmpField,pclTmpData);*/
+
+        if (strcmp(pclTmpData,"''") == 0)   /* skip null value */
+			continue; 
+			
+		if (strlen(pclTmpFieldList) > 0)         /* if field list is not empty */
+        {
+			strcat(pclTmpFieldList, ",");
+			strcat(pclTmpDataList, ",");
+		}	
+		strcat(pclTmpFieldList, pclTmpField); 
+		strcat(pclTmpDataList, pclTmpData);        	
+    }
+	
+	
+	GetServerTimeStamp( "UTC", 1, 0, pclTimeNow);
     dbg(TRACE,"<%s> Currnt time is <%s>",pclFunc, pclTimeNow);
     UtcToLocal(pclTimeNow);
 
@@ -2818,11 +2885,11 @@ static void buildInsertQueryPartial(char *pcpSqlBuf, char * pcpTable, char * pcp
         if (ilNextUrno <= 0)
             ilNextUrno = NewUrnos("SNOTAB",1);
 
-        sprintf(pcpSqlBuf,"INSERT INTO %s (%s,CDAT,LSTU,URNO) VALUES(%s,%s,%s,%d)", pcpTable, pcpDestFieldList, pcpDestFieldData,pclTmp,pclTmp,ilNextUrno);
+        sprintf(pcpSqlBuf,"INSERT INTO %s (%s,CDAT,LSTU,URNO) VALUES(%s,%s,%s,%d)", pcpTable, pclTmpFieldList, pclTmpDataList,pclTmp,pclTmp,ilNextUrno);
     }
     else /// if ( strcmp(pcpTable, "Current_Arrivals"  ) == 0 )   /* tvo_debug: bug of insert error */
     {
-        sprintf(pcpSqlBuf,"INSERT INTO %s (%s) VALUES(%s)", pcpTable, pcpDestFieldList, pcpDestFieldData);
+        sprintf(pcpSqlBuf,"INSERT INTO %s (%s) VALUES(%s)", pcpTable, pclTmpFieldList, pclTmpDataList);
     }
 }
 /*--------------------------------------------------------------------------------------------------------------*/
@@ -3763,6 +3830,7 @@ static int iniTables(char *pcpTimeWindowLowerLimit, char *pcpTimeWindowUpperLimi
     char pclDatalist[ARRAYNUMBER][LISTLEN] = {"\0"};
     _HARDCODE_SHARE pclHardcodeShare;
     _QUERY pclQuery[ARRAYNUMBER] = {"\0"};
+	
 
     /*if (igTotalNumbeoOfRule > 2)
     {
@@ -3781,6 +3849,7 @@ static int iniTables(char *pcpTimeWindowLowerLimit, char *pcpTimeWindowUpperLimi
         if ((ipOptionToTruncate == TRUE)&&(strlen(rgGroupInfo[ilRuleGroup].pclSourceTable) > 0))
             truncateTable(ilRuleGroup);
 	}
+	
     for (ilRuleGroup = 1; ilRuleGroup <= igTotalNumbeoOfRule; ilRuleGroup++)
     {
         memset(pclSourceFieldList,0,sizeof(pclSourceFieldList));
@@ -3905,7 +3974,7 @@ static int iniTables(char *pcpTimeWindowLowerLimit, char *pcpTimeWindowUpperLimi
                 appliedRules( ilRuleGroup, pclSourceFieldList, pclDatalist[ilCount], pcgSourceFiledList[ilRuleGroup],
                             pcgDestFiledList[ilRuleGroup], &rgRule, igTotalLineOfRule, pclSelection, pclAdidValue,
                             ilCount, pclHardcodeShare_DestFieldList, pclHardcodeShare, pclQuery+ilCount);
-				#if 1
+				#ifdef _DEBUG_
                 dbg(DEBUG,"\n%s pclQuery[%d].pclInsertQuery<%s>\n",pclFunc, ilCount, pclQuery[ilCount].pclInsertQuery);
                 dbg(DEBUG,"%s pclQuery[%d].pclUpdateQuery<%s>\n",pclFunc, ilCount, pclQuery[ilCount].pclUpdateQuery);
 				#endif
@@ -3926,15 +3995,16 @@ static int iniTables(char *pcpTimeWindowLowerLimit, char *pcpTimeWindowUpperLimi
             }
 
             ilFlightCount++;
-			#if 0  /* for testing only insert first 5 rows */
+			#ifdef _TEST_  /* for testing only insert first 5 rows */
 			if (ilFlightCount >= 5)
 				break; 
 			#endif 
         }
-        close_my_cursor(&slLocalCursor);
-
-        dbg(TRACE,"%s Group%d - Total Fligths Number<%d>", pclFunc, ilRuleGroup, ilFlightCount);
+        close_my_cursor(&slLocalCursor);        
+		dbg(TRACE,"%s Group<%d> - Total Fligths Number<%d>", pclFunc, ilRuleGroup, ilFlightCount);
     }
+	
+	
     return RC_SUCCESS;
 }
 

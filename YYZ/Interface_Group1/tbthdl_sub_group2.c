@@ -1,3 +1,5 @@
+#include "tbthdl.h" 
+
 #ifndef RC_NOTFOUND
 #define RC_NOTFOUND 1
 #endif
@@ -8,7 +10,11 @@
 
 static char *prgCmdTxt[] = {  "SEQUENCE_NUMBER", "CHECKIN_COUNTERS", "CHECKIN_OPEN_TIME", "CHECKIN_CLOSE_TIME", NULL };
 static int    rgCmdDef[] = {  SEQUENCE_NUMBER, CHECKIN_COUNTERS, CHECKIN_OPEN_TIME, CHECKIN_CLOSE_TIME, 0 };
-
+/*
+int  igEnableIgnoreDelete;
+int  igTransCmd;
+char cgTransTypeValue[128];
+*/
 /*---------------------------------------------------------------------------------------------------------*/
 /* returns the number of a command like input = 'XYZ' --> output = n (n | 0..n+1)                            */ 
 /***********************************************************************************************************/
@@ -246,19 +252,44 @@ int map(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpSele
 {
     int ilRC = RC_FAIL;
     char *pclFunc = "map";
-    memset(pcpDestValue,0,sizeof(pcpDestValue));
+    char clSourceList[256]; 
+	char clDestList[256];
+	char *clSplit = ",";
+	
+	memset(pcpDestValue,0,sizeof(pcpDestValue));
     dbg(TRACE, "<%s> The operator is %s, pcpSourceValue = <%s>, pcpSelection = <%s>, pcpAdid = <%s>",
                                      pclFunc,pclFunc,pcpSourceValue,pcpSelection,pcpAdid);
-
+									 
     if (strlen(pcpSourceValue) == 0)
         return RC_FAIL;
-    
-    if (strcmp(pcpAdid, "A") == 0)
-        strcpy(pcpDestValue, "ARR");
-    if (strcmp(pcpAdid, "D") == 0)
-        strcpy(pcpDestValue, "DEP");
-
-    ilRC = RC_SUCCESS;
+	
+	if (strcmp(rpLine->pclSourceField, "ADID") == 0)
+	{	  
+		if (strcmp(pcpAdid, "A") == 0)
+			strcpy(pcpDestValue, "ARR");
+		if (strcmp(pcpAdid, "D") == 0)
+			strcpy(pcpDestValue, "DEP");
+	}else
+	{	
+		strcpy(clSourceList, rpLine->pclCond1); 
+		strcpy(clDestList, rpLine->pclCond2);
+		
+		if (strlen(clSourceList) == 0 || strlen(clDestList) == 0)		
+		{
+			strcpy(pcpDestValue, pcpSourceValue);      /* can't convert */
+		}
+		else 
+		{
+			int  ilIdx, ilCol, ilPos;  
+			
+			ilRC = FindItemInList(clSourceList,pcpSourceValue,clSplit[0],&ilIdx,&ilCol,&ilPos);
+			
+			if (ilRC == RC_SUCCESS)
+				get_item(ilIdx, clDestList, pcpDestValue, 0, &clSplit[0], "\0", "\0");
+			else 
+				strcpy(pcpDestValue, pcpSourceValue);   /* can't convert */
+		}
+	}    
 
     return ilRC;
 }
@@ -305,6 +336,52 @@ int merge(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpSe
 		PrintValueInFormat(pcpDestValue,pclValue,pclFormatString);
 	}
     
+    return ilRC;
+}
+/*----------------------------------------------------------------------------------------------------*/
+int sequence(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpSelection, char *pcpAdid)
+{	
+    int ilRC = RC_FAIL;
+    char *pclFunc = "sequence";
+    char pclUaft[20] = "\0";
+    char *pclTmpPtr = NULL;
+    char pclSelection[128] = "\0"; 
+    char pclTable[128] = "\0"; 
+    char pclFields[256] = "\0"; 
+    char pclSqlData[1024] = "\0";
+	int  ilNewSequence = FALSE; 
+    
+    
+    memset(pcpDestValue,0,sizeof(pcpDestValue));
+    dbg(TRACE, "<%s> The operator is %s, pcpSelection = <%s>, pcpSourceValue = <%s>", pclFunc, pclFunc, pcpSelection, pcpSourceValue);
+    
+	
+	extractUaftFromSource(pclUaft,pcpSourceValue,rpLine,pcpSelection);
+	
+    dbg(TRACE, "<%s> pclUaft = <%s>",pclFunc, pclUaft);
+	
+	strcpy(pclTable, rpLine->pclDestTable); 
+    sprintf(pclSelection, "WHERE %s = '%s'", rpLine->pclDestKey, pclUaft);
+    strcpy(pclFields, rpLine->pclDestField);
+	ilNewSequence = TRUE;
+    if ((ilRC = DoSingleSelect(pclTable,pclSelection,pclFields,pclSqlData)) == RC_SUCCESS)  
+    {
+        GetDataItem(pcpDestValue,pclSqlData,1,',',"","\0\0");   /* keep the same SEQUENCE_NUMBER if exist */
+		if ((igEnableInsertOnly == FALSE) && (atoi(rpLine->pclCond2) > 0))    /* tvo_add: insert only case */
+			ilNewSequence = FALSE; 		
+    }
+	if (ilNewSequence == TRUE)
+    {
+        char *pclKey = rpLine->pclCond1;
+        long llSequence = atoi(rpLine->pclCond2); 
+                
+        llSequence = GetSequence(pclKey,llSequence);
+        sprintf(pcpDestValue,"%d",llSequence);
+        llSequence++;
+        PutSequence(pclKey,llSequence);
+    }
+	
+	ilRC = RC_SUCCESS;	
     return ilRC;
 }
 /*--------------------------------------------------------------------------------------------------- 
@@ -382,14 +459,16 @@ int hardcode(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pc
             ilRC = GetDepartureCheckinCounter(pclUaft,0,0,pcpDestValue);
             break;
         default:
-            dbg(TRACE, "<tvo> unknown field <%s>", rpLine->pclDestField);
+            dbg(TRACE, "<tvo> unknown field <%s>", rpLine->pclDestField, rpLine->pclCond2);
     }
 
     return ilRC;
 }
 /*----------------------------------------------------------------------------------------------------*/
+static char pcgSplit[2] = "-"; 
+
 int GetDepartureCheckinCounter(char *pcpUaft, char *pcpCKIC, char * pcpFirstOpen, char *pcpLastClose)
-{   /* identify check-in counter by CKES < STOD < CKES + 30min */ 
+{   /* identify check-in counter by CKES < STOD < CKES + 30min, clSplit should avoid '-' since it's used for date  */ 
     int ilRC = RC_FAIL;
     char *pclFunc = "GetDepartureCheckinCounter";
     char pclCkicList[20];
@@ -405,8 +484,7 @@ int GetDepartureCheckinCounter(char *pcpUaft, char *pcpCKIC, char * pcpFirstOpen
     char pclStod[20] = "\0";
     char pclCkif[10] = "\0";
     char pclCkit[10] = "\0";
-    
-    
+	
     memset(pclCkicList, 0x0, sizeof(pclCkicList)); 
     memset(pclFirstOpen, 0x0, sizeof(pclFirstOpen)); 
     memset(pclLastClose, 0x0, sizeof(pclLastClose)); 
@@ -436,7 +514,8 @@ int GetDepartureCheckinCounter(char *pcpUaft, char *pcpCKIC, char * pcpFirstOpen
             strcpy(pcpLastClose," ");
         return RC_SUCCESS;
     }
-    sprintf(pclCkicList, "%s - %s", pclCkif, pclCkit);
+	
+    sprintf(pclCkicList, "%s %s %s", pclCkif, pcgSplit, pclCkit);
 
     /*-- query CCATAB to get check-in counter information --------------*/
     char pclStod30min[20], pclStod120min[20]; 
@@ -502,38 +581,128 @@ int PrintValueInFormat(char* pcpDestValue, char* pclValue, char* pclFormatString
 #define NUMBER_TYPE    (1)
 #define DATE_TYPE      (2)
 #define DATELOC_TYPE   (3)
+#define VARCHAR2_TYPE  (4)
 
-static char *prgTypeTxt[] = {  "NUMBER", "DATE", "DATELOC", NULL }; /* NULL to end array  */
-static int    rgTypeDef[] = {  NUMBER_TYPE, DATE_TYPE, DATELOC_TYPE,  0 };
+static char *prgTypeTxt[] = {  "NUMBER", "DATE", "DATELOC", "VARCHAR2", NULL }; /* NULL to end array  */
+static int    rgTypeDef[] = {  NUMBER_TYPE, DATE_TYPE, DATELOC_TYPE, VARCHAR2_TYPE,  0 };
 
 int notyet(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpSelection, char *pcpAdid)
 {	
-	dbg(TRACE,"<notyet>: pcpSourceValue = <%s>, pcpDestType = <%s>, pclCond1 = <%s>, pclCond2 = <%s>", pcpSourceValue, rpLine->pclDestFieldType, rpLine->pclCond1, rpLine->pclCond2);
+	dbg(TRACE,"<notyet>: %s.%s = <%s>, pcpDestType = <%s>, pclCond1 = <%s>, pclCond2 = <%s>", 
+						 rpLine->pclSourceTable, rpLine->pclSourceField, pcpSourceValue, rpLine->pclDestFieldType, rpLine->pclCond1, rpLine->pclCond2);
 	int ilRC = RC_FAIL;    
     char *pclFunc = "notyet";
 	int ilType = 0; 
 	
+	strcpy(pcpDestValue,"");
+	if (strstr(rpLine->pclDestFieldType,"DATE") != 0)
+		strcpy(pcpDestValue,"2014-06-20");
+
+	#if 1 	/* test ACP_ALLOCATIONS table */
+	if (strstr(rpLine->pclDestField, "AIRLINES") != NULL)
+		strcpy(pcpDestValue, "\"OS\",\"LH\"");
+	if (strstr(rpLine->pclDestField, "DOM_INT") != NULL)
+		strcpy(pcpDestValue, "D,I,T,P,\"S\"");
+	if (strstr(rpLine->pclDestField, "NATURE") != NULL)
+		strcpy(pcpDestValue,"\"PAX\",\"CHT\",\"PVT\"");	
+	#endif
+	
+	
+	#if 0
 	ilRC = GetCommandVer2(prgTypeTxt, rgTypeDef, rpLine->pclDestFieldType, &ilType);
 	if (ilRC == RC_FAIL) 
 	{
 		strcpy(pcpDestValue,"X");
-	}
-	
-	switch (ilType)
+	}else
 	{
-		case NUMBER_TYPE: 
+		switch (ilType)
+		{
+			case NUMBER_TYPE: 
 						strcpy(pcpDestValue,"0");
 						break;
-		case DATELOC_TYPE: 		
+			case DATELOC_TYPE: 		
 						strcpy(pcpDestValue,"2014-06-20");
 						break;
-		case DATE_TYPE: 
+			case DATE_TYPE: 
 						strcpy(pcpDestValue,"2014-06-20");
 						break;
-		default: 								
+			default: 								
 						strcpy(pcpDestValue,"X");
+		}
 	}
+	#endif
 	
 	ilRC = RC_SUCCESS;	
 	return ilRC;
+}
+/*----------------------------------------------------------------------------------*/
+int notnull(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpSelection, char *pcpAdid)
+{
+	int ilRC = RC_FAIL;    
+    char *pclFunc = "notnull";
+	int ilType = 0; 	
+	
+	if (pcpSourceValue == NULL || strlen(pcpSourceValue) == 0) 
+	{
+		ilRC = GetCommandVer2(prgTypeTxt, rgTypeDef, rpLine->pclDestFieldType, &ilType);
+		if (ilRC == RC_FAIL) 
+		{
+			strcpy(pcpDestValue," ");
+		}
+		else
+		{
+			switch (ilType)
+			{
+				case NUMBER_TYPE: 
+						strcpy(pcpDestValue,"0");
+						break;
+				case DATELOC_TYPE: 		
+						strcpy(pcpDestValue,"2014-06-20");
+						break;
+				case DATE_TYPE: 
+						strcpy(pcpDestValue,"2014-06-20");
+						break;
+				case VARCHAR2_TYPE:											
+						strcpy(pcpDestValue," ");
+						break;
+			}
+		}		
+		ilRC = RC_SUCCESS;
+	}else
+	{
+		ilRC = defaultOperator(pcpDestValue,pcpSourceValue,rpLine,pcpSelection,pcpAdid);		
+	}
+	dbg(DEBUG, "%s: pcpDestValue = <%s>, ilRC = <%d:%d,%d>", pclFunc, ilRC, RC_SUCCESS, RC_FAIL);
+	return ilRC;
+}
+/*-------------------------------------------------------------------------------------------*/
+int transtype(char *pcpDestValue, char *pcpSourceValue, _LINE * rpLine, char * pcpSelection, char *pcpAdid)
+{
+	int ilRc = RC_SUCCESS;
+	char *pclFunc = "transtype";
+	
+	dbg(DEBUG,"%s: pclDestField = <%s>, igTransCmd = <%d:%d,%d,%d>, igEnableIgnoreDelete = <%d:%d,%d>, cgTransTypeValue = <%s>", 
+			  pclFunc, rpLine->pclDestField, igTransCmd, INSERT, UPDATE, DELETE, igEnableIgnoreDelete, TRUE, FALSE, cgTransTypeValue);
+	
+	if (igEnableIgnoreDelete == FALSE) /* not store transaction type case */ 
+	{
+		ilRc = defaultOperator(pcpDestValue, pcpSourceValue, rpLine, pcpSelection, pcpAdid); 
+	}else
+		switch (igTransCmd)
+		{
+			case INSERT: 
+						get_real_item(pcpDestValue, cgTransTypeValue, 1); 
+						break;
+			case UPDATE: 
+						get_real_item(pcpDestValue, cgTransTypeValue, 2);
+						break;
+			case DELETE: 
+						get_real_item(pcpDestValue, cgTransTypeValue, 3);
+						break;
+			default: 	
+						strcpy(pcpDestValue,""); 
+						ilRc = RC_FAIL; 
+		}
+	dbg(DEBUG, "%s: ilRc = <%d>, pcpDestValue = <%s>", pclFunc, ilRc, pcpDestValue);
+	return ilRc;
 }
