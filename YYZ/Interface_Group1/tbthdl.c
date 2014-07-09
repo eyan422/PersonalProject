@@ -2717,7 +2717,7 @@ static void buildUpdateQuery(char *pcpSqlBuf, char * pcpTable, char * pcpDestFie
             strcat(pclString, pclTmp);
         }
 
-        if ( !strcmp(pclTmpField,pcgDestFlnoField) )
+        if ( strcmp(pclTmpField, pcgDestFlnoField) == 0 )
         {
             strcpy(pclTmpFlnoSelection,pclTmp);
         }
@@ -2729,7 +2729,7 @@ static void buildUpdateQuery(char *pcpSqlBuf, char * pcpTable, char * pcpDestFie
     }
     else
     {
-        sprintf(pclTmpSelection,"WHERE %s=%s AND SST='%s' AND '%s'!='%s' AND %s", rgGroupInfo[pipRuleGroup].pclDestKey,pclUrnoSelection,pcgCodeShareSST, pcgDeletionStatusIndicator, pcgDelValue, pclTmp);
+        sprintf(pclTmpSelection,"WHERE %s=%s AND SST='%s' AND '%s'!='%s' AND %s", rgGroupInfo[pipRuleGroup].pclDestKey,pclUrnoSelection,pcgCodeShareSST, pcgDeletionStatusIndicator, pcgDelValue, pclTmpFlnoSelection);
     }
 
     GetServerTimeStamp( "UTC", 1, 0, pclTimeNow);
