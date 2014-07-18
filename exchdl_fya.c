@@ -11612,6 +11612,7 @@ static int BuildOutput(int ipIndex, int *ipCount, char *pcpCurSec, char *pcpType
   char *pclTmpPtr;
   char pclKeySection[256] = "\0";
   char pclTmp[256] = "\0";
+  char pclTmp1[256] = "\0";
 
   memset(pcgOutBuf,0x00,500000);
   ilDiscard = FALSE;
@@ -11732,7 +11733,11 @@ static int BuildOutput(int ipIndex, int *ipCount, char *pcpCurSec, char *pcpType
                           if(strstr(pcgOutBuf,pclTmp))
                           {
                             strcat(pcgOutBuf,"\n");
-                            sprintf(pclTmp,"    <%s>\n    </%s>\n",pcpCurSec,pcpCurSec);
+
+                            ilLevel = rgXml.rlLine[ilI].ilLevel;
+                            for (ilJ = 0; ilJ < (ilLevel-1)*3; ilJ++)
+                                strcat(pclTmp1," ");
+                            sprintf(pclTmp,"%s<%s>\n%s<%s>\n",pclTmp1,pcpCurSec,pclTmp1,pcpCurSec);
                             strcat(pcgOutBuf,pclTmp);
                             strcat(pcgOutBuf,pcgExtraSectionOutput);
                             strcat(pcgOutBuf,"\n");
