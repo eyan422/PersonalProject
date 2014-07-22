@@ -11715,12 +11715,14 @@ static int BuildOutput(int ipIndex, int *ipCount, char *pcpCurSec, char *pcpType
               }
            }
 
+			#if 0
             if (clActionType == *pcgActionTypeIns)
             {
                 if((strncmp(pcgBuildExtraSection,"Y",1)==0 || strncmp(pcgBuildExtraSection,"y",1) == 0) && strcmp(pcgInstallation,"COK")==0)
                 {
                     if(strcmp(pcgTableName,"MISVIEW") == 0)
-                    {
+                    {	
+						/*
                         ilRC = iGetConfigEntry(pcgConfigFile,"EXCHDL","KEY_SECTION",CFG_STRING,pclKeySection);
                           if (ilRC != RC_SUCCESS)
                           {
@@ -11729,7 +11731,7 @@ static int BuildOutput(int ipIndex, int *ipCount, char *pcpCurSec, char *pcpType
                           }
 
                           sprintf(pclTmp,"</%s>",pclKeySection);
-
+						*/
                           if(strstr(pcgOutBuf,pclTmp))
                           {
                             strcat(pcgOutBuf,"\n");
@@ -11737,7 +11739,7 @@ static int BuildOutput(int ipIndex, int *ipCount, char *pcpCurSec, char *pcpType
                             ilLevel = rgXml.rlLine[ilI].ilLevel;
                             for (ilJ = 0; ilJ < (ilLevel-1)*3; ilJ++)
                                 strcat(pclTmp1," ");
-                            sprintf(pclTmp,"%s<%s>\n%s<%s>\n",pclTmp1,pcpCurSec,pclTmp1,pcpCurSec);
+                            sprintf(pclTmp,"%s<%s>\n%s</%s>\n",pclTmp1,pcpCurSec,pclTmp1,pcpCurSec);
                             strcat(pcgOutBuf,pclTmp);
                             strcat(pcgOutBuf,pcgExtraSectionOutput);
                             strcat(pcgOutBuf,"\n");
@@ -11748,6 +11750,7 @@ static int BuildOutput(int ipIndex, int *ipCount, char *pcpCurSec, char *pcpType
                     }
                 }
             }
+			#endif
 
             /************COK MISTAB update***************/
             if((strncmp(pcgBuildExtraSection,"Y",1)==0 || strncmp(pcgBuildExtraSection,"y",1) == 0) && strcmp(pcgInstallation,"COK")==0)
