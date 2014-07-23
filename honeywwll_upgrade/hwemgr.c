@@ -1,7 +1,7 @@
 #ifndef _DEF_mks_version
     #define _DEF_mks_version
     #include "ufisvers.h" /* sets UFIS_VERSION, must be done before mks_version */
-    static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Interface/hwemgr.c 1.4 20/06/2014 5:05:39 PM Exp fya $";
+    static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Interface/hwemgr.c 1.4a 20/06/2014 5:05:39 PM Exp fya $";
 #endif /* _DEF_mks_version */
 
 
@@ -1776,8 +1776,8 @@ int sendDataHweConn(char *pcpUrno, char *pcpData, char *pcpMGID, char *pcpSndCnt
 
         if ( ilRC==RC_SUCCESS )
         {
-            if ((cgConnectionMask&1)==1 && (igConn1RecStatus==IDLE
-             || (igConn1RecStatus==SENT && igSendWaitAck == FALSE)))
+            /*if ((cgConnectionMask&1)==1 && (igConn1RecStatus==IDLE
+             || (igConn1RecStatus==SENT && igSendWaitAck == FALSE)))*/
             {
                 ilTmp1 = sendCedaEventWithLog(rgConfig.iConn1, 0, pcgDestName, pcgRecvName,
                                          pcgTwStart, pcgTwEnd, "XMLO", "HWETAB", pcpMGID,
@@ -1787,8 +1787,8 @@ int sendDataHweConn(char *pcpUrno, char *pcpData, char *pcpMGID, char *pcpSndCnt
                 igConn1RecStatus=SENT;
             }
 
-            if ((cgConnectionMask&2)==2 && (igConn2RecStatus==IDLE
-             || (igConn2RecStatus==SENT && igSendWaitAck == FALSE)))
+            /*if ((cgConnectionMask&2)==2 && (igConn2RecStatus==IDLE
+             || (igConn2RecStatus==SENT && igSendWaitAck == FALSE)))*/
             {
                 ilTmp2 = sendCedaEventWithLog(rgConfig.iConn2, 0, pcgDestName, pcgRecvName,
                                           pcgTwStart, pcgTwEnd, "XMLO", "HWETAB", pcpMGID,
