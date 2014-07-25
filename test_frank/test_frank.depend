@@ -1,0 +1,9 @@
+# depslib dependency file v1.0
+1406283392 source:d:\git\personalproject\test_frank\main.c
+	"test.h"
+
+1406284568 d:\git\personalproject\test_frank\test.h
+	<stdio.h>
+	<stdlib.h>
+	<string.h>
+
