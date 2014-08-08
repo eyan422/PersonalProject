@@ -1,7 +1,7 @@
 #ifndef _DEF_mks_version
   #define _DEF_mks_version
   #include "ufisvers.h" /* sets UFIS_VERSION, must be done before mks_version */
-  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/hwecon.c 1.5 20/06/2014 2:27:07 PM Exp  $";
+  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/hwecon.c 1.61 04/08/2014 2:27:07 PM Exp  $";
 #endif /* _DEF_mks_version */
 
 /******************************************************************************/
@@ -17,6 +17,7 @@
 /* 20121121 FYA:                                                              */
 /* 20140619 YYA:  UFIS-6225 Config to Disable Check WAIT ACK for Send      */
 /* 20140620 FYA:  v1.5 UFIS-6225 Send the received msgid back to hwemgr instead of waited one      */
+/* 20140620 FYA:  v1.6 If one process fails to send out message after three times, then inform the counterpart for reconnect too*/
 /******************************************************************************/
 /*                                                                            */
 /* source-code-control-system version string                                  */
@@ -167,6 +168,8 @@ static int	igOldCnnt = FALSE;
 
 static int	igWaitAckToSend = TRUE;
 
+static int igDropTheOther=TRUE;
+
 static int	Init_Handler();
 static int	Reset(void);                        /* Reset program          */
 static void	Terminate(int);                     /* Terminate program      */
@@ -203,6 +206,8 @@ static int ReceiveACK(int ipSock,int ipTimeOut);
 static int Sockt_Reconnect(void);
 static int tcp_open_connection (int socket, char *Pservice, char *Phostname);
 static int FindMsgId(char *pcpData, char *pcpMsgId, int Mode);
+
+static void informPeer(void);
 /******************************************************************************/
 /*                                                                            */
 /* The MAIN program                                                           */
@@ -335,12 +340,14 @@ MAIN
 
 					if( igConnectionNo < igReconMax )
 					{
+					    informPeer();
 						ilRc = Sockt_Reconnect();
 					}
 					else
 					{
 			    	if ( ((igConnected == FALSE) && (strcmp(pclCurrentTime, pcgReconExpTime) >= 0)) || (igConnected == TRUE) )
 			    	{
+			    	    informPeer();
 			        ilRc = Sockt_Reconnect();
 						}
 					}
@@ -822,6 +829,7 @@ static int HandleInternalData()
                 else if(ilRC == RC_FAIL)
 		        {
 			       dbg(DEBUG, "<%s>Send_data error",pclFunc);
+			       informPeer();
                    ilRC = Sockt_Reconnect();
 		        }
 		        else if(ilRC == RC_SENDTIMEOUT)
@@ -832,7 +840,10 @@ static int HandleInternalData()
             else
             {
                 if ((igConnected == TRUE) || (igOldCnnt == TRUE))
-                    ilRC = Sockt_Reconnect();
+                    {
+                        informPeer();
+                        ilRC = Sockt_Reconnect();
+                    }
                 else
                 	  ilRC = RC_FAIL;
             }
@@ -874,8 +885,17 @@ static int HandleInternalData()
     }
 	else if (strcmp(cmdblk->command,"RCON") == 0)
     {
-    	dbg(DEBUG,"CONX command: Re connect");
+        dbg(DEBUG,"%s ++++++++++Resending three times fail at counterpart ++++++++++",pclFunc);
+    	dbg(DEBUG,"RCON command: Re connect");
+
+        /*fya 20140724*/
+       igSckWaitACK = FALSE;
+       igSckTryACKCnt = 0;
+       ilRC = SendCedaEvent(igModID_ConMgr,0,mod_name,"CEDA",pcgTwStart,pcgTwEnd,"NACK","","","","","","",NETOUT_NO_ACK);
+
         ilRC = Sockt_Reconnect();
+        GetServerTimeStamp( "UTC", 1, 0, pcgSckWaitACKExpTime);
+        AddSecondsToCEDATime(pcgSckWaitACKExpTime, igSckACKCWait, 1);
     }
 	else
 	{
@@ -1033,6 +1053,24 @@ static int GetConfig()
                         != RC_SUCCESS)
 		return RC_FAIL;
 	*/
+	ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","DROP_THE_OTHER",CFG_STRING,pclTmpBuf);
+    if (ilRC == RC_SUCCESS)
+    {
+        if (strncmp(pclTmpBuf, "Y", 1) == 0 || strncmp(pclTmpBuf, "y", 1) == 0)
+        {
+            igModID_ConMgr = TRUE;
+        }
+        else
+        {
+            igModID_ConMgr = FALSE;
+        }
+    }
+    else
+    {
+        igDropTheOther = TRUE;
+    }
+	dbg(TRACE,"igDropTheOther <%s>", igDropTheOther==TRUE?"TRUE":"FALSE");
+
 
 	if ((ilRC=GetCfgEntry(pcgConfigFile,"MAIN","HEARTBEAT",CFG_STRING,&prgCfg.keep_alive,CFG_NUM,"0"))
                         != RC_SUCCESS)
@@ -1815,7 +1853,10 @@ static int Receive_data(int ipSock,int ipTimeOut)
 
                 igSckTryACKCnt++;
                 if (igSock <= 0)
-                   ilRC = Sockt_Reconnect();
+                {
+                    informPeer();
+                    ilRC = Sockt_Reconnect();
+                }
 
                 if (igSock > 0)
                 {
@@ -1828,11 +1869,23 @@ static int Receive_data(int ipSock,int ipTimeOut)
        }
        else
        {
-       		dbg(DEBUG,"%s ++++++++++Resending three times fail ++++++++++",pclFunc);
+           dbg(DEBUG,"%s ++++++++++Resending three times fail ++++++++++",pclFunc);
 
            igSckWaitACK = FALSE;
            igSckTryACKCnt = 0;
            ilRC = SendCedaEvent(igModID_ConMgr,0,mod_name,"CEDA",pcgTwStart,pcgTwEnd,"NACK","","","","","","",NETOUT_NO_ACK);
+
+           nap(igConDly);
+           /*
+            if (igDropTheOther == TRUE)
+            {
+                //fya 20140724
+                ilRC = SendCedaEvent(igModID_ConSTB,0,mod_name,"CEDA",pcgTwStart,pcgTwEnd,"RCON","","","","","","",NETOUT_NO_ACK);
+                nap(igConDly);
+            }
+            */
+            informPeer();
+
            ilRC = Sockt_Reconnect();
            GetServerTimeStamp( "UTC", 1, 0, pcgSckWaitACKExpTime);
            AddSecondsToCEDATime(pcgSckWaitACKExpTime, igSckACKCWait, 1);
@@ -1842,6 +1895,9 @@ static int Receive_data(int ipSock,int ipTimeOut)
     if (strcmp(pclCurrentTime, pcgRcvHeartBeatExpTime) >= 0)
     {
        dbg(DEBUG,"Current Time<%s>, Heartbeat Exp Rec Time<%s>", pclCurrentTime, pcgRcvHeartBeatExpTime);
+
+       informPeer();
+
        (void) Sockt_Reconnect();
     }
     return ilRC;
@@ -2628,4 +2684,18 @@ static int FindMsgId(char *pcpData, char *pcpMsgId, int Mode)
     }
     sprintf(pcpMsgId, "%d", ilMsgId);
 	return ilRC;
+}
+
+static void informPeer(void)
+{
+    int ilRC = RC_SUCCESS;
+    char pclFunc[] = "informPeer";
+    dbg(TRACE,"%s Inform the peer in reconnection",pclFunc);
+
+    if (igDropTheOther == TRUE)
+    {
+        //fya 20140724
+        ilRC = SendCedaEvent(igModID_ConSTB,0,mod_name,"CEDA",pcgTwStart,pcgTwEnd,"RCON","","","","","","",NETOUT_NO_ACK);
+        nap(igConDly);
+    }
 }
