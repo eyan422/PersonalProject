@@ -328,7 +328,7 @@ static void FindNextAllocArrBuildWhereClauseFutureActualFromNow(char *pcpWhere, 
 static void PutDefaultValueWithPos(SENT_MSG *rpSentMsg, char *pcpParkingStand);
 static void print(Item i);
 static int FindArrOnlyFlight(char *pcpParkingStand, SENT_MSG *rpSentMsg, int ipDeleteTowing, int ipAckNotSent);
-static int FindTowingDep_ArrFlight(char *pcpParkingStand, SENT_MSG *rpSentMsg, int ipDeleteTowing, int ipAckNotSent);
+static int FindTowingDep_ArrFlight(char *pcpParkingStand, char *pcpTime, SENT_MSG *rpSentMsg, int ipDeleteTowing, int ipAckNotSent);
 static void FindNextAllocArrOnlyBuildWhereClausePastNow(char *pcpWhere,char *pcpParkstand);
 static void FindNextAllocArrOnlyBuildFullQuery(char *pcpSqlBuf,char *pcpWhere);
 static void FindNextAllocArrOnlyBuildWhereClauseNowFuture(char *pcpWhere,char *pcpParkstand);
@@ -336,6 +336,9 @@ static void FindNextAllocArrOnlyBuildWhereClauseNowFuture(char *pcpWhere,char *p
 static void FindNextAllocTowingArrBuildWhereClauseFutureActual(char *pcpWhere,char *pcpParkstand);
 static void FindNextAllocTowingArrBuildWhereClauseFutureActualFromNow(char *pcpWhere, char *pcpParkstand, char *pcpTifd);
 static void FindNextAllocTowingArrBuildWhereClausePastActual(char *pcpWhere,char *pcpParkstand);
+
+static void FindNextAllocTowingDepBuildWhereClause(char *pcpWhere,char *pcpParkstand,char *pcpTifdNewData);
+static void FindNextAllocTowingDepBuildWhereClauseFutureActual(char *pcpWhere,char *pcpParkstand, char *pcpTowingTifd);
 /******************************************************************************/
 /*                                                                            */
 /* The MAIN program                                                           */
@@ -9942,7 +9945,7 @@ static int FindNextAllocation(char *pcpParkingStand, char *pcpTime, SENT_MSG *rp
                     if(ilRC == NOTFOUND)
                     {
 
-                        ilRC = FindTowingDep_ArrFlight(pcpParkingStand, rpSentMsg, ipDeleteTowing, ipAckNotSent);
+                        ilRC = FindTowingDep_ArrFlight(pcpParkingStand,pcpTime,rpSentMsg,ipDeleteTowing,ipAckNotSent);
 
                         if(ilRC == NOTFOUND)
                         {
@@ -11462,7 +11465,7 @@ static void FindNextAllocArrOnlyBuildFullQuery(char *pcpSqlBuf,char *pcpWhere)
 	dbg(DEBUG,"<%s>Full Query<%s>",pclFunc,pcpSqlBuf);
 }
 
-static int FindTowingDep_ArrFlight(char *pcpParkingStand, SENT_MSG *rpSentMsg, int ipDeleteTowing, int ipAckNotSent)
+static int FindTowingDep_ArrFlight(char *pcpParkingStand, char *pcpTime, SENT_MSG *rpSentMsg, int ipDeleteTowing, int ipAckNotSent)
 {
 	int  ilRC = RC_SUCCESS;			/* Return code */
 	int  ilQueRc = RC_SUCCESS;			/* Return code */
