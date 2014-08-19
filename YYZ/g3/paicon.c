@@ -1469,13 +1469,27 @@ static int SendHeartbeatMsg(char *pcpLastTimeSendingTime)
 		/*Original HB builder*/
 		sprintf(pclDataBuf,pcgKeepAliveFormat,pclFormatTime);      
 	}
+	
+	/*fya paicon 0.1*/
+	if(igObjID == 65535)
+	{    
+		igObjID = 0;
+	}    
+	igObjID++;
+	
+	if(igMsgID == 65535)
+	{    
+		igMsgID = 0;
+	}    
+	igMsgID++;
   
+	//Frank 20130107
 	if(igMsgNoForHeartbeat == 65535)
 	{    
 		igMsgNoForHeartbeat = 0;
 	}    
 	igMsgNoForHeartbeat++;
-	//Frank 20130107
+	
 	
 	ilRC = Send_data(igSock,pclDataBuf);
 	
