@@ -988,7 +988,7 @@ static int GetConfig()
 	}
 
 	/*fya paicon 0.1*/
-	if ((ilRC=GetCfgEntry(pcgConfigFile,"MAIN","HB_Flag",CFG_STRING,&pcgHB_Flag,CFG_PRINT," "))
+	if ((ilRC=GetCfgEntry(pcgConfigFile,"MAIN","HB_Flag",CFG_STRING,&pcgHB_Flag,CFG_PRINT,"IED"))
                         != RC_SUCCESS)
 		return RC_FAIL;
 	
@@ -1724,40 +1724,37 @@ static int Receive_data(int ipSock,int ipTimeOut)
                             }
 					        // return RC_SUCCESS;
 		      	        }
-		      	        else if(strstr(pclRecvBuffer,"heartbeat") == 0)
-		      	        {
-                          (void) FindMsgId(pclRecvBuffer, pclTmpBuf, 0);
-                          strcpy(pcgMsgNoForACK, pclTmpBuf);
-                          if (strcmp(pcgMsgNoForACK, "0") != 0 )
-                          {
-			      	        // Send the ACK
-						    dbg(DEBUG,"<%s> Sending ACK message",pclFunc);
-						    SendAckMsg();
-			      	        ilRC = SendCedaEvent(igModID_ConSTB,0,mod_name,"CEDA",pcgTwStart,pcgTwEnd,"SACK","",pcgMsgNoForACK,"","","","",NETOUT_NO_ACK);
-			      	        ilRC = SendCedaEvent(igModID_Rcvr,0,mod_name,"CEDA",pcgTwStart,pcgTwEnd,"XMLI","",pcgMsgNoForACK,"",pclRecvBuffer,"","",NETOUT_NO_ACK);
-	                        if (ilRC == RC_SUCCESS)
-	                        {
-	            	             dbg(DEBUG,"<%s>SendCedaEvent<%d> executes successfully",pclFunc,igModID_Rcvr);
-	                        }
-	                        else
-	                        {
-	            	            dbg(TRACE,"<%s>SendCedaEvent<%d> executes unsuccessfully",pclFunc,igModID_Rcvr);
-	                        }
-						   // return RC_SUCCESS;
-                          }
-          	            }
+		      	        else if(strstr(pclRecvBuffer, pcgHB_Flag) == 0 )/*fya paicon 0.1*/
+		      	        {	
+							(void) FindMsgId(pclRecvBuffer, pclTmpBuf, 0);
+							strcpy(pcgMsgNoForACK, pclTmpBuf);
+							if (strcmp(pcgMsgNoForACK, "0") != 0 )
+							{
+								// Send the ACK
+								dbg(DEBUG,"<%s> Sending ACK message",pclFunc);
+								SendAckMsg();
+								ilRC = SendCedaEvent(igModID_ConSTB,0,mod_name,"CEDA",pcgTwStart,pcgTwEnd,"SACK","",pcgMsgNoForACK,"","","","",NETOUT_NO_ACK);
+								ilRC = SendCedaEvent(igModID_Rcvr,0,mod_name,"CEDA",pcgTwStart,pcgTwEnd,"XMLI","",pcgMsgNoForACK,"",pclRecvBuffer,"","",NETOUT_NO_ACK);
+								if (ilRC == RC_SUCCESS)
+								{
+									 dbg(DEBUG,"<%s>SendCedaEvent<%d> executes successfully",pclFunc,igModID_Rcvr);
+								}
+								else
+								{
+									dbg(TRACE,"<%s>SendCedaEvent<%d> executes unsuccessfully",pclFunc,igModID_Rcvr);
+								}
+								/* return RC_SUCCESS; */
+							}
+						}
+						
                         ilRC = RC_SUCCESS;
                         GetServerTimeStamp( "UTC", 1, 0, pcgRcvHeartBeatExpTime);
                         AddSecondsToCEDATime(pcgRcvHeartBeatExpTime, igHeartBeatTimOut, 1);
 		          }    
 		          else if( ilNo == 0 )
 			      {
-					    // dbg(DEBUG,"<%s>Received empty msg",pclFunc);
-					    ilRC = RC_SUCCESS;
-                        //GetServerTimeStamp( "UTC", 1, 0, pcgRcvHeartBeatExpTime);
-                        //AddSecondsToCEDATime(pcgRcvHeartBeatExpTime, igHeartBeatTimOut, 1);
-				  }	
-					//sleep(1);
+						ilRC = RC_SUCCESS;
+				  }
 				}
 		    }
 			break;
