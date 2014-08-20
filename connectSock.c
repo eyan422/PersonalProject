@@ -7,6 +7,7 @@
 #include <netdb.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <stdarg.h>
 
 #ifdef  INADDR_NONE
@@ -16,6 +17,7 @@
 extern int errno;
 
 int errexit(const char *format, ...);
+int connectUDP(const char *host, const char *service);
 
 /* connectSock - Allocate & Connect a socket using TCP or UDP */
 
@@ -30,7 +32,7 @@ Arguments:
 {
     struct hostent *phe; /*pointer to host information entry*/
     struct servent *pse; /*pointer to service information enrty*/
-    struct protoent *pps; /*pointer to protocol information entry*/
+    struct protoent *ppe; /*pointer to protocol information entry*/
     struct sockaddr_in sin; /*an Internet endpoint address*/
     int s, type;/*socket descriptor and socket type*/
 
@@ -38,7 +40,7 @@ Arguments:
     sin.sin_family = AF_INET;
 
     /* Map service name to port number */
-    if (pse = getservname(servide, transport))
+    if (pse = getservbyname(servide, transport))
         sin.sin_port = pse->s_port;
     else if((sin.sin_port = htons((unsigned short)atoi(service))) == 0)
         errexit("can't get \"%s\" service entry\n",service);
@@ -72,6 +74,10 @@ Arguments:
     return s;
 }
 
+int connectUDP(const char *host, const char *service)
+{
+    return connectSock(host,service, "udp")
+}
 
 int errexit(const char *format, ...)
 {
