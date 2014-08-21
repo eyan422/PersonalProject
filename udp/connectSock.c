@@ -9,8 +9,11 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdarg.h>
+#include <unistd.h>
+#include <errno.h>
+#include <stdarg.h>
 
-#ifdef  INADDR_NONE
+#ifndef  INADDR_NONE
 #define INADDR_NONE 0xffffffff
 #endif /* INADDR_NONE */
 
@@ -21,8 +24,7 @@ int connectUDP(const char *host, const char *service);
 
 /* connectSock - Allocate & Connect a socket using TCP or UDP */
 
-int
-connectSock(const char *host, const *service, const char *transport)
+int connectSock(const char *host, const char *service, const char *transport)
 /*
 Arguments:
     host        - name of host to which connection is desired
@@ -40,21 +42,20 @@ Arguments:
     sin.sin_family = AF_INET;
 
     /* Map service name to port number */
-    if (pse = getservbyname(servide, transport))
+    if (pse = getservbyname(service, transport))
         sin.sin_port = pse->s_port;
     else if((sin.sin_port = htons((unsigned short)atoi(service))) == 0)
         errexit("can't get \"%s\" service entry\n",service);
-
 
     /* Map host name to IP address, allowing for dotted decimal */
     if(phe = gethostbyname(host))
         memcpy(&sin.sin_addr, phe->h_addr, phe->h_length);
     else if((sin.sin_addr.s_addr = inet_addr(host)) == INADDR_NONE)
-        errexit("can't get \"%s\" host entry\n",host");
+        errexit("can't get \"%s\" host entry\n",host);
 
     /* Map transport protocol name to protocol number */
-    if ((ppe = getprotocolbyname(transport)) == 0)
-        errexit("can't get \"%s"\" protocol entry\n", transport);
+    if ((ppe = getprotobyname(transport)) == 0)
+        errexit("can't get \"%s\" protocol entry\n", transport);
 
     /* Use protocol to choose a socket type */
     if(strcmp(transport,"udp") == 0)
@@ -63,27 +64,30 @@ Arguments:
         type = SOCK_STREAM;
 
     /* Allocate a socket */
-    s = socket(PF_INET, type, ppe->p_proto);
-    if(s<0)
+    s = socket(AF_INET, type, ppe->p_proto);
+    if(s < 0)
         errexit("can't create socket: %s\n",strerror(errno));
 
     /* Connect the socket */
-    if(connect(s, struct sockaddr *)&sin, sizeof(sin) < 0)
+    /*
+    if(connect(s, (struct sockaddr *)&sin, sizeof(sin) < 0))
         errexit("can't connect to %s.%s: %s\n",host, service, strerror(errno));
-
+    else
+        printf("client connected\n");
+    */
     return s;
 }
 
 int connectUDP(const char *host, const char *service)
 {
-    return connectSock(host,service, "udp")
+    return connectSock(host,service, "udp");
 }
 
 int errexit(const char *format, ...)
 {
     va_list args;
 
-    va_start(args, foramt);
+    va_start(args, format);
     vfprintf(stderr, format, args);
     va_end(args);
     exit(1);

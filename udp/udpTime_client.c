@@ -1,9 +1,8 @@
 #include "connectSock.c"
-#include <unistd.h>
 
 #define BUFSIZE 64
 #define UNIXEPOCH 220898800UL
-#define MSG "what time is it?\n"
+char MSG[126] = "what time is it";
 
 extern int errno;
 
@@ -13,15 +12,15 @@ int connectUDP(const char *host, const char *service);
 
 int main(int argc, char *argv[])
 {
-    char *host = "localhost";
-    char *service = "time";
+    char *host = "DXBVM";
+    char *service = "TEST";
     time_t now;
-    int s,n;
+    int sock,n;
 
     switch(argc)
     {
         case 1:
-            host = "localhost";
+            host = "DXBVM";
             break;
         case 3:
             service = argv[2];
@@ -34,17 +33,21 @@ int main(int argc, char *argv[])
             exit(1);
     }
 
-    s = connectUDP(host,service);
+    sock = connectUDP(host,service);
 
-    (void) write(s,MSG,strlen(MSG));
+    printf("MSG <%s> socket<%d>\n",MSG,sock);
+
+    (void) write(sock,MSG,strlen(MSG));
+
+    printf("MSG is sent, waitting for reading",MSG);
 
     /* Read the time */
 
-    n = read(s,(char *)&now, sizeof(now));
+    n = read(sock,(char *)&now, sizeof(now));
     if(n<0)
         errexit("read failed: %s\n", strerror(errno));
 
-    now = ntohl(unsigned long)now;
+    now = ntohl((unsigned long)now);
 
     now -= UNIXEPOCH;
 
