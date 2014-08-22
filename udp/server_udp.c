@@ -72,6 +72,6 @@ int main(int argc, char *argv[])
         {
             printf("sendto() <%s>\r\n",recvBuffer);
         }
-        return 0;
+        //return 0;
     }
 }
