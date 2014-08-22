@@ -7,6 +7,8 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 
+#define PORT 61001
+
 int main(int argc, char *argv[])
 {
     int sock;
@@ -33,7 +35,7 @@ int main(int argc, char *argv[])
     memset(&fromAddr,0,sizeof(fromAddr));
     fromAddr.sin_family=AF_INET;
     fromAddr.sin_addr.s_addr=htonl(INADDR_ANY);
-    fromAddr.sin_port = htons(4000);
+    fromAddr.sin_port = htons(PORT);
     if(bind(sock,(struct sockaddr*)&fromAddr,sizeof(fromAddr))<0)
     {
         //printf("bind() 函数使用失败了.\r\n");

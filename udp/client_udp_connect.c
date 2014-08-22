@@ -9,13 +9,14 @@
 
 #define CONNECT
 #define MAX_CONN 5
+#define PORT 61001
 
 int main(int argc, char *argv[])
 {
     int sock;
     int ilConn = 0;
     unsigned int fromLen;
-    char recvBuffer[128];
+    char recvBuffer[1024];
     //sendto中使用的对方地址
     struct sockaddr_in toAddr;
     //在recvfrom中使用的对方主机地址
@@ -45,7 +46,7 @@ int main(int argc, char *argv[])
     memset(&toAddr,0,sizeof(toAddr));
     toAddr.sin_family=AF_INET;
     toAddr.sin_addr.s_addr=inet_addr("127.0.0.1");
-    toAddr.sin_port = htons(4000);
+    toAddr.sin_port = htons(PORT);
 
 repeat:
     #ifdef CONNECT
