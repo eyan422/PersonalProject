@@ -6,10 +6,14 @@
 typedef struct
 {
 	char pclMsgHeader[3];
-	int  ilObjId;
+	/*int  ilObjId;
 	int ilMsgId;
 	int ilMsgNo;
-	char pclMsgType[1];
+	*/
+	char pclObjId[16];
+	char pclMsgId[16];
+	char pclMsgNo[16];
+	char pclMsgType[16];
 }_HEAD;
 
 typedef struct

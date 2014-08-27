@@ -1546,10 +1546,14 @@ static void buildMsgHeader(_HEAD *rpHead, char *pcpCommand)
     char *pclFunc = "buildMsgHeader";
 
     strcpy(rpHead->pclMsgHeader, pcgMsgHeader);
+    /*
     (*rpHead).ilObjId++;
     (*rpHead).ilMsgId++;
     (*rpHead).ilMsgNo++;
-
+    */
+    strcpy(rpHead->pclObjId, "  ");
+    strcpy(rpHead->pclMsgId, "  ");
+    strcpy(rpHead->pclMsgNo, "  ");
     strncpy(rpHead->pclMsgType, pcpCommand, 1);
 }
 
@@ -2276,9 +2280,9 @@ static void sendArrMsg(_HEAD *rpHead ,_MASTER *rpMaster, _ARR_MSG_BODY *rpArrBod
 
     sprintf(pclArrData,"%s%d%d%d%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s",
     rpHead->pclMsgHeader,
-    rpHead->ilObjId,
-    rpHead->ilMsgId,
-    rpHead->ilMsgNo,
+    rpHead->pclObjId,
+    rpHead->pclMsgId,
+    rpHead->pclMsgNo,
     rpHead->pclMsgType,
     rpArrBody->pclPLC,
     rpArrBody->pclPLN,
@@ -2325,9 +2329,9 @@ static void sendDepMsg(_HEAD *rpHead ,_MASTER *rpMaster, _DEP_MSG_BODY *rpDepBod
 
     sprintf(pclDepData, "%s%d%d%d%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s",
     rpHead->pclMsgHeader,
-    rpHead->ilObjId,
-    rpHead->ilMsgId,
-    rpHead->ilMsgNo,
+    rpHead->pclObjId,
+    rpHead->pclMsgId,
+    rpHead->pclMsgNo,
     rpHead->pclMsgType,
     rpDepBody->pclPLC,
     rpDepBody->pclPLN,
