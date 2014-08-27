@@ -1557,6 +1557,31 @@ static void buildMsgHeader(_HEAD *rpHead, char *pcpCommand)
     strncpy(rpHead->pclMsgType, pcpCommand, 1);
 }
 
+static void fillField(char *pcpDest, char *pcpOrigin, int ipLen)
+{
+    int ilCount = 0;
+
+    if (strlen(pcpOrigin) == 0)
+    {
+        for(ilCount = 0; ilCount < ipLen; ilCount++)
+        {
+            strcat(pcpDest," ");
+        }
+    }
+    else if ( strlen(pcpOrigin) < ipLen )
+    {
+        for(ilCount = 0; ilCount < (ipLen - strlen(pcpOrigin)); ilCount++)
+        {
+            strcat(pcpDest," ");
+        }
+        strcat(pcpDest,pcpOrigin);
+    }
+    else
+    {
+        strncpy(pcpDest,pcpOrigin,ipLen);
+    }
+}
+
 static void buildArrMsgBody(_ARR_MSG_BODY *rpArrBody, char *pcpFieldList, char *pcpDatalist, int ipCount, int ipNo, _MASTER *rpMaster)
 {
     int ilNo = 0;
@@ -1567,39 +1592,44 @@ static void buildArrMsgBody(_ARR_MSG_BODY *rpArrBody, char *pcpFieldList, char *
     char pclVial[ARRAYNUMBER][LISTLEN] = {"\0"};
 
     /*1-PLC-ALC2*/
-    ilRc = extractField(rpArrBody->pclPLC, "ALC2", pcpFieldList, pcpDatalist);
+    ilRc = extractField(pclTmp, "ALC2", pcpFieldList, pcpDatalist);
     if (ilRc == RC_FAIL)
     {
-        dbg(TRACE,"%s The ALC2 value<%s> is invalid", pclFunc, rpArrBody->pclPLC);
-        memset(rpArrBody->pclPLC,0,sizeof(rpArrBody->pclPLC));
+        dbg(TRACE,"%s The ALC2 value<%s> is invalid", pclFunc, pclTmp);
+        fillField(rpArrBody->pclPLC, "", 3);
     }
     else
     {
-        dbg(DEBUG,"%s The ALC2 value<%s> is valid", pclFunc, rpArrBody->pclPLC);
+        dbg(DEBUG,"%s The ALC2 value<%s> is valid", pclFunc, pclTmp);
+        fillField(rpArrBody->pclPLC, pclTmp, 3);
     }
 
     /*2-PLN-FLTN*/
-    ilRc = extractField(rpArrBody->pclPLN, "FLTN", pcpFieldList, pcpDatalist);
+    ilRc = extractField(pclTmp, "FLTN", pcpFieldList, pcpDatalist);
     if (ilRc == RC_FAIL)
     {
-        dbg(TRACE,"%s The FLTN value<%s> is invalid", pclFunc, rpArrBody->pclPLN);
-        memset(rpArrBody->pclPLN,0,sizeof(rpArrBody->pclPLN));
+        dbg(TRACE,"%s The FLTN value<%s> is invalid", pclFunc, pclTmp);
+        //memset(rpArrBody->pclPLN,0,sizeof(rpArrBody->pclPLN));
+        fillField(rpArrBody->pclPLN, "", 4);
     }
     else
     {
-        dbg(DEBUG,"%s The FLTN value<%s> is valid", pclFunc, rpArrBody->pclPLN);
+        dbg(DEBUG,"%s The FLTN value<%s> is valid", pclFunc, pclTmp);
+        fillField(rpArrBody->pclPLN, pclTmp, 4);
     }
 
     /*3-PLX-FLNS*/
-    ilRc = extractField(rpArrBody->pclPLX, "FLNS", pcpFieldList, pcpDatalist);
+    ilRc = extractField(pclTmp, "FLNS", pcpFieldList, pcpDatalist);
     if (ilRc == RC_FAIL)
     {
-        dbg(TRACE,"%s The FLNS value<%s> is invalid", pclFunc, rpArrBody->pclPLX);
-        memset(rpArrBody->pclPLX,0,sizeof(rpArrBody->pclPLX));
+        dbg(TRACE,"%s The FLNS value<%s> is invalid", pclFunc, pclTmp);
+        //memset(rpArrBody->pclPLX,0,sizeof(rpArrBody->pclPLX));
+        fillField(rpArrBody->pclPLX, "", 1);
     }
     else
     {
-        dbg(DEBUG,"%s The FLNS value<%s> is valid", pclFunc, rpArrBody->pclPLX);
+        dbg(DEBUG,"%s The FLNS value<%s> is valid", pclFunc, pclTmp);
+        fillField(rpArrBody->pclPLX, pclTmp, 1);
     }
 
     /*4-SDT-STOA*/
@@ -1608,8 +1638,10 @@ static void buildArrMsgBody(_ARR_MSG_BODY *rpArrBody, char *pcpFieldList, char *
     if (ilRc == RC_FAIL)
     {
         dbg(TRACE,"%s The SDT-STA value<%s> is invalid", pclFunc, pclTmp);
-        memset(rpArrBody->pclSDT,0,sizeof(rpArrBody->pclSDT));
-        memset(rpArrBody->pclSTA,0,sizeof(rpArrBody->pclSTA));
+        //memset(rpArrBody->pclSDT,0,sizeof(rpArrBody->pclSDT));
+        //memset(rpArrBody->pclSTA,0,sizeof(rpArrBody->pclSTA));
+        fillField(rpArrBody->pclSDT, "", 8);
+        fillField(rpArrBody->pclSTA, "", 4);
     }
     else
     {
@@ -1624,9 +1656,9 @@ static void buildArrMsgBody(_ARR_MSG_BODY *rpArrBody, char *pcpFieldList, char *
     {
         /*master*/
         if (ipNo - 1 <= 0)
-            strcpy(rpArrBody->pclSST,"0");
+            strcpy(rpArrBody->pclSST,"00");
         else
-            sprintf(rpArrBody->pclSST,"%d",ipNo);
+            sprintf(rpArrBody->pclSST,"0%d",ipNo);
     }
     else
     {
@@ -1647,16 +1679,28 @@ static void buildArrMsgBody(_ARR_MSG_BODY *rpArrBody, char *pcpFieldList, char *
     else
     */
     {
+        /*
         strcpy(rpArrBody->pclMPC,rpMaster->pclMPC);
         strcpy(rpArrBody->pclMPN,rpMaster->pclMPN);
         strcpy(rpArrBody->pclMPX,rpMaster->pclMPX);
+        */
+
+        fillField(rpArrBody->pclMPC, rpMaster->pclMPC, 3);
+        fillField(rpArrBody->pclMPN, rpMaster->pclMPN, 4);
+        fillField(rpArrBody->pclMPX, rpMaster->pclMPX, 1);
     }
 
     /*10,11,12,13-Stop1,Stop2,Stop3,Stop4*/
+    /*
     memset(rpArrBody->pclStop1,0,sizeof(rpArrBody->pclStop1));
     memset(rpArrBody->pclStop2,0,sizeof(rpArrBody->pclStop2));
     memset(rpArrBody->pclStop3,0,sizeof(rpArrBody->pclStop3));
     memset(rpArrBody->pclStop4,0,sizeof(rpArrBody->pclStop4));
+    */
+    fillField(rpArrBody->pclStop1, "", 3);
+    fillField(rpArrBody->pclStop2, "", 3);
+    fillField(rpArrBody->pclStop3, "", 3);
+    fillField(rpArrBody->pclStop4, "", 3);
     ilRc = extractField(pclTmp, "VIAL", pcpFieldList, pcpDatalist);
     if (ilRc == RC_FAIL)
     {
@@ -1680,25 +1724,25 @@ static void buildArrMsgBody(_ARR_MSG_BODY *rpArrBody, char *pcpFieldList, char *
         switch(ilNo)
         {
             case 0:
-                strcpy(rpArrBody->pclStop1, pclTmp);
+                strncpy(rpArrBody->pclStop1, pclTmp,3);
                 break;
             case 1:
-                strcpy(rpArrBody->pclStop1, pclVial[0]);
-                strcpy(rpArrBody->pclStop2, pclTmp);
+                strncpy(rpArrBody->pclStop1, pclVial[0],3);
+                strncpy(rpArrBody->pclStop2, pclTmp,3);
                 break;
             case 2:
-                strcpy(rpArrBody->pclStop1, pclVial[1]);
-                strcpy(rpArrBody->pclStop2, pclVial[0]);
-                strcpy(rpArrBody->pclStop3, pclTmp);
+                strncpy(rpArrBody->pclStop1, pclVial[1],3);
+                strncpy(rpArrBody->pclStop2, pclVial[0],3);
+                strncpy(rpArrBody->pclStop3, pclTmp,3);
                 break;
             case 3:
             case 4:
             case 5:
             case 6:
-                strcpy(rpArrBody->pclStop1, pclVial[2]);
-                strcpy(rpArrBody->pclStop2, pclVial[1]);
-                strcpy(rpArrBody->pclStop3, pclVial[0]);
-                strcpy(rpArrBody->pclStop4, pclTmp);
+                strncpy(rpArrBody->pclStop1, pclVial[2],3);
+                strncpy(rpArrBody->pclStop2, pclVial[1],3);
+                strncpy(rpArrBody->pclStop3, pclVial[0],3);
+                strncpy(rpArrBody->pclStop4, pclTmp,3);
                 break;
             default:
                 dbg(DEBUG,"%s ilNo<%d>is more than six or less then zero",pclFunc, ilNo);
@@ -1707,27 +1751,31 @@ static void buildArrMsgBody(_ARR_MSG_BODY *rpArrBody, char *pcpFieldList, char *
     }
 
     /*14-TYP-ACT3*/
-    ilRc = extractField(rpArrBody->pclTYP, "ACT3", pcpFieldList, pcpDatalist);
+    ilRc = extractField(pclTmp, "ACT3", pcpFieldList, pcpDatalist);
     if (ilRc == RC_FAIL)
     {
-        dbg(TRACE,"%s The TYP value<%s> is invalid", pclFunc, rpArrBody->pclTYP);
-        memset(rpArrBody->pclTYP,0,sizeof(rpArrBody->pclTYP));
+        dbg(TRACE,"%s The TYP value<%s> is invalid", pclFunc, pclTmp);
+        //memset(rpArrBody->pclTYP,0,sizeof(rpArrBody->pclTYP));
+        fillField(rpArrBody->pclTYP, "", 3);
     }
     else
     {
-        dbg(DEBUG,"%s The TYP value<%s> is valid", pclFunc, rpArrBody->pclTYP);
+        dbg(DEBUG,"%s The TYP value<%s> is valid", pclFunc, pclTmp);
+        fillField(rpArrBody->pclTYP, pclTmp, 3);
     }
 
     /*15-TYS-ACT3*/
-    ilRc = extractField(rpArrBody->pclTYS, "ACT3", pcpFieldList, pcpDatalist);
+    ilRc = extractField(pclTmp, "ACT3", pcpFieldList, pcpDatalist);
     if (ilRc == RC_FAIL)
     {
-        dbg(TRACE,"%s The TYS value<%s> is invalid", pclFunc, rpArrBody->pclTYS);
-        memset(rpArrBody->pclTYS,0,sizeof(rpArrBody->pclTYS));
+        dbg(TRACE,"%s The TYS value<%s> is invalid", pclFunc, pclTmp);
+        //memset(rpArrBody->pclTYS,0,sizeof(rpArrBody->pclTYS));
+        fillField(rpArrBody->pclTYS, "", 8);
     }
     else
     {
-        dbg(DEBUG,"%s The TYS value<%s> is valid", pclFunc, rpArrBody->pclTYS);
+        dbg(DEBUG,"%s The TYS value<%s> is valid", pclFunc, pclTmp);
+        fillField(rpArrBody->pclTYS, pclTmp, 8);
     }
 
     /*16-LDA-TIFA*/
@@ -1736,8 +1784,8 @@ static void buildArrMsgBody(_ARR_MSG_BODY *rpArrBody, char *pcpFieldList, char *
     if (ilRc == RC_FAIL)
     {
         dbg(TRACE,"%s The LDA-LTA value<%s> is invalid", pclFunc, pclTmp);
-        memset(rpArrBody->pclLDA,0,sizeof(rpArrBody->pclLDA));
-        memset(rpArrBody->pclLTA,0,sizeof(rpArrBody->pclLTA));
+        fillField(rpArrBody->pclLDA,"",8);
+        fillField(rpArrBody->pclLTA,"",4);
     }
     else
     {
@@ -1750,47 +1798,54 @@ static void buildArrMsgBody(_ARR_MSG_BODY *rpArrBody, char *pcpFieldList, char *
     strncpy(rpArrBody->pclNA," ",1);
 
     /*19-CA1*/
-    ilRc = extractField(rpArrBody->pclCA1, "BLT1", pcpFieldList, pcpDatalist);
+    ilRc = extractField(pclTmp, "BLT1", pcpFieldList, pcpDatalist);
     if (ilRc == RC_FAIL)
     {
-        dbg(TRACE,"%s The CA1 value<%s> is invalid", pclFunc, rpArrBody->pclCA1);
-        memset(rpArrBody->pclCA1,0,sizeof(rpArrBody->pclCA1));
+        dbg(TRACE,"%s The CA1 value<%s> is invalid", pclFunc, pclTmp);
+        //memset(rpArrBody->pclCA1,0,sizeof(rpArrBody->pclCA1));
+        fillField(rpArrBody->pclCA1,"",3);
     }
     else
     {
-        dbg(DEBUG,"%s The CA1 value<%s> is valid", pclFunc, rpArrBody->pclCA1);
+        dbg(DEBUG,"%s The CA1 value<%s> is valid", pclFunc, pclTmp);
+        fillField(rpArrBody->pclCA1,pclTmp,3);
     }
 
     /*20-GAT*/
-    ilRc = extractField(rpArrBody->pclGAT, "GTA1", pcpFieldList, pcpDatalist);
+    ilRc = extractField(pclTmp, "GTA1", pcpFieldList, pcpDatalist);
     if (ilRc == RC_FAIL)
     {
-        dbg(TRACE,"%s The GAT value<%s> is invalid", pclFunc, rpArrBody->pclGAT);
-        memset(rpArrBody->pclGAT,0,sizeof(rpArrBody->pclGAT));
+        dbg(TRACE,"%s The GAT value<%s> is invalid", pclFunc, pclTmp);
+        //memset(rpArrBody->pclGAT,0,sizeof(rpArrBody->pclGAT));
+        fillField(rpArrBody->pclGAT,"",3);
     }
     else
     {
-        dbg(DEBUG,"%s The GAT value<%s> is valid", pclFunc, rpArrBody->pclGAT);
+        dbg(DEBUG,"%s The GAT value<%s> is valid", pclFunc, pclTmp);
+        fillField(rpArrBody->pclGAT,pclTmp,3);
     }
 
     /*21-Remarks_Terminal_Id-Remarks_Flight_Status_Portion*/
-    ilRc = extractField(rpArrBody->pclRmkTermId, "TRMA", pcpFieldList, pcpDatalist);
+    ilRc = extractField(pclTmp, "TRMA", pcpFieldList, pcpDatalist);
     if (ilRc == RC_FAIL)
     {
-        dbg(TRACE,"%s The Terminal value<%s> is invalid", pclFunc, rpArrBody->pclRmkTermId);
-        memset(rpArrBody->pclRmkTermId,0,sizeof(rpArrBody->pclRmkTermId));
+        dbg(TRACE,"%s The Terminal value<%s> is invalid", pclFunc, pclTmp);
+        //memset(rpArrBody->pclRmkTermId,0,sizeof(rpArrBody->pclRmkTermId));
+        fillField(rpArrBody->pclRmkTermId,"",3);
     }
     else
     {
-        dbg(DEBUG,"%s The Terminal value<%s> is valid", pclFunc, rpArrBody->pclRmkTermId);
+        dbg(DEBUG,"%s The Terminal value<%s> is valid", pclFunc, pclTmp);
+        fillField(rpArrBody->pclRmkTermId,pclTmp,3);
     }
 
-    memset(rpArrBody->pclRmkFltStatus,0,sizeof(rpArrBody->pclRmkFltStatus));
+    //memset(rpArrBody->pclRmkFltStatus,0,sizeof(rpArrBody->pclRmkFltStatus));
     ilRc = extractField(pclTmp, "REMP", pcpFieldList, pcpDatalist);
     if (ilRc == RC_FAIL)
     {
         dbg(TRACE,"%s The REMP value<%s> is invalid", pclFunc, pclTmp);
-        strcpy(rpArrBody->pclRmkTermId,"  ");
+        //strcpy(rpArrBody->pclRmkFltStatus,"  ");
+        fillField(rpArrBody->pclRmkFltStatus,"",2);
     }
     else
     {
@@ -1799,69 +1854,77 @@ static void buildArrMsgBody(_ARR_MSG_BODY *rpArrBody, char *pcpFieldList, char *
         if (strlen(pclTmp) == 0)
         {
             /*No remark->On time*/
-            strcpy(rpArrBody->pclRmkFltStatus," 1");
+            strcpy(rpArrBody->pclRmkFltStatus,"  1");
         }
         else
         {
             if ( strstr(pcgRmkDelayed,pclTmp) != 0 )
             {
-                strcpy(rpArrBody->pclRmkFltStatus," 3");
+                strcpy(rpArrBody->pclRmkFltStatus,"  3");
             }
             else if ( strstr(pcgRmkCancelled,pclTmp) != 0 )
             {
-                strcpy(rpArrBody->pclRmkFltStatus," 5");
+                strcpy(rpArrBody->pclRmkFltStatus,"  5");
             }
             else if ( strstr(pcgRmkDiverted,pclTmp) != 0 )
             {
-                strcpy(rpArrBody->pclRmkFltStatus," 9");
+                strcpy(rpArrBody->pclRmkFltStatus,"  9");
             }
             else if ( strstr(pcgRmkArr,pclTmp) != 0 )
             {
-                strcpy(rpArrBody->pclRmkFltStatus,"10");
+                strcpy(rpArrBody->pclRmkFltStatus," 10");
             }
             else if ( strstr(pcgRmkDep,pclTmp) != 0 )
             {
-                strcpy(rpArrBody->pclRmkFltStatus,"32");
+                strcpy(rpArrBody->pclRmkFltStatus," 32");
             }
             else
             {
-                strcpy(rpArrBody->pclRmkFltStatus,"  ");
+                strcpy(rpArrBody->pclRmkFltStatus,"   ");
             }
         }
     }
 
     /*22-Time Sync*/
-    strcpy(rpArrBody->pclTimeSync,"    ");
+    //strcpy(rpArrBody->pclTimeSync,"    ");
+    fillField(rpArrBody->pclTimeSync,"",4);
 
     /*23-Previous Gate*/
-    strcpy(rpArrBody->pclPreGate,"    ");
+    //strcpy(rpArrBody->pclPreGate,"    ");
+    fillField(rpArrBody->pclPreGate,"",4);
 
     /*24-Overbooked Compensation*/
-    strcpy(rpArrBody->pclOverbookedCompensation,"   ");
+    //strcpy(rpArrBody->pclOverbookedCompensation,"   ");
+    fillField(rpArrBody->pclOverbookedCompensation,"",3);
 
     /*25-Frequent Flyer Miles*/
-    ilRc = extractField(rpArrBody->pclFreFlyerMiles, "EXT1", pcpFieldList, pcpDatalist);
+    ilRc = extractField(pclTmp, "EXT1", pcpFieldList, pcpDatalist);
     if (ilRc == RC_FAIL)
     {
-        dbg(TRACE,"%s The frequent flyer miles value<%s> is invalid", pclFunc, rpArrBody->pclFreFlyerMiles);
-        memset(rpArrBody->pclFreFlyerMiles,0,sizeof(rpArrBody->pclFreFlyerMiles));
+        dbg(TRACE,"%s The frequent flyer miles value<%s> is invalid", pclFunc, pclTmp);
+        //memset(rpArrBody->pclFreFlyerMiles,0,sizeof(rpArrBody->pclFreFlyerMiles));
+        fillField(rpArrBody->pclFreFlyerMiles,"",5);
     }
     else
     {
-        dbg(DEBUG,"%s The frequent flyer miles value<%s> is valid", pclFunc, rpArrBody->pclFreFlyerMiles);
+        dbg(DEBUG,"%s The frequent flyer miles value<%s> is valid", pclFunc, pclTmp);
+        fillField(rpArrBody->pclFreFlyerMiles,pclTmp,5);
     }
 
     /*26-Flight delay reason code*/
-    strcpy(rpArrBody->pclFltDelayRsnCode,"     ");
+    //strcpy(rpArrBody->pclFltDelayRsnCode,"     ");
+    fillField(rpArrBody->pclFltDelayRsnCode,"",5);
 
     /*27-Days of operation*/
     strcpy(rpArrBody->pclDaysOfOper,"1234567");
 
     /*28-Effective Date*/
-    strcpy(rpArrBody->pclEffDate,"        ");
+    //strcpy(rpArrBody->pclEffDate,"        ");
+    fillField(rpArrBody->pclEffDate,"",5);
 
     /*29-Discontinue Date*/
-    strcpy(rpArrBody->pclDisDate,"        ");
+    //strcpy(rpArrBody->pclDisDate,"        ");
+    fillField(rpArrBody->pclDisDate,"",5);
 }
 
 static void buildDepMsgBody(_DEP_MSG_BODY *rpDepBody, char *pcpFieldList, char *pcpDatalist, int ipCount, int ipNo, _MASTER *rpMaster)
@@ -1874,39 +1937,44 @@ static void buildDepMsgBody(_DEP_MSG_BODY *rpDepBody, char *pcpFieldList, char *
     char pclVial[ARRAYNUMBER][LISTLEN] = {"\0"};
 
     /*1-PLC-ALC2*/
-    ilRc = extractField(rpDepBody->pclPLC, "ALC2", pcpFieldList, pcpDatalist);
+    ilRc = extractField(pclTmp, "ALC2", pcpFieldList, pcpDatalist);
     if (ilRc == RC_FAIL)
     {
-        dbg(TRACE,"%s The ALC2 value<%s> is invalid", pclFunc, rpDepBody->pclPLC);
-        memset(rpDepBody->pclPLC,0,sizeof(rpDepBody->pclPLC));
+        dbg(TRACE,"%s The ALC2 value<%s> is invalid", pclFunc, pclTmp);
+        fillField(rpDepBody->pclPLC, "", 3);
     }
     else
     {
-        dbg(DEBUG,"%s The ALC2 value<%s> is valid", pclFunc, rpDepBody->pclPLC);
+        dbg(DEBUG,"%s The ALC2 value<%s> is valid", pclFunc, pclTmp);
+        fillField(rpDepBody->pclPLC, pclTmp, 3);
     }
 
     /*2-PLN-FLTN*/
-    ilRc = extractField(rpDepBody->pclPLN, "FLTN", pcpFieldList, pcpDatalist);
+    ilRc = extractField(pclTmp, "FLTN", pcpFieldList, pcpDatalist);
     if (ilRc == RC_FAIL)
     {
-        dbg(TRACE,"%s The FLTN value<%s> is invalid", pclFunc, rpDepBody->pclPLN);
-        memset(rpDepBody->pclPLN,0,sizeof(rpDepBody->pclPLN));
+        dbg(TRACE,"%s The FLTN value<%s> is invalid", pclFunc, pclTmp);
+        //memset(rpArrBody->pclPLN,0,sizeof(rpArrBody->pclPLN));
+        fillField(rpDepBody->pclPLN, "", 4);
     }
     else
     {
-        dbg(DEBUG,"%s The FLTN value<%s> is valid", pclFunc, rpDepBody->pclPLN);
+        dbg(DEBUG,"%s The FLTN value<%s> is valid", pclFunc, pclTmp);
+        fillField(rpDepBody->pclPLN, pclTmp, 4);
     }
 
     /*3-PLX-FLNS*/
-    ilRc = extractField(rpDepBody->pclPLX, "FLNS", pcpFieldList, pcpDatalist);
+    ilRc = extractField(pclTmp, "FLNS", pcpFieldList, pcpDatalist);
     if (ilRc == RC_FAIL)
     {
-        dbg(TRACE,"%s The FLNS value<%s> is invalid", pclFunc, rpDepBody->pclPLX);
-        memset(rpDepBody->pclPLX,0,sizeof(rpDepBody->pclPLX));
+        dbg(TRACE,"%s The FLNS value<%s> is invalid", pclFunc, pclTmp);
+        //memset(rpArrBody->pclPLX,0,sizeof(rpArrBody->pclPLX));
+        fillField(rpDepBody->pclPLX, "", 1);
     }
     else
     {
-        dbg(DEBUG,"%s The FLNS value<%s> is valid", pclFunc, rpDepBody->pclPLX);
+        dbg(DEBUG,"%s The FLNS value<%s> is valid", pclFunc, pclTmp);
+        fillField(rpDepBody->pclPLX, pclTmp, 1);
     }
 
     /*4-SDT-STOD*/
@@ -1915,14 +1983,17 @@ static void buildDepMsgBody(_DEP_MSG_BODY *rpDepBody, char *pcpFieldList, char *
     if (ilRc == RC_FAIL)
     {
         dbg(TRACE,"%s The SDT-STD value<%s> is invalid", pclFunc, pclTmp);
-        memset(rpDepBody->pclSDT,0,sizeof(rpDepBody->pclSDT));
-        memset(rpDepBody->pclSTD,0,sizeof(rpDepBody->pclSTD));
+        //memset(rpDepBody->pclSDT,0,sizeof(rpDepBody->pclSDT));
+        //memset(rpDepBody->pclSTD,0,sizeof(rpDepBody->pclSTD));
+        fillField(rpDepBody->pclSDT, "", 8);
+        fillField(rpDepBody->pclSTD, "", 4);
     }
     else
     {
         dbg(DEBUG,"%s The SDT-STD value<%s> is valid", pclFunc, pclTmp);
         strncpy(rpDepBody->pclSDT, pclTmp, 8);
         strncpy(rpDepBody->pclSTD, pclTmp+8, 4);
+        dbg(DEBUG,"%s SDT<%s> STA<%s>", pclFunc, rpDepBody->pclSDT, rpDepBody->pclSTD);
     }
 
     /*6-SST-Code share flight indicator*/
@@ -1930,9 +2001,9 @@ static void buildDepMsgBody(_DEP_MSG_BODY *rpDepBody, char *pcpFieldList, char *
     {
         /*master*/
         if (ipNo - 1 <= 0)
-            strcpy(rpDepBody->pclSST,"0");
+            strcpy(rpDepBody->pclSST,"00");
         else
-            sprintf(rpDepBody->pclSST,"%d",ipNo);
+            sprintf(rpDepBody->pclSST,"0%d",ipNo);
     }
     else
     {
@@ -1953,16 +2024,27 @@ static void buildDepMsgBody(_DEP_MSG_BODY *rpDepBody, char *pcpFieldList, char *
     else
     */
     {
+        /*
         strcpy(rpDepBody->pclMPC,rpMaster->pclMPC);
         strcpy(rpDepBody->pclMPN,rpMaster->pclMPN);
         strcpy(rpDepBody->pclMPX,rpMaster->pclMPX);
+        */
+        fillField(rpDepBody->pclMPC, rpMaster->pclMPC, 3);
+        fillField(rpDepBody->pclMPN, rpMaster->pclMPN, 4);
+        fillField(rpDepBody->pclMPX, rpMaster->pclMPX, 1);
     }
 
     /*10,11,12,13-Stop1,Stop2,Stop3,Stop4*/
+    /*
     memset(rpDepBody->pclStop1,0,sizeof(rpDepBody->pclStop1));
     memset(rpDepBody->pclStop2,0,sizeof(rpDepBody->pclStop2));
     memset(rpDepBody->pclStop3,0,sizeof(rpDepBody->pclStop3));
     memset(rpDepBody->pclStop4,0,sizeof(rpDepBody->pclStop4));
+    */
+    fillField(rpDepBody->pclStop1, "", 3);
+    fillField(rpDepBody->pclStop2, "", 3);
+    fillField(rpDepBody->pclStop3, "", 3);
+    fillField(rpDepBody->pclStop4, "", 3);
     ilRc = extractField(pclTmp, "VIAL", pcpFieldList, pcpDatalist);
     if (ilRc == RC_FAIL)
     {
@@ -1986,25 +2068,25 @@ static void buildDepMsgBody(_DEP_MSG_BODY *rpDepBody, char *pcpFieldList, char *
         switch(ilNo)
         {
             case 0:
-                strcpy(rpDepBody->pclStop1, pclTmp);
+                strncpy(rpDepBody->pclStop1, pclTmp,3);
                 break;
             case 1:
-                strcpy(rpDepBody->pclStop1, pclVial[0]);
-                strcpy(rpDepBody->pclStop2, pclTmp);
+                strncpy(rpDepBody->pclStop1, pclVial[0],3);
+                strncpy(rpDepBody->pclStop2, pclTmp,3);
                 break;
             case 2:
-                strcpy(rpDepBody->pclStop1, pclVial[1]);
-                strcpy(rpDepBody->pclStop2, pclVial[0]);
-                strcpy(rpDepBody->pclStop3, pclTmp);
+                strncpy(rpDepBody->pclStop1, pclVial[1],3);
+                strncpy(rpDepBody->pclStop2, pclVial[0],3);
+                strncpy(rpDepBody->pclStop3, pclTmp,3);
                 break;
             case 3:
             case 4:
             case 5:
             case 6:
-                strcpy(rpDepBody->pclStop1, pclVial[2]);
-                strcpy(rpDepBody->pclStop2, pclVial[1]);
-                strcpy(rpDepBody->pclStop3, pclVial[0]);
-                strcpy(rpDepBody->pclStop4, pclTmp);
+                strncpy(rpDepBody->pclStop1, pclVial[2],3);
+                strncpy(rpDepBody->pclStop2, pclVial[1],3);
+                strncpy(rpDepBody->pclStop3, pclVial[0],3);
+                strncpy(rpDepBody->pclStop4, pclTmp, 3);
                 break;
             default:
                 dbg(DEBUG,"%s ilNo<%d>is more than six or less then zero",pclFunc, ilNo);
@@ -2013,27 +2095,31 @@ static void buildDepMsgBody(_DEP_MSG_BODY *rpDepBody, char *pcpFieldList, char *
     }
 
     /*14-TYP-ACT3*/
-    ilRc = extractField(rpDepBody->pclTYP, "ACT3", pcpFieldList, pcpDatalist);
+    ilRc = extractField(pclTmp, "ACT3", pcpFieldList, pcpDatalist);
     if (ilRc == RC_FAIL)
     {
-        dbg(TRACE,"%s The TYP value<%s> is invalid", pclFunc, rpDepBody->pclTYP);
-        memset(rpDepBody->pclTYP,0,sizeof(rpDepBody->pclTYP));
+        dbg(TRACE,"%s The TYP value<%s> is invalid", pclFunc, pclTmp);
+        //memset(rpArrBody->pclTYP,0,sizeof(rpArrBody->pclTYP));
+        fillField(rpDepBody->pclTYP, "", 3);
     }
     else
     {
-        dbg(DEBUG,"%s The TYP value<%s> is valid", pclFunc, rpDepBody->pclTYP);
+        dbg(DEBUG,"%s The TYP value<%s> is valid", pclFunc, pclTmp);
+        fillField(rpDepBody->pclTYP, pclTmp, 3);
     }
 
     /*15-TYS-ACT3*/
-    ilRc = extractField(rpDepBody->pclTYS, "ACT3", pcpFieldList, pcpDatalist);
+    ilRc = extractField(pclTmp, "ACT3", pcpFieldList, pcpDatalist);
     if (ilRc == RC_FAIL)
     {
-        dbg(TRACE,"%s The TYS value<%s> is invalid", pclFunc, rpDepBody->pclTYS);
-        memset(rpDepBody->pclTYS,0,sizeof(rpDepBody->pclTYS));
+        dbg(TRACE,"%s The TYS value<%s> is invalid", pclFunc, pclTmp);
+        //memset(rpArrBody->pclTYS,0,sizeof(rpArrBody->pclTYS));
+        fillField(rpDepBody->pclTYS, "", 8);
     }
     else
     {
-        dbg(DEBUG,"%s The TYS value<%s> is valid", pclFunc, rpDepBody->pclTYS);
+        dbg(DEBUG,"%s The TYS value<%s> is valid", pclFunc, pclTmp);
+        fillField(rpDepBody->pclTYS, pclTmp, 8);
     }
 
     /*16-LDD-TIFD*/
@@ -2042,8 +2128,8 @@ static void buildDepMsgBody(_DEP_MSG_BODY *rpDepBody, char *pcpFieldList, char *
     if (ilRc == RC_FAIL)
     {
         dbg(TRACE,"%s The LDD-LTD value<%s> is invalid", pclFunc, pclTmp);
-        memset(rpDepBody->pclLDD,0,sizeof(rpDepBody->pclLDD));
-        memset(rpDepBody->pclLTD,0,sizeof(rpDepBody->pclLTD));
+        fillField(rpDepBody->pclLDD,"",8);
+        fillField(rpDepBody->pclLTD,"",4);
     }
     else
     {
@@ -2069,27 +2155,31 @@ static void buildDepMsgBody(_DEP_MSG_BODY *rpDepBody, char *pcpFieldList, char *
     */
 
     /*20-GAT*/
-    ilRc = extractField(rpDepBody->pclGAT, "GTD1", pcpFieldList, pcpDatalist);
+    ilRc = extractField(pclTmp, "GTD1", pcpFieldList, pcpDatalist);
     if (ilRc == RC_FAIL)
     {
-        dbg(TRACE,"%s The GAT value<%s> is invalid", pclFunc, rpDepBody->pclGAT);
-        memset(rpDepBody->pclGAT,0,sizeof(rpDepBody->pclGAT));
+        dbg(TRACE,"%s The GAT value<%s> is invalid", pclFunc, pclTmp);
+        //memset(rpArrBody->pclGAT,0,sizeof(rpArrBody->pclGAT));
+        fillField(rpDepBody->pclGAT,"",3);
     }
     else
     {
-        dbg(DEBUG,"%s The GAT value<%s> is valid", pclFunc, rpDepBody->pclGAT);
+        dbg(DEBUG,"%s The GAT value<%s> is valid", pclFunc, pclTmp);
+        fillField(rpDepBody->pclGAT,pclTmp,3);
     }
 
     /*21-Remarks_Terminal_Id-Remarks_Flight_Status_Portion*/
-    ilRc = extractField(rpDepBody->pclRmkTermId, "TRMD", pcpFieldList, pcpDatalist);
+    ilRc = extractField(pclTmp, "TRMD", pcpFieldList, pcpDatalist);
     if (ilRc == RC_FAIL)
     {
-        dbg(TRACE,"%s The Terminal value<%s> is invalid", pclFunc, rpDepBody->pclRmkTermId);
-        memset(rpDepBody->pclRmkTermId,0,sizeof(rpDepBody->pclRmkTermId));
+        dbg(TRACE,"%s The Terminal value<%s> is invalid", pclFunc, pclTmp);
+        //memset(rpArrBody->pclRmkTermId,0,sizeof(rpArrBody->pclRmkTermId));
+        fillField(rpDepBody->pclRmkTermId,"",3);
     }
     else
     {
-        dbg(DEBUG,"%s The Terminal value<%s> is valid", pclFunc, rpDepBody->pclRmkTermId);
+        dbg(DEBUG,"%s The Terminal value<%s> is valid", pclFunc, pclTmp);
+        fillField(rpDepBody->pclRmkTermId,pclTmp,3);
     }
 
     memset(rpDepBody->pclRmkFltStatus,0,sizeof(rpDepBody->pclRmkFltStatus));
@@ -2097,76 +2187,95 @@ static void buildDepMsgBody(_DEP_MSG_BODY *rpDepBody, char *pcpFieldList, char *
     if (ilRc == RC_FAIL)
     {
         dbg(TRACE,"%s The REMP value<%s> is invalid", pclFunc, pclTmp);
-        strcpy(rpDepBody->pclRmkTermId,"  ");
+        //strcpy(rpDepBody->pclRmkTermId,"  ");
+        fillField(rpDepBody->pclRmkFltStatus,"",2);
     }
     else
     {
         dbg(DEBUG,"%s The Terminal value<%s> is valid", pclFunc, pclTmp);
 
-        if ( strstr(pcgRmkDelayed,pclTmp) != 0 )
+        if (strlen(pclTmp) == 0)
         {
-            strcpy(rpArrBody->pclRmkFltStatus," 3");
-        }
-        else if ( strstr(pcgRmkCancelled,pclTmp) != 0 )
-        {
-            strcpy(rpArrBody->pclRmkFltStatus," 5");
-        }
-        else if ( strstr(pcgRmkDiverted,pclTmp) != 0 )
-        {
-            strcpy(rpArrBody->pclRmkFltStatus," 9");
-        }
-        else if ( strstr(pcgRmkArr,pclTmp) != 0 )
-        {
-            strcpy(rpArrBody->pclRmkFltStatus,"10");
-        }
-        else if ( strstr(pcgRmkDep,pclTmp) != 0 )
-        {
-            strcpy(rpArrBody->pclRmkFltStatus,"32");
+            /*No remark->On time*/
+            strcpy(rpDepBody->pclRmkFltStatus,"  1");
         }
         else
         {
-            strcpy(rpArrBody->pclRmkFltStatus,"  ");
+            if ( strstr(pcgRmkDelayed,pclTmp) != 0 )
+            {
+                strcpy(rpDepBody->pclRmkFltStatus,"  3");
+            }
+            else if ( strstr(pcgRmkCancelled,pclTmp) != 0 )
+            {
+                strcpy(rpDepBody->pclRmkFltStatus,"  5");
+            }
+            else if ( strstr(pcgRmkDiverted,pclTmp) != 0 )
+            {
+                strcpy(rpDepBody->pclRmkFltStatus,"  9");
+            }
+            else if ( strstr(pcgRmkArr,pclTmp) != 0 )
+            {
+                strcpy(rpDepBody->pclRmkFltStatus," 10");
+            }
+            else if ( strstr(pcgRmkDep,pclTmp) != 0 )
+            {
+                strcpy(rpDepBody->pclRmkFltStatus," 32");
+            }
+            else
+            {
+                strcpy(rpDepBody->pclRmkFltStatus,"   ");
+            }
         }
     }
 
     /*22-Time Sync*/
-    strcpy(rpDepBody->pclTimeSync,"    ");
+    //strcpy(rpDepBody->pclTimeSync,"    ");
+    fillField(rpDepBody->pclTimeSync,"",4);
 
     /*23-Previous Gate*/
-    strcpy(rpDepBody->pclPreGate,"    ");
+    //strcpy(rpDepBody->pclPreGate,"    ");
+    fillField(rpDepBody->pclPreGate,"",4);
 
     /*24-Overbooked Compensation*/
-    strcpy(rpDepBody->pclOverbookedCompensation,"   ");
+    //strcpy(rpDepBody->pclOverbookedCompensation,"   ");
+    fillField(rpDepBody->pclOverbookedCompensation,"",3);
 
     /*25-Frequent Flyer Miles*/
-    ilRc = extractField(rpDepBody->pclFreFlyerMiles, "EXT1", pcpFieldList, pcpDatalist);
+    ilRc = extractField(pclTmp, "EXT1", pcpFieldList, pcpDatalist);
     if (ilRc == RC_FAIL)
     {
-        dbg(TRACE,"%s The frequent flyer miles value<%s> is invalid", pclFunc, rpDepBody->pclFreFlyerMiles);
-        memset(rpDepBody->pclFreFlyerMiles,0,sizeof(rpDepBody->pclFreFlyerMiles));
+        dbg(TRACE,"%s The frequent flyer miles value<%s> is invalid", pclFunc, pclTmp);
+        //memset(rpArrBody->pclFreFlyerMiles,0,sizeof(rpArrBody->pclFreFlyerMiles));
+        fillField(rpDepBody->pclFreFlyerMiles,"",5);
     }
     else
     {
-        dbg(DEBUG,"%s The frequent flyer miles value<%s> is valid", pclFunc, rpDepBody->pclFreFlyerMiles);
+        dbg(DEBUG,"%s The frequent flyer miles value<%s> is valid", pclFunc, pclTmp);
+        fillField(rpDepBody->pclFreFlyerMiles,pclTmp,5);
     }
 
     /*26-Flight delay reason code*/
-    strcpy(rpDepBody->pclFltDelayRsnCode,"     ");
+    //strcpy(rpDepBody->pclFltDelayRsnCode,"     ");
+    fillField(rpDepBody->pclFltDelayRsnCode,"",5);
 
     /*27-Time_Duration*/
-    strcpy(rpDepBody->pclTimeDuration,"    ");
+    //strcpy(rpDepBody->pclTimeDuration,"    ");
+    fillField(rpDepBody->pclTimeDuration,"",4);
 
     /*28-Meal_Service*/
     strcpy(rpDepBody->pclMealService,"    ");
+    fillField(rpDepBody->pclMealService,"",1);
 
     /*27-Days of operation*/
     strcpy(rpDepBody->pclDaysOfOper,"1234567");
 
     /*28-Effective Date*/
-    strcpy(rpDepBody->pclEffDate,"        ");
+    //strcpy(rpDepBody->pclEffDate,"        ");
+    fillField(rpDepBody->pclEffDate,"",5);
 
     /*29-Discontinue Date*/
-    strcpy(rpDepBody->pclDisDate,"        ");
+    //strcpy(rpDepBody->pclDisDate,"        ");
+    fillField(rpDepBody->pclDisDate,"",5);
 }
 
 static void storeMasterData(_MASTER *rpMaster, char *pcpFieldList, char *pcpDatalist)
