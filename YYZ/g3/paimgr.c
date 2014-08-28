@@ -1095,6 +1095,8 @@ int processXMLO(char *pcpData, char *pcpMGID)
 	char pclDate[16];
 	char pclWhere[1024];
 	char pclMGID[MAX_paitab_MGID+1];
+	int ilMsgId = 0;
+	char pclMsgId_Decimal[8] = "\0";
 
     dbg(TRACE, "processXMLO:: Start");
     dbg(TRACE, "processXMLO:: Data[%s]", pcpData);
@@ -1105,6 +1107,80 @@ int processXMLO(char *pcpData, char *pcpMGID)
         strcpy(pclMGID, pcpMGID);
 
     dbg(TRACE, "processXMLO:: PCPMGID[%s], PCLMGID[%s]", pcpMGID, pclMGID);
+
+    switch(pclMGID[0])
+    {
+        case '0':
+        case '1':
+        case '2':
+        case '3':
+        case '4':
+        case '5':
+        case '6':
+        case '7':
+        case '8':
+        case '9':
+            ilMsgId = (pclMGID[0] - '0') * 16;
+            break;
+        case 'a':
+        case 'A':
+            ilMsgId = 10 * 16;
+            break;
+        case 'b':
+        case 'B':
+            ilMsgId = 11 * 16;
+            break;
+        case 'c':
+        case 'C':
+            ilMsgId = 12 * 16;
+        case 'd':
+        case 'D':
+            ilMsgId = 13 * 16;
+        case 'e':
+        case 'E':
+            ilMsgId = 14 * 16;
+        case 'f':
+        case 'F':
+            ilMsgId = 15 * 16;
+    }
+
+    switch(pclMGID[1])
+    {
+        case '0':
+        case '1':
+        case '2':
+        case '3':
+        case '4':
+        case '5':
+        case '6':
+        case '7':
+        case '8':
+        case '9':
+            ilMsgId += pclMGID[1] - '0';
+            break;
+        case 'a':
+        case 'A':
+            ilMsgId += 10;
+            break;
+        case 'b':
+        case 'B':
+            ilMsgId += 11;
+            break;
+        case 'c':
+        case 'C':
+            ilMsgId += 12;
+        case 'd':
+        case 'D':
+            ilMsgId += 13;
+        case 'e':
+        case 'E':
+            ilMsgId += 14;
+        case 'f':
+        case 'F':
+            ilMsgId += 15;
+    }
+
+    itoa(ilMsgId, pclMsgId_Decimal, 10);
 
     dbg(TRACE, "processXMLO:: Connection Mask[%d], igConn1RecStatus[%d], igConn2RecStatus[%d]",
         cgConnectionMask, igConn1RecStatus, igConn2RecStatus);
@@ -1117,7 +1193,8 @@ int processXMLO(char *pcpData, char *pcpMGID)
         }
         else
         {
-        	ilRC = insertpaitab(pcpData, pclMGID);
+        	//ilRC = insertpaitab(pcpData, pclMGID);
+        	ilRC = insertpaitab(pcpData, pclMsgId_Decimal);
     	    ilRC = sendDataHweConn(pcgNewpaitabUrno, pcpData, pclMGID, "0");
         }
     }
@@ -1222,7 +1299,7 @@ int insertpaitab(char *pcpData, char *pcpMGID)
     char pclDate[16];
     char pclSql[2048];
     char pclSqlErr[513];
-    int ilUrno;
+    int ilUrno = 0;
 
     dbg(DEBUG, "insertpaitab:: Start");
 
@@ -1234,7 +1311,6 @@ int insertpaitab(char *pcpData, char *pcpMGID)
 
     strcpy(pclTmp, pcpData);
     ConvertClientStringToDb(pclTmp);
-
 
     sprintf(pclSql, "INSERT INTO PAITAB "
                     "(URNO, DATA, STAT, CDAT, SDAT, ADAT, DDAT, MGID) "
@@ -1469,17 +1545,96 @@ processRACK: Process RACK command.
 int processRACK(char *pcpData, char *pcpMGID)
 {
     int ilRC=RC_SUCCESS;
+    int ilMsgId = 0;
     char pclDate[16];
     char pclWhere[1024];
     char pclSql[2048] = "\0";
     char pclSqlErr[513];
+    char pclMsgId[16] = "\0";
 
     dbg(TRACE, "processRACK:: Start");
+
+    switch(pcpMGID[0])
+    {
+        case '0':
+        case '1':
+        case '2':
+        case '3':
+        case '4':
+        case '5':
+        case '6':
+        case '7':
+        case '8':
+        case '9':
+            ilMsgId = (pcpMGID[0] - '0') * 16;
+            break;
+        case 'a':
+        case 'A':
+            ilMsgId = 10 * 16;
+            break;
+        case 'b':
+        case 'B':
+            ilMsgId = 11 * 16;
+            break;
+        case 'c':
+        case 'C':
+            ilMsgId = 12 * 16;
+        case 'd':
+        case 'D':
+            ilMsgId = 13 * 16;
+        case 'e':
+        case 'E':
+            ilMsgId = 14 * 16;
+        case 'f':
+        case 'F':
+            ilMsgId = 15 * 16;
+    }
+
+    switch(pcpMGID[1])
+    {
+        case '0':
+        case '1':
+        case '2':
+        case '3':
+        case '4':
+        case '5':
+        case '6':
+        case '7':
+        case '8':
+        case '9':
+            ilMsgId += pcpMGID[1] - '0';
+            break;
+        case 'a':
+        case 'A':
+            ilMsgId += 10;
+            break;
+        case 'b':
+        case 'B':
+            ilMsgId += 11;
+            break;
+        case 'c':
+        case 'C':
+            ilMsgId += 12;
+        case 'd':
+        case 'D':
+            ilMsgId += 13;
+        case 'e':
+        case 'E':
+            ilMsgId += 14;
+        case 'f':
+        case 'F':
+            ilMsgId += 15;
+    }
+
+    itoa(ilMsgId, pclMsgId, 10);
 
     if (igAckForAll == TRUE)
         sprintf(pclWhere, "WHERE STAT='SENT' ");
     else
-        sprintf(pclWhere, "WHERE STAT='SENT'  AND MGID = '%s'", pcpMGID);
+    {
+        //sprintf(pclWhere, "WHERE STAT='SENT'  AND MGID = '%s'", pcpMGID);
+        sprintf(pclWhere, "WHERE STAT='SENT'  AND MGID = '%s'", pclMsgId);
+    }
 
     if (igDelForAck == FALSE)
     {
@@ -1585,40 +1740,16 @@ int processNACK()
         ilRC=executeSql(pclSql, pclSqlErr);
         dbg(TRACE,"processNACK:: executing [%s][%d][%s]", pclSql, ilRC, pclSqlErr);
 
-    	igConn1RecStatus=igConn2RecStatus=IDLE;
+    	igConn1RecStatus = igConn2RecStatus = IDLE;
 
-    	ilRC = sendCedaEventWithLog(rgConfig.iHweexco, 0, pcgDestName, pcgRecvName,
+    	/*ilRC = sendCedaEventWithLog(rgConfig.iHweexco, 0, pcgDestName, pcgRecvName,
                                     pcgTwStart, pcgTwEnd, "RES", "paitab",
                                     "", "", "",
-                                    "", 3, NETOUT_NO_ACK);
+                                    "", 3, NETOUT_NO_ACK);*/
         ilRC = sendCedaEventWithLog(rgConfig.iHwepde, 0, pcgDestName, pcgRecvName,
-                                    pcgTwStart, pcgTwEnd, "BAT", "paitab",
+                                    pcgTwStart, pcgTwEnd, "BAT", "PAITAB",
                                     "", "", "",
                                     "", 3, NETOUT_NO_ACK);
-
-/*
-        sprintf(pclWhere, "WHERE STAT='SENT' ");
-        getSystemDate(pclDate);
-        ilRC=updatepaitab(pclWhere, 4, "STAT", "DROP", "DDAT", pclDate);
-
-        if ( ilRC==RC_SUCCESS )
-        {
-        	igConn1RecStatus=igConn2RecStatus=IDLE;
-    	    memset(&pcgCurrentpaitabUrno, 0, sizeof(pcgCurrentpaitabUrno));
-            ilRC=getNextpaitabRecord(&rgpaitabRec);
-            printpaitabRecord(&rgpaitabRec);
-        }
-
-        if ( ilRC==RC_SUCCESS )
-        {
-            ilRC=sendDataHweConn(rgpaitabRec.URNO, rgpaitabRec.DATA, rgpaitabRec.MGID);
-        }
-        else if ( ilRC==1 )
-	    {
-	        ilRC=RC_SUCCESS;
-	        dbg(TRACE, "processNACK::  No record to process.");
-	    }
-*/
     }
 
     dbg(TRACE, "processNACK:: End Result[%d]", ilRC);

@@ -1,7 +1,7 @@
 #ifndef _DEF_mks_version
   #define _DEF_mks_version
   #include "ufisvers.h" /* sets UFIS_VERSION, must be done before mks_version */
-  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/paicon.c 0.1 2014/08/19 2:27:07 PM Exp  $";
+  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/paicon.c 0.3 2014/08/19 2:27:07 PM Exp  $";
 #endif /* _DEF_mks_version */
 
 /******************************************************************************/
@@ -171,7 +171,7 @@ static int	igOldCnnt = FALSE;
 /*fya paicon 0.1*/
 static int igObjID = 0;
 static int igMsgID = 0;
-static char * pcgHB_Flag = NULL;
+static char * pcgHB_Header = NULL;
 
 static int	Init_Handler();
 static int	Reset(void);                        /* Reset program          */
@@ -211,12 +211,11 @@ static int ReceiveACK(int ipSock,int ipTimeOut);
 static int Sockt_Reconnect(void);
 static int tcp_open_connection (int socket, char *Pservice, char *Phostname);
 static int FindMsgId(char *pcpData, char *pcpMsgId, int Mode);
-
 //
 static int udp_socket(int *ilAcceptSocket);
 static void SendUDPMessage(char *pIP, int pPort, char *pMessage);
 static int resetUDP(int socket, char *Pservice, char *Phostname);
-static void CloseUDP();
+static void CloseUDP(char *pcpCaller);
 static int udp_open_connection (int socket, char *Pservice, char *Phostname);
 //
 /******************************************************************************/
@@ -479,7 +478,7 @@ static void Terminate(int ipSleep)
     }
     else if( strcmp(pcgConnType,"udp") == 0 )
     {
-        CloseUDP();
+        CloseUDP("Terminate");
     }
 
 	if (pgReceiveLogFile != NULL)
@@ -519,7 +518,7 @@ static void HandleSignal(int pipSig)
                     }
                     else if( strcmp(pcgConnType,"udp") == 0 )
                     {
-                        CloseUDP();
+                        CloseUDP("HandleSignal");
                     }
                 }
 				break;
@@ -979,7 +978,7 @@ static int GetConfig()
 	}
 
 	/*fya paicon 0.1*/
-	if ((ilRC=GetCfgEntry(pcgConfigFile,"MAIN","HB_Flag",CFG_STRING,&pcgHB_Flag,CFG_PRINT,"IED"))
+	if ((ilRC=GetCfgEntry(pcgConfigFile,"MAIN","HB_HEADER",CFG_STRING,&pcgHB_Header,CFG_PRINT,"IED"))
                         != RC_SUCCESS)
 		return RC_FAIL;
 
@@ -1151,8 +1150,8 @@ static int GetConfig()
 		}
 		else
 		{
-			ilLen = fread(pcgKeepAliveFormat,1,1023,fplFp);
-			pcgKeepAliveFormat[ilLen] = '\0';
+			ilLen = fread(pcgKeepAliveFormat,1,1024,fplFp);
+			pcgKeepAliveFormat[ilLen-1] = '\0';
 			fclose(fplFp);
 		}
   }
@@ -1382,9 +1381,9 @@ static int SendHeartbeatMsg(char *pcpLastTimeSendingTime)
 	//Frank 20130107
 	//sprintf(pclDataBuf,pcgKeepAliveFormat,igMsgNoForHeartbeat,pclFormatTime);
 
-	if ( strstr(pcgKeepAliveFormat, pcgHB_Flag) !=0 )
+	if ( strcmp(pcgHB_Header, "IED") == 0 )
 	{
-		buildHB_message(pclDataBuf,pcgKeepAliveFormat,pcgHB_Flag,igObjID,igMsgID,igMsgNoForHeartbeat);
+		buildHB_message(pclDataBuf,pcgKeepAliveFormat,pcgHB_Header,igObjID,igObjID,igObjID);
 	}
 	else
 	{
@@ -1393,12 +1392,14 @@ static int SendHeartbeatMsg(char *pcpLastTimeSendingTime)
 	}
 
 	/*fya paicon 0.1*/
-	if(igObjID == 65535)
+
+	if(igObjID == 255)
 	{
 		igObjID = 0;
 	}
 	igObjID++;
 
+    /*
 	if(igMsgID == 65535)
 	{
 		igMsgID = 0;
@@ -1411,13 +1412,13 @@ static int SendHeartbeatMsg(char *pcpLastTimeSendingTime)
 		igMsgNoForHeartbeat = 0;
 	}
 	igMsgNoForHeartbeat++;
-
+    */
 
 	ilRC = Send_data(igSock,pclDataBuf);
 
 	if(ilRC == RC_SUCCESS)
 	{
-		dbg(TRACE,"<%s> HeartBeat sending successfully,pclDataBuf<\n%s>",pclFunc,pclDataBuf);
+		dbg(TRACE,"<%s> HeartBeat sending successfully,pclDataBuf<%s>",pclFunc,pclDataBuf);
 	}
 	else if(ilRC == RC_SENDTIMEOUT)
 	{
@@ -1659,7 +1660,33 @@ static int Receive_data(int ipSock,int ipTimeOut)
                             }
                             // return RC_SUCCESS;
                         }
-                        else if(strstr(pclRecvBuffer, pcgHB_Flag) == 0 )/*fya paicon 0.1*/
+                        else if (strstr(pclRecvBuffer,pcgHB_Header) != 0)
+                        {
+                            if (ilNo > 10)
+                            {
+                                dbg(DEBUG,"<%s> Received the ack message",pclFunc);
+                                (void) FindMsgId(pclRecvBuffer, pclTmpBuf, 1);
+                                dbg(DEBUG,"<%s> Received the ack messageId<%s> : Wait ACK MsgId<%s>",pclFunc, pclTmpBuf,pcgSendMsgId);
+                                if (strcmp(pcgSendMsgId, pclTmpBuf) == 0)
+                                {
+                                     igSckWaitACK = FALSE;
+                                     igSckTryACKCnt = 0;
+                                     ilRC = SendCedaEvent(igModID_ConSTB,0,mod_name,"CEDA",pcgTwStart,pcgTwEnd,"RACK","",pcgSendMsgId,"","","","",NETOUT_NO_ACK);
+                           nap(igConDly);
+                                     ilRC = SendCedaEvent(igModID_ConMgr,0,mod_name,"CEDA",pcgTwStart,pcgTwEnd,"RACK","",pcgSendMsgId,"","","","",NETOUT_NO_ACK);
+                           nap(igMgrDly);
+                                }
+                                else
+                                {
+                                    dbg(TRACE,"%s <%s> does not match <%s>",pclFunc, pcgSendMsgId, pclTmpBuf);
+                                }
+                            }
+                            else
+                            {
+                                dbg(TRACE,"%s IED heartbeat",pclFunc);
+                            }
+                        }
+                        else if(strstr(pclRecvBuffer, "heartbeat") == 0 )/*fya paicon 0.1*/
                         {
                             (void) FindMsgId(pclRecvBuffer, pclTmpBuf, 0);
                             strcpy(pcgMsgNoForACK, pclTmpBuf);
@@ -1886,11 +1913,11 @@ static void CloseTCP()
 	}
 } /* end of CloseTCP() */
 
-static void CloseUDP()
+static void CloseUDP(char *pcpCaller)
 {
 	int ilRc = RC_SUCCESS;
 	char *pclFunc = "CloseUDP";
-	dbg(DEBUG,"%s is called,igSock<%d>",pclFunc,igSock);
+	dbg(DEBUG,"%s is called, @@Caller<%s>, igSock<%d>",pclFunc, pcpCaller, igSock);
 
 	if (igSock > 0)
 	{
@@ -2194,7 +2221,7 @@ static int Sockt_Reconnect(void)
     }
     else if( strcmp(pcgConnType,"udp") == 0 )
     {
-        CloseUDP();
+        CloseUDP("Sockt_Reconnect");
     }
 
     igSock = 0;
@@ -2212,7 +2239,7 @@ static int Sockt_Reconnect(void)
             }
             else if( strcmp(pcgConnType,"udp") == 0 )
             {
-                CloseUDP();
+                CloseUDP("Sockt_Reconnect");
             }
             igSock = 0;
          }
@@ -2475,35 +2502,44 @@ static int FindMsgId(char *pcpData, char *pcpMsgId, int Mode)
     char *pclMsgIdEnd=NULL;
     int ilMsgId = 0;
 
-    if (Mode == 1)
-        sprintf(pclKeyFnd, "acknowledge messageId=");
-    else
-        sprintf(pclKeyFnd, "messageId=");
-
-    ilMsgId = 0;
-    pclMsgIdBgn = strstr(pcpData, pclKeyFnd);
-    if (pclMsgIdBgn != NULL)
+    if (strstr(pcpData,"IED") == 0)
     {
-        pclMsgIdBgn += strlen(pclKeyFnd)+1;
-        pclMsgIdEnd = strstr(pclMsgIdBgn, "\"");
-        if ((pclMsgIdBgn != NULL) && (pclMsgIdEnd >= pclMsgIdBgn))
+        if (Mode == 1)
+            sprintf(pclKeyFnd, "acknowledge messageId=");
+        else
+            sprintf(pclKeyFnd, "messageId=");
+
+        ilMsgId = 0;
+        pclMsgIdBgn = strstr(pcpData, pclKeyFnd);
+        if (pclMsgIdBgn != NULL)
         {
-            strncpy(pclTmpBuf, pclMsgIdBgn,(pclMsgIdEnd - pclMsgIdBgn));
-            pclTmpBuf[pclMsgIdEnd - pclMsgIdBgn] = '\0';
-            ilMsgId = atoi(pclTmpBuf);
-            dbg(DEBUG,"<%s> Received the message id <%d>",pclFunc, ilMsgId);
+            pclMsgIdBgn += strlen(pclKeyFnd)+1;
+            pclMsgIdEnd = strstr(pclMsgIdBgn, "\"");
+            if ((pclMsgIdBgn != NULL) && (pclMsgIdEnd >= pclMsgIdBgn))
+            {
+                strncpy(pclTmpBuf, pclMsgIdBgn,(pclMsgIdEnd - pclMsgIdBgn));
+                pclTmpBuf[pclMsgIdEnd - pclMsgIdBgn] = '\0';
+                ilMsgId = atoi(pclTmpBuf);
+                dbg(DEBUG,"<%s> Received the message id <%d>",pclFunc, ilMsgId);
+            }
         }
+
+        sprintf(pcpMsgId, "%d", ilMsgId);
     }
-    sprintf(pcpMsgId, "%d", ilMsgId);
+    else
+    {
+        strncpy(pcpMsgId,pcpData+3,2);
+    }
+
 	return ilRC;
 }
 
-static void buildHB_message(char *pcpDataBuf,char *pcpKeepAliveFormat, char *pcpHB_Flag,int ipObjID, int ipMsgID,int ipMsgNoForHeartbeat)
+static void buildHB_message(char *pcpDataBuf,char *pcpKeepAliveFormat, char *pcpHB_Header,int ipObjID,int ipMsgID, int ipMsgNoForHeartbeat)
 {
 	char *pclFunc = "buildHB_message";
-	sprintf(pcpDataBuf,pcpKeepAliveFormat,pcpHB_Flag,ipObjID,ipMsgID,ipMsgNoForHeartbeat);
+	sprintf(pcpDataBuf,pcpKeepAliveFormat,pcpHB_Header,ipObjID,ipMsgID,ipMsgNoForHeartbeat);
 
-	dbg(TRACE,"%s pcpHB_Flag<%s> Message<%s>",pclFunc, pcpHB_Flag, pcpDataBuf);
+	dbg(TRACE,"%s pcpHB_Header<%s> Message<%s>",pclFunc, pcpHB_Header, pcpDataBuf);
 }
 
 static void SendUDPMessage(char *pIP, int pPort, char *pMessage)

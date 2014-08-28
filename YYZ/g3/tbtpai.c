@@ -110,6 +110,8 @@ static int igTimeWindowUpperLimit;
 static int igTimeWindowLowerLimit;
 static int igGetDataFromSrcTable;
 static int igEnableCodeshare;
+static int igMsgID;
+static char pcgMsgId[16];
 
 static char pcgTimeWindowLowerLimit[64];
 static char pcgTimeWindowUpperLimit[64];
@@ -168,8 +170,8 @@ static void buildDepMsgBody(_DEP_MSG_BODY *rpArrBody, char *pcpFieldList, char *
 static void updateTimeWindow(char *pcpTimeWindowLowerLimit, char *pcpTimeWindowUpperLimit);
 static int getSourceFieldData(char *pclTable, char * pcpSourceFieldList, char * pcpSelection, char * pclSourceDataList);
 static int getVial(char *pcpVial, char (*pcpVialArray)[LISTLEN]);
-static void sendArrMsg(_HEAD *rpHead, _MASTER *rpMaster, _ARR_MSG_BODY *rpArrBody,char *pcpSelection, char *pcpTable);
-static void sendDepMsg(_HEAD *rpHead ,_MASTER *rpMaster, _DEP_MSG_BODY *rpDepBody,char *pcpSelection, char *pcpTable);
+static void sendArrMsg(_HEAD *rpHead, _MASTER *rpMaster, _ARR_MSG_BODY *rpArrBody, char *pcpTable);
+static void sendDepMsg(_HEAD *rpHead ,_MASTER *rpMaster, _DEP_MSG_BODY *rpDepBody, char *pcpTable);
 /******************************************************************************/
 /*                                                                            */
 /* The MAIN program                                                           */
@@ -796,25 +798,8 @@ static int HandleData(EVENT *prpEvent)
     }
 
 	/*lgEvtCnt++;*/
-	if ( strcmp(prlCmdblk->command,"DFR") == 0 || strcmp(prlCmdblk->command,"DRT") == 0 )/*DFR command*/
-    {
-        if( !strcmp(clTable,"AFTTAB"))
-        {
-            /*getting the ADID*/
-            getFieldValue(pclFields, pclNewData, "ADID", pclAdidValue);
-        }
 
-
-        /*Going to send the deleted flights info
-        1-Retrieve master & codeshare flights
-        2-Build messages
-        3-Send out
-        */
-        #if 0
-            handleDelFlight();
-        #endif
-    }
-    else /*The normal IFR and UFR command*/
+	if ( strstr("DFR,IFR,UFR",prlCmdblk->command) != 0)
     {
         /*if(!strcmp(clTable,"AFTTAB"))*/
         if( !strcmp(clTable,"AFTTAB"))
@@ -827,6 +812,12 @@ static int HandleData(EVENT *prpEvent)
             dbg(TRACE,"%s The update is not from AFTTAB, return",pclFunc);
             return RC_FAIL;
         }
+
+        if(strlen(pclUrnoSelection)==0)
+        {
+            getFieldValue(pclFields, pclNewData, "URNO", pclUrnoSelection);
+        }
+
         handleNewUpdFlight(clTable, pclFields, pclNewData, pclUrnoSelection, pclAdidValue, prlCmdblk->command);
     }
 
@@ -1156,7 +1147,7 @@ void buildSelQuery(char *pcpSqlBuf, char * pcpTable, char * pcpSourceFieldList, 
 {
     char *pclFunc = "buildSelQuery";
 
-    sprintf(pcpSqlBuf,"SELECT %s FROM %s %s", pcpSourceFieldList, pcpTable, pcpSelection);
+    sprintf(pcpSqlBuf,"SELECT %s FROM %s WHERE URNO=%s", pcpSourceFieldList, pcpTable, pcpSelection);
     dbg(TRACE,"%s pcpSqlBuf<%s>",pclFunc, pcpSqlBuf);
 }
 
@@ -1529,13 +1520,13 @@ static void buildAndSendMessage(int ipNo, char *pcpFieldList, char (*pcpDatalist
             {
                 buildArrMsgBody(&rlArrBody, pcpFieldList, pcpDatalist[ilCount], ilCount, ipNo, &rlMaster);
                 showArrBody(&rlArrBody);
-                sendArrMsg(&rlHead, &rlMaster,&rlArrBody,pcpSelection,pcpTable);
+                sendArrMsg(&rlHead, &rlMaster,&rlArrBody,pcpTable);
             }
             else
             {
                 buildDepMsgBody(&rlDepBody, pcpFieldList, pcpDatalist[ilCount], ilCount, ipNo, &rlMaster);
                 showDepBody(&rlDepBody);
-                sendDepMsg(&rlHead, &rlMaster,&rlDepBody,pcpSelection,pcpTable);
+                sendDepMsg(&rlHead, &rlMaster,&rlDepBody,pcpTable);
             }
         }
     }
@@ -1543,18 +1534,16 @@ static void buildAndSendMessage(int ipNo, char *pcpFieldList, char (*pcpDatalist
 
 static void buildMsgHeader(_HEAD *rpHead, char *pcpCommand)
 {
+    int ilSelection = 0;
     char *pclFunc = "buildMsgHeader";
-
     strcpy(rpHead->pclMsgHeader, pcgMsgHeader);
-    /*
-    (*rpHead).ilObjId++;
-    (*rpHead).ilMsgId++;
-    (*rpHead).ilMsgNo++;
-    */
-    strcpy(rpHead->pclObjId, "  ");
-    strcpy(rpHead->pclMsgId, "  ");
-    strcpy(rpHead->pclMsgNo, "  ");
+
+    sprintf(rpHead->pclObjId,"%02x",igMsgID);
+    sprintf(rpHead->pclMsgId,"%02x",igMsgID);
+    sprintf(rpHead->pclMsgNo,"%02x",igMsgID);
+
     strncpy(rpHead->pclMsgType, pcpCommand, 1);
+    sprintf(pcgMsgId,"%02x",igMsgID);
 }
 
 static void fillField(char *pcpDest, char *pcpOrigin, int ipLen)
@@ -1592,15 +1581,15 @@ static void buildArrMsgBody(_ARR_MSG_BODY *rpArrBody, char *pcpFieldList, char *
     char pclVial[ARRAYNUMBER][LISTLEN] = {"\0"};
 
     /*1-PLC-ALC2*/
-    ilRc = extractField(pclTmp, "ALC2", pcpFieldList, pcpDatalist);
+    ilRc = extractField(pclTmp, "ALC3", pcpFieldList, pcpDatalist);
     if (ilRc == RC_FAIL)
     {
-        dbg(TRACE,"%s The ALC2 value<%s> is invalid", pclFunc, pclTmp);
+        dbg(TRACE,"%s The ALC3 value<%s> is invalid", pclFunc, pclTmp);
         fillField(rpArrBody->pclPLC, "", 3);
     }
     else
     {
-        dbg(DEBUG,"%s The ALC2 value<%s> is valid", pclFunc, pclTmp);
+        dbg(DEBUG,"%s The ALC3 value<%s> is valid", pclFunc, pclTmp);
         fillField(rpArrBody->pclPLC, pclTmp, 3);
     }
 
@@ -1937,15 +1926,15 @@ static void buildDepMsgBody(_DEP_MSG_BODY *rpDepBody, char *pcpFieldList, char *
     char pclVial[ARRAYNUMBER][LISTLEN] = {"\0"};
 
     /*1-PLC-ALC2*/
-    ilRc = extractField(pclTmp, "ALC2", pcpFieldList, pcpDatalist);
+    ilRc = extractField(pclTmp, "ALC3", pcpFieldList, pcpDatalist);
     if (ilRc == RC_FAIL)
     {
-        dbg(TRACE,"%s The ALC2 value<%s> is invalid", pclFunc, pclTmp);
+        dbg(TRACE,"%s The ALC3 value<%s> is invalid", pclFunc, pclTmp);
         fillField(rpDepBody->pclPLC, "", 3);
     }
     else
     {
-        dbg(DEBUG,"%s The ALC2 value<%s> is valid", pclFunc, pclTmp);
+        dbg(DEBUG,"%s The ALC3 value<%s> is valid", pclFunc, pclTmp);
         fillField(rpDepBody->pclPLC, pclTmp, 3);
     }
 
@@ -2284,7 +2273,7 @@ static void storeMasterData(_MASTER *rpMaster, char *pcpFieldList, char *pcpData
     char *pclFunc = "storeMasterData";
     char pclTmp[1024] = "\0";
 
-    ilRc = extractField(rpMaster->pclMPC, "ALC2", pcpFieldList, pcpDatalist);
+    ilRc = extractField(rpMaster->pclMPC, "ALC3", pcpFieldList, pcpDatalist);
     if (ilRc == RC_FAIL)
     {
         dbg(TRACE,"%s The MPC value<%s> is invalid", pclFunc, rpMaster->pclMPC);
@@ -2379,15 +2368,13 @@ static int getVial(char *pcpVial, char (*pcpVialArray)[LISTLEN])
     return ilNO;
 }
 
-static void sendArrMsg(_HEAD *rpHead ,_MASTER *rpMaster, _ARR_MSG_BODY *rpArrBody,char *pcpSelection, char *pcpTable)
+static void sendArrMsg(_HEAD *rpHead ,_MASTER *rpMaster, _ARR_MSG_BODY *rpArrBody, char *pcpTable)
 {
     int ilRC = RC_FAIL;
     char *pclFunc = "sendArrMsg";
     char pclArrData[4096] = "\0";
 
-    dbg(TRACE,"pcpSelection<%s>",pclFunc,pcpSelection);
-
-    sprintf(pclArrData,"%s%d%d%d%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s",
+    sprintf(pclArrData,"%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s",
     rpHead->pclMsgHeader,
     rpHead->pclObjId,
     rpHead->pclMsgId,
@@ -2425,18 +2412,22 @@ static void sendArrMsg(_HEAD *rpHead ,_MASTER *rpMaster, _ARR_MSG_BODY *rpArrBod
     rpArrBody->pclDisDate
     );
 
-    ilRC = SendCedaEvent(igDestId,0,mod_name,"CEDA",pcgTwStart,pcgTwEnd,pcgDestCmd,pcpTable,"","",pclArrData,"","",NETOUT_NO_ACK);
+    ilRC = SendCedaEvent(igDestId,0,mod_name,"CEDA",pcgTwStart,pcgTwEnd,pcgDestCmd,pcpTable,pcgMsgId,"",pclArrData,"","",NETOUT_NO_ACK);
+
+    igMsgID++;
+    if(igMsgID >= 255)
+    {
+        igMsgID = 0;
+    }
 }
 
-static void sendDepMsg(_HEAD *rpHead ,_MASTER *rpMaster, _DEP_MSG_BODY *rpDepBody,char *pcpSelection, char *pcpTable)
+static void sendDepMsg(_HEAD *rpHead ,_MASTER *rpMaster, _DEP_MSG_BODY *rpDepBody, char *pcpTable)
 {
     int ilRC = RC_FAIL;
     char *pclFunc = "sendDepMsg";
     char pclDepData[4096] = "\0";
 
-    dbg(TRACE,"pcpSelection<%s>",pclFunc,pcpSelection);
-
-    sprintf(pclDepData, "%s%d%d%d%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s",
+    sprintf(pclDepData, "%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s",
     rpHead->pclMsgHeader,
     rpHead->pclObjId,
     rpHead->pclMsgId,
@@ -2475,5 +2466,11 @@ static void sendDepMsg(_HEAD *rpHead ,_MASTER *rpMaster, _DEP_MSG_BODY *rpDepBod
     rpDepBody->pclDisDate
     );
 
-    ilRC = SendCedaEvent(igDestId,0,mod_name,"CEDA",pcgTwStart,pcgTwEnd,pcgDestCmd,pcpTable,pcpSelection,"",pclDepData,"","",NETOUT_NO_ACK);
+    ilRC = SendCedaEvent(igDestId,0,mod_name,"CEDA",pcgTwStart,pcgTwEnd,pcgDestCmd,pcpTable,pcgMsgId,"",pclDepData,"","",NETOUT_NO_ACK);
+
+    igMsgID++;
+    if(igMsgID >= 255)
+    {
+        igMsgID = 0;
+    }
 }
