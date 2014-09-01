@@ -2044,14 +2044,14 @@ static void buildDepMsgBody(_DEP_MSG_BODY *rpDepBody, char *pcpFieldList, char *
         dbg(DEBUG,"%s The VIAL value<%s> is valid", pclFunc, pclTmp);
         ilNo = getVial(pclTmp, pclVial);
 
-        ilRc = extractField(pclTmp, "ORG3", pcpFieldList, pcpDatalist);
+        ilRc = extractField(pclTmp, "DES3", pcpFieldList, pcpDatalist);
         if (ilRc == RC_FAIL)
         {
-            dbg(TRACE,"%s The ORG3 value<%s> is invalid", pclFunc, pclTmp);
+            dbg(TRACE,"%s The DES3 value<%s> is invalid", pclFunc, pclTmp);
         }
         else
         {
-            dbg(DEBUG,"%s The ORG3 value<%s> is valid", pclFunc, pclTmp);
+            dbg(DEBUG,"%s The DES3 value<%s> is valid", pclFunc, pclTmp);
         }
 
         switch(ilNo)
@@ -2064,17 +2064,17 @@ static void buildDepMsgBody(_DEP_MSG_BODY *rpDepBody, char *pcpFieldList, char *
                 strncpy(rpDepBody->pclStop2, pclTmp,3);
                 break;
             case 2:
-                strncpy(rpDepBody->pclStop1, pclVial[1],3);
-                strncpy(rpDepBody->pclStop2, pclVial[0],3);
+                strncpy(rpDepBody->pclStop1, pclVial[0],3);
+                strncpy(rpDepBody->pclStop2, pclVial[1],3);
                 strncpy(rpDepBody->pclStop3, pclTmp,3);
                 break;
             case 3:
             case 4:
             case 5:
             case 6:
-                strncpy(rpDepBody->pclStop1, pclVial[2],3);
+                strncpy(rpDepBody->pclStop1, pclVial[0],3);
                 strncpy(rpDepBody->pclStop2, pclVial[1],3);
-                strncpy(rpDepBody->pclStop3, pclVial[0],3);
+                strncpy(rpDepBody->pclStop3, pclVial[2],3);
                 strncpy(rpDepBody->pclStop4, pclTmp, 3);
                 break;
             default:
