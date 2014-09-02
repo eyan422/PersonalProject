@@ -1,7 +1,7 @@
 #ifndef _DEF_mks_version
   #define _DEF_mks_version
   #include "ufisvers.h" /* sets UFIS_VERSION, must be done before mks_version */
-  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/AUH/AUH_Server/Base/Server/Interface/fidiku.c 1.91 2014/03/18 11:00:01 fya Exp  $";
+  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/AUH/AUH_Server/Base/Server/Interface/fidiku.c 1.92 2014/09/01 17:11:01 fya Exp  $";
 #endif /* _DEF_mks_version */
 /******************************************************************************/
 /*                                                                            */
@@ -23,7 +23,8 @@
    20121105 FYA v1.7: Check the time window every time before flight XML message generated.
    20130228 FYA v1.8: Make ACT3 & ACT5 configurable
    20131115 FYA v1.9: Print the return value of syslibSearchDbData and returned ALC3
-   20140318 FYA v1.91: UFIS-5620  Use the letter "Q" for Requested flights which are marked as blank originaly.
+   20140318 FYA v1.91: UFIS-5620    Use the letter "Q" for Requested flights which are marked as blank originaly.
+   20140901 FYA v1.92: UFIS-3982    Send Rotation Flights
    				*/
 /******************************************************************************/
 /*                                                                            */
@@ -54,6 +55,10 @@ static char sccs_version[] ="@(#) UFIS (c) ABB AAT/I fidblk.c 45.1.0 / "__DATE__
 #include "db_if.h"
 
 #include "/usr/include/iconv.h"
+
+/*UFIS-5620*/
+static char pcgReqFtyp[4] = "\0";
+static int igTowingSent = 0;
 
 /******************************************************************************/
 /* External variables                                                         */
@@ -109,7 +114,7 @@ static pid_t igModID_Fidbas = 0;
 /*
 char pcgAftFields[FIELDS_LEN] = "URNO,ALC3,FLTN,FLNO,STOD,STOA,CKIF,CKIT,GA1F,GA1B,GA1E,ACT3,ONBL,OFBL,ONBE,STYP,TTYP,ADID,ETOD,ETOA,CTOT,REGN,PAXT,VIA3,CSGN,FTYP,NXTI";
 */
-char pcgAftFields[FIELDS_LEN] = "URNO,ALC3,FLTN,FLNO,STOD,STOA,CKIF,CKIT,GA1F,GA1B,GA1E,ACT3,ONBL,OFBL,ONBE,STYP,TTYP,ADID,PSTA,PSTD,GTA1,GTD1,WRO1,WRO2,ETAI,ETDI,ETOD,ETOA,LAND,AIRB,CTOT,REGN,TMOA,PAXT,BLT1,BLT2,VIA3,CSGN,FTYP,VIAN,VIAL,NXTI,ALC2,AURN,RTOW,TGA1,SLOU,JFNO,JCNT,GD1B,GD1E,ORG3,DES3,STEV,TGD1,TIFA,TIFD,ORG4,DES4,FLNS,ACT5";
+char pcgAftFields[FIELDS_LEN] = "URNO,RKEY,ALC3,FLTN,FLNO,STOD,STOA,CKIF,CKIT,GA1F,GA1B,GA1E,ACT3,ONBL,OFBL,ONBE,STYP,TTYP,ADID,PSTA,PSTD,GTA1,GTD1,WRO1,WRO2,ETAI,ETDI,ETOD,ETOA,LAND,AIRB,CTOT,REGN,TMOA,PAXT,BLT1,BLT2,VIA3,CSGN,FTYP,VIAN,VIAL,NXTI,ALC2,AURN,RTOW,TGA1,SLOU,JFNO,JCNT,GD1B,GD1E,ORG3,DES3,STEV,TGD1,TIFA,TIFD,ORG4,DES4,FLNS,ACT5";
 char pcgCcaFields[FIELDS_LEN] = "URNO,CKIC,CKIT,CKBS,CKES,FLNO,FLNU,CTYP";
 char pcgAltFields[FIELDS_LEN] = "URNO,ALC2,ALC3,ALFN,ADD4";
 char pcgAptFields[FIELDS_LEN] = "URNO,APC3,APC4,APFN,APSN";
@@ -137,6 +142,10 @@ static int igBagCsgn = 0;
 
 //afttab
 static int igAftUrno = 0;
+
+/*fya v1.92 20140812*/
+static int igAftRkey = 0;
+
 static int igAftAlc3 = 0;
 static int igAftFltn = 0;
 static int igAftFlno = 0;
@@ -276,6 +285,10 @@ static int igFidBemd = 0;
 typedef struct
 {
     char URNO[NORMAL_COLUMN_LEN];
+
+    /*fya v1.92 20140812*/
+    char RKEY[NORMAL_COLUMN_LEN];
+
     char ALC3[NORMAL_COLUMN_LEN];
     char FLTN[NORMAL_COLUMN_LEN];
     char FLNO[NORMAL_COLUMN_LEN];
@@ -447,6 +460,18 @@ typedef struct
 	  char CSGN[NORMAL_COLUMN_LEN];
 }BAGREC;
 
+typedef struct
+{
+	  char URNO[NORMAL_COLUMN_LEN];
+	  char RKEY[NORMAL_COLUMN_LEN];
+	  char ADID[NORMAL_COLUMN_LEN];
+	  char ALC3[NORMAL_COLUMN_LEN];
+	  char FLTN[NORMAL_COLUMN_LEN];
+	  char FLNS[NORMAL_COLUMN_LEN];
+	  char STOA[NORMAL_COLUMN_LEN];
+	  char STOD[NORMAL_COLUMN_LEN];
+}ROTATIONREC;
+
 /******************************************************************************/
 /* Function prototypes                                                          */
 /******************************************************************************/
@@ -528,6 +553,9 @@ static void HandleBag(char *fld,char *data,char *Selection);
 static void sendFidData(char *mySqlBuf,char *updateOrInsert);
 static void sendBagData(char *mySqlBuf);
 //Frank v1.1
+
+static void buildSelQuery(char *pcpSqlBuf, char * pcpTable, char * pcpSourceFieldList, char * pcpSelection);
+static int buildRotationSection(AFTREC rpAftrec,char *pcpRotationXML);
 
 static void sendAptData(char *mySqlBuf,char *updateOrInsert);
 static void sendGateData(char *mySqlBuf,char *updateOrInsert);
@@ -748,6 +776,19 @@ static int Init_Process()
     SetSignals(HandleSignal);
     igInitOK = TRUE;
 
+    /*UFIS-5620*/
+    ilRc = ReadConfigEntry( cgConfigFile, "MAIN","REQUEST_FLIGHT_TYPE",pclSelection);
+    if( ilRc != RC_SUCCESS )
+    {
+    	strcpy(pcgReqFtyp,"");
+    }
+    else
+    {
+        strcpy(pcgReqFtyp,pclSelection);
+
+    }
+    dbg(TRACE,"pcgReqFtyp<%s>",pcgReqFtyp);
+
     // Frank v1.1
     if(ilRc == RC_SUCCESS)
 		{
@@ -830,6 +871,7 @@ static int Init_Process()
 			strcpy(pcgPortICAO,pclSelection);
 			dbg(TRACE,"pcgPortICAO<%s>",pcgPortICAO);
     }
+
     ilRc = ReadConfigEntry( cgConfigFile, "MAIN","VIAL_ICAO",pclSelection);
     if( ilRc != RC_SUCCESS )
     {
@@ -871,6 +913,27 @@ static int Init_Process()
     if( !strncmp( pclSelection, "DEBUG", 5 ) )
        debug_level = DEBUG;
     dbg(TRACE,"<Init_Process> debug_level <%s><%d>", pclSelection, debug_level);
+
+	ilRc = ReadConfigEntry( cgConfigFile, "MAIN","TOWING_SENT", pclSelection);
+    if( ilRc != RC_SUCCESS )
+    {
+		igTowingSent = FALSE;
+    	dbg(TRACE,"<Init_Process> TOWING_SENT not found , igTowingSent uses default value <FALSE>");
+    }
+    else
+    {
+		TrimRight(pclSelection);
+    	if ( strlen(pclSelection) > 0 && strncmp(pclSelection,"YES",3) == 0 )
+		{
+			igTowingSent = TRUE;
+			dbg(TRACE,"<Init_Process> TOWING_SENT <%s> igTowingSent <TRUE>", pclSelection);
+		}
+		else
+		{
+			igTowingSent = FALSE;
+			dbg(TRACE,"<Init_Process> TOWING_SENT <%s> != <YES> igTowingSent <FALSE>", pclSelection);
+		}
+    }
 
     // bulk time
     ilRc = ReadConfigEntry( cgConfigFile, "MAIN","BULK_TIME_HOUR",pclSelection);
@@ -930,6 +993,7 @@ static int Init_Process()
     	 glbWMFIDB = atoi(pclSelection);
     	 dbg(TRACE,"<Init_Process> WMFIDB_MODID <%s> glbWMFIDB <%d>", pclSelection,glbWMFIDB);
     }
+
     // send to modid fid glbWMFIDA
     ilRc = ReadConfigEntry( cgConfigFile, "MAIN","WMFIDA_MODID",pclSelection);
     if( ilRc != RC_SUCCESS )
@@ -3058,6 +3122,10 @@ static void sendAftData(char *mySqlBuf, CCAREC rpCcarec,int ilFlag)
     slSqlFunc = NEXT;
 
     get_fld_value(pclDataArea,igAftUrno,rlAftrec.URNO); TrimRight(rlAftrec.URNO);
+
+    /*fya v1.92 20140812*/
+    get_fld_value(pclDataArea,igAftRkey,rlAftrec.RKEY); TrimRight(rlAftrec.RKEY);
+
     get_fld_value(pclDataArea,igAftAlc3,rlAftrec.ALC3); TrimRight(rlAftrec.ALC3);
     get_fld_value(pclDataArea,igAftFltn,rlAftrec.FLTN); TrimRight(rlAftrec.FLTN);
     get_fld_value(pclDataArea,igAftFlno,rlAftrec.FLNO); TrimRight(rlAftrec.FLNO);
@@ -3157,6 +3225,10 @@ static void sendAftData(char *mySqlBuf, CCAREC rpCcarec,int ilFlag)
 
     //dbg(TRACE,"<sendAftBulkData> : pclDataArea 2 <%s>",pclDataArea);
     dbg(DEBUG,"<sendAftData> : URNO <%s>", rlAftrec.URNO);
+
+    /*fya v1.92 20140812*/
+    dbg(DEBUG,"<sendAftData> : RKEY <%s>", rlAftrec.RKEY);
+
     dbg(DEBUG,"<sendAftData> : ALC3 <%s>", rlAftrec.ALC3);
     dbg(DEBUG,"<sendAftData> : FLTN <%s>", rlAftrec.FLTN);
     dbg(DEBUG,"<sendAftData> : FLNO <%s>", rlAftrec.FLNO);
@@ -3421,8 +3493,15 @@ static void sendAftData(char *mySqlBuf, CCAREC rpCcarec,int ilFlag)
 		}
 		else if (strncmp(rlAftrec.FTYP,"T",1) == 0)
 		{
-		   //make towing xml
+		   /*make towing xml*/
+			if ( igTowingSent == TRUE )
+			{
 		   PackTowingXml(rlAftrec);
+		}
+			else
+			{
+				dbg(TRACE,"igTowingSent == FALSE, towing records are not sent");
+			}
 		}
 
     memset(pclDataArea,0x00,4096);
@@ -3713,11 +3792,18 @@ int PackFlightXml( AFTREC rpAftrec, CCAREC rpCcarecCKBS, CCAREC rpCcarecCKES,CIC
   char pclTmp1[16] = "\0";
   char pclXML[8192]="\0";
   char pclXML1[8192]="\0";
+
+    /*fya v1.92 20140812*/
+    char pclRotationXML[8192] = "\0";
+
   char *pclPointer = "\0";
   int ilVIAN = 0;
 
 	char pclALC3[16] = "\0";
 	char pclFLNO[16] = "\0";
+
+	 /*fya v1.92 20140812*/
+    buildRotationSection(rpAftrec, pclRotationXML);
 
 	ilVIAN = atoi(rpAftrec.VIAN);
 
@@ -3753,7 +3839,7 @@ int PackFlightXml( AFTREC rpAftrec, CCAREC rpCcarecCKBS, CCAREC rpCcarecCKES,CIC
           if(strncmp(pcgVialICAO,"YES",3)!=0)
           {
 	          strncpy(pclTmp,pclPointer,3);
-		  			if(ili == 0)
+                if(ili == 0)
 	          {
 	          		pclPointer += 121;
 	          }
@@ -3869,7 +3955,7 @@ int PackFlightXml( AFTREC rpAftrec, CCAREC rpCcarecCKBS, CCAREC rpCcarecCKES,CIC
                                      fya 20140318 v1.91
                                      Q for requestd flights
                                      */
-                                     strlen(rpAftrec.FTYP) == 0 ? "Q" : rpAftrec.FTYP,
+                                     strlen(rpAftrec.FTYP) == 0 ? pcgReqFtyp : rpAftrec.FTYP,
                                      rpAftrec.STYP,
                                      rpAftrec.TTYP,
                                      rpAftrec.CSGN,
@@ -3923,6 +4009,13 @@ int PackFlightXml( AFTREC rpAftrec, CCAREC rpCcarecCKBS, CCAREC rpCcarecCKES,CIC
      memset(pclTmp1,0,sizeof(pclTmp1));
      sprintf(pclTmp1,"   <NXTI>%s</NXTI>\n",rpAftrec.NXTI);
      strcat(myFlightXml,pclTmp1);
+
+    /*fya v1.92 20140812*/
+    if (strlen(pclRotationXML) > 0)
+    {
+        strcat(myFlightXml,pclRotationXML);
+    }
+
      strcat(myFlightXml,"</FIS_Flight>\n"
                         "</FIDS_Data>");
 
@@ -3933,6 +4026,7 @@ int PackFlightXml( AFTREC rpAftrec, CCAREC rpCcarecCKBS, CCAREC rpCcarecCKES,CIC
 	   else
 		   dbg(DEBUG,"<PackFlightXml> unable send command:<%s> to <%d> ",cmd,glbWMFIDF);
 	}//Frank v1.1g
+	/*end if*/
 
 	if (strncmp(rpAftrec.ADID,"A",1) != 0 || strncmp(rpAftrec.FTYP,"B",1)==0 ||strncmp(rpAftrec.FTYP,"Z",1)==0) /*else if (strncmp(rpAftrec.ADID,"D",1) == 0)*/
  	{
@@ -4001,7 +4095,7 @@ int PackFlightXml( AFTREC rpAftrec, CCAREC rpCcarecCKBS, CCAREC rpCcarecCKES,CIC
                                    fya 20140318 v1.91
                                     Q for requestd flights
                                     */
-                                   strlen(rpAftrec.FTYP) == 0 ? "Q" : rpAftrec.FTYP,
+                                   strlen(rpAftrec.FTYP) == 0 ? pcgReqFtyp : rpAftrec.FTYP,
                                    rpAftrec.STYP,
                                    rpAftrec.TTYP,
                                    rpAftrec.CSGN,
@@ -4057,6 +4151,13 @@ int PackFlightXml( AFTREC rpAftrec, CCAREC rpCcarecCKBS, CCAREC rpCcarecCKES,CIC
      memset(pclTmp1,0,sizeof(pclTmp1));
      sprintf(pclTmp1,"   <NXTI>%s</NXTI>\n",rpAftrec.NXTI);
      strcat(myFlightXml,pclTmp1);
+
+     /*fya v1.92 20140812*/
+    if (strlen(pclRotationXML) > 0)
+    {
+        strcat(myFlightXml,pclRotationXML);
+    }
+
      strcat(myFlightXml,"</FIS_Flight>\n"
                         "</FIDS_Data>");
 
@@ -4066,7 +4167,7 @@ int PackFlightXml( AFTREC rpAftrec, CCAREC rpCcarecCKBS, CCAREC rpCcarecCKES,CIC
 		   dbg(DEBUG, "<PackFlightXml> \n ****** Send command report ****** \nSending command: <%s> to <%d>\n ****** End send command report ****** ", cmd, glbWMFIDF);
 	   else
 		   dbg(DEBUG,"<PackFlightXml> unable send command:<%s> to <%d> ",cmd,glbWMFIDF);
-	}
+	}/*end if*/
 	/*
 	else
 	{
@@ -4232,6 +4333,10 @@ static int InitFieldIndex()
   int ilCol,ilPos;
 
   FindItemInList(pcgAftFields,"URNO",',',&igAftUrno,&ilCol,&ilPos);
+
+  /*fya v1.92 20140812*/
+  FindItemInList(pcgAftFields,"RKEY",',',&igAftRkey,&ilCol,&ilPos);
+
   FindItemInList(pcgAftFields,"ALC3",',',&igAftAlc3,&ilCol,&ilPos);
   FindItemInList(pcgAftFields,"FLTN",',',&igAftFltn,&ilCol,&ilPos);
   FindItemInList(pcgAftFields,"FLNO",',',&igAftFlno,&ilCol,&ilPos);
@@ -4321,6 +4426,10 @@ static int InitFieldIndex()
   if(ilMode == 1)
   {
 	  dbg(TRACE,"<InitFieldIndex> : igAftUrno<%d>",igAftUrno);
+
+        /*fya v1.92 20140812*/
+	  dbg(TRACE,"<InitFieldIndex> : igAftRkey<%d>",igAftRkey);
+
 	  dbg(TRACE,"<InitFieldIndex> : igAftAlc3<%d>",igAftAlc3);
 	  dbg(TRACE,"<InitFieldIndex> : igAftFltn<%d>",igAftFltn);
 	  dbg(TRACE,"<InitFieldIndex> : igAftFlno<%d>",igAftFlno);
@@ -4875,6 +4984,126 @@ static void TrimRight(char *s)
 int IS_EMPTY (char *pcpBuf)
 {
     return  (!pcpBuf || *pcpBuf==' ' || *pcpBuf=='\0') ? TRUE : FALSE;
+}
+
+static void buildSelQuery(char *pcpSqlBuf, char * pcpTable, char * pcpSourceFieldList, char * pcpSelection)
+{
+    char *pclFunc = "buildSelQuery";
+
+    sprintf(pcpSqlBuf,"SELECT %s FROM %s %s", pcpSourceFieldList, pcpTable, pcpSelection);
+    dbg(TRACE,"%s pcpSqlBuf<%s>",pclFunc, pcpSqlBuf);
+}
+
+static int buildRotationSection(AFTREC rpAftrec,char *pcpRotationXML)
+{
+	int ilRc = RC_FAIL;
+	int ilNoEle = 0;
+	int ilCol = 0,ilPos = 0;
+	int ilAftUrno = 0;
+	int ilAftAdid = 0;
+	int ilAftRkey = 0;
+	int ilAftAlc3 = 0;
+	int ilAftFltn = 0;
+	int ilAftFlns = 0;
+	int ilAftStoa = 0;
+	int ilAftStod = 0;
+
+	char *pclFunc = "buildRotationSection";
+	char pclTable[16] = "AFTTAB";
+	char pclFieldList[126] = "URNO,RKEY,ADID,ALC3,FLTN,FLNS,STOA,STOD";
+	char pclSqlBuf[4096] = "\0";
+    char pclSqlData[4096] = "\0";
+	char pclSelection[4096] = "\0";
+	char pclRotationXml[4096] = "\0";
+
+	ROTATIONREC rlRotationRec;
+	memset(&rlRotationRec,0,sizeof(&rlRotationRec));
+
+	FindItemInList(pclFieldList,"URNO",',',&ilAftUrno,&ilCol,&ilPos);
+	FindItemInList(pclFieldList,"RKEY",',',&ilAftRkey,&ilCol,&ilPos);
+	FindItemInList(pclFieldList,"ADID",',',&ilAftAdid,&ilCol,&ilPos);
+	FindItemInList(pclFieldList,"ALC3",',',&ilAftAlc3,&ilCol,&ilPos);
+	FindItemInList(pclFieldList,"FLTN",',',&ilAftFltn,&ilCol,&ilPos);
+	FindItemInList(pclFieldList,"FLNS",',',&ilAftFlns,&ilCol,&ilPos);
+	FindItemInList(pclFieldList,"STOA",',',&ilAftStoa,&ilCol,&ilPos);
+	FindItemInList(pclFieldList,"STOD",',',&ilAftStod,&ilCol,&ilPos);
+
+	ilNoEle = GetNoOfElements(pclFieldList, ',');
+	memset(pcpRotationXML,0,sizeof(pcpRotationXML));
+
+	if (atoi(rpAftrec.URNO) == 0)
+	{
+		dbg(TRACE,"%s The URNO<%s> is invalid -> Return",pclFunc, rpAftrec.URNO);
+		return ilRc;
+	}
+	else
+	{
+		if (strncmp(rpAftrec.ADID,"A",1) == 0)
+		{
+			/*Arrival*/
+			sprintf(pclSelection,"WHERE RKEY=%s AND ADID='D'",rpAftrec.RKEY);
+		}
+		else if (strncmp(rpAftrec.ADID,"D",1) == 0)
+		{
+			/*Departure*/
+			sprintf(pclSelection,"WHERE RKEY=%s AND ADID='A'",rpAftrec.RKEY);
+		}
+		else
+		{
+			dbg(TRACE,"%s The ADID<%s> is invalid -> Return",pclFunc, rpAftrec.ADID);
+			return ilRc;
+		}
+
+		buildSelQuery(pclSqlBuf, pclTable, pclFieldList, pclSelection);
+		ilRc = RunSQL(pclSqlBuf, pclSqlData);
+		if (ilRc != DB_SUCCESS)
+		{
+			dbg(TRACE, "<%s>: Retrieving rotation data - Fails", pclFunc);
+			/*return RC_FAIL;*/
+		}
+
+		switch(ilRc)
+		{
+			case NOTFOUND:
+				dbg(TRACE, "<%s> Retrieving rotation data - Not Found", pclFunc);
+
+				sprintf(pclRotationXml,"   <ROTATION>\n"
+                                       "        <ALC3></ALC3>\n"
+                                       "        <FLNO></FLNO>\n"
+                                       "        <STAD></STAD>\n"
+                                       "   </ROTATION>\n");
+				ilRc = RC_FAIL;
+				break;
+			default:
+				dbg(TRACE, "<%s> Retrieving rotation data - Found <%s>", pclFunc, pclSqlData);
+				BuildItemBuffer(pclSqlData, NULL, ilNoEle, ",");
+				dbg(TRACE,"%s : pclSqlData <%s>",pclFunc, pclSqlData);
+
+				get_fld_value(pclSqlData,ilAftUrno,rlRotationRec.URNO); TrimRight(rlRotationRec.URNO);
+				get_fld_value(pclSqlData,ilAftRkey,rlRotationRec.RKEY); TrimRight(rlRotationRec.RKEY);
+				get_fld_value(pclSqlData,ilAftAdid,rlRotationRec.ADID); TrimRight(rlRotationRec.ADID);
+				get_fld_value(pclSqlData,ilAftAlc3,rlRotationRec.ALC3); TrimRight(rlRotationRec.ALC3);
+				get_fld_value(pclSqlData,ilAftFltn,rlRotationRec.FLTN); TrimRight(rlRotationRec.FLTN);
+				get_fld_value(pclSqlData,ilAftFlns,rlRotationRec.FLNS); TrimRight(rlRotationRec.FLNS);
+				get_fld_value(pclSqlData,ilAftStoa,rlRotationRec.STOA); TrimRight(rlRotationRec.STOA);
+				get_fld_value(pclSqlData,ilAftStod,rlRotationRec.STOD); TrimRight(rlRotationRec.STOD);
+
+                sprintf(pclRotationXml,"   <ROTATION>\n"
+                                       "	    <ALC3>%s</ALC3>\n"
+                                       "	    <FLNO>%s%s</FLNO>\n"
+                                       "	    <STAD>%s</STAD>\n"
+                                       "   </ROTATION>\n",
+                               rlRotationRec.ALC3,
+                               rlRotationRec.FLTN,rlRotationRec.FLNS,
+                               strncmp(rlRotationRec.ADID,"A",1) == 0 ? rlRotationRec.STOA : rlRotationRec.STOD);
+				ilRc = RC_SUCCESS;
+				break;
+		}
+
+        strcpy(pcpRotationXML,pclRotationXml);
+	}
+
+	return ilRc;
 }
 
 static int RunSQL( char *pcpSelection, char *pcpData )
