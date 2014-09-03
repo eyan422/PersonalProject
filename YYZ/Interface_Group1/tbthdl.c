@@ -95,7 +95,7 @@ static EVENT *prgOutEvent  = NULL;
 
 static char cgProcessName[20] = "\0";
 static char  cgConfigFile[512] = "\0";
-char  cgHopo[8] = "\0";                         /* default home airport    */
+extern char  cgHopo[8] = "\0";                         /* default home airport    */
 static char  cgTabEnd[8] ="\0";                       /* default table extension */
 
 static long lgEvtCnt = 0;
@@ -3248,6 +3248,8 @@ static int buildDataArray(char *pcpFields, char *pcpNewData, char (*pcpDatalist)
         if(strlen(pcpDatalist[ilCountCodeShare])>0)
             dbg(DEBUG,"%s ++++++++++pcpDatalist[%d] <%s>++++++++++++++++\n\n",pclFunc, ilCountCodeShare, pcpDatalist[ilCountCodeShare]);
     }
+
+    dbg(TRACE,"%s ilRC<%d>",pclFunc),ilRC;
 
     return ilRC;
 }

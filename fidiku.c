@@ -1,7 +1,7 @@
 #ifndef _DEF_mks_version
   #define _DEF_mks_version
   #include "ufisvers.h" /* sets UFIS_VERSION, must be done before mks_version */
-  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/AUH/AUH_Server/Base/Server/Interface/fidiku.c 1.92 2014/09/01 17:11:01 fya Exp  $";
+  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/AUH/AUH_Server/Base/Server/Interface/fidiku.c 1.92 2014/09/02 10:52:01 fya Exp  $";
 #endif /* _DEF_mks_version */
 /******************************************************************************/
 /*                                                                            */
@@ -59,6 +59,7 @@ static char sccs_version[] ="@(#) UFIS (c) ABB AAT/I fidblk.c 45.1.0 / "__DATE__
 /*UFIS-5620*/
 static char pcgReqFtyp[4] = "\0";
 static int igTowingSent = 0;
+static char pcgRotEnable[4] = "\0";
 
 /******************************************************************************/
 /* External variables                                                         */
@@ -788,6 +789,19 @@ static int Init_Process()
 
     }
     dbg(TRACE,"pcgReqFtyp<%s>",pcgReqFtyp);
+
+    ilRc = ReadConfigEntry( cgConfigFile, "MAIN","ROTATION_ENABLE",pclSelection);
+    if( ilRc != RC_SUCCESS )
+    {
+    	strcpy(pcgRotEnable,"");
+    }
+    else
+    {
+        strcpy(pcgRotEnable,pclSelection);
+
+    }
+    dbg(TRACE,"pcgRotEnable<%s>",pcgRotEnable);
+
 
     // Frank v1.1
     if(ilRc == RC_SUCCESS)
@@ -3755,9 +3769,14 @@ int PackTowingXml( AFTREC rpAftrec )
                                    rpAftrec.REGN,
                                    /*rpAftrec.ACT3,*/
                                    //Frank v1.8 20130228
+                                   /*
                                    strncmp(pcgActICAO,"YES",3) == 0 ? 3 : 5,
                                    strncmp(pcgActICAO,"YES",3) == 0 ? rpAftrec.ACT3 : rpAftrec.ACT5,
                                    strncmp(pcgActICAO,"YES",3) == 0 ? 3 : 5,
+                                   */
+                                   3,
+                                   strncmp(pcgActICAO,"YES",3) == 0 ? rpAftrec.ACT3 : rpAftrec.ACT5,
+                                   3,
                                    //Frank v1.8 20130228
                                    rpAftrec.STOD,//STD
                                    rpAftrec.STOA,//STA
@@ -3977,9 +3996,14 @@ int PackFlightXml( AFTREC rpAftrec, CCAREC rpCcarecCKBS, CCAREC rpCcarecCKES,CIC
                                      rpAftrec.GA1E,//GD1E
                                      //rpAftrec.ACT3,//ACT3
                                      //Frank v1.8 20130228
+                                   	 /*
                                    	 strncmp(pcgActICAO,"YES",3) == 0 ? 3 : 5,
                                    	 strncmp(pcgActICAO,"YES",3) == 0 ? rpAftrec.ACT3 : rpAftrec.ACT5,
                                    	 strncmp(pcgActICAO,"YES",3) == 0 ? 3 : 5,
+                                     */
+                                     3,
+                                     strncmp(pcgActICAO,"YES",3) == 0 ? rpAftrec.ACT3 : rpAftrec.ACT5,
+                                     3,
                                      rpAftrec.TMOA,//TMO
                                      rpAftrec.ETAI,//ETAD
                                      rpAftrec.ETOA,//ETADF
@@ -4011,7 +4035,7 @@ int PackFlightXml( AFTREC rpAftrec, CCAREC rpCcarecCKBS, CCAREC rpCcarecCKES,CIC
      strcat(myFlightXml,pclTmp1);
 
     /*fya v1.92 20140812*/
-    if (strlen(pclRotationXML) > 0)
+    if (strlen(pclRotationXML) > 0 && strncmp(pcgRotEnable,"YES",3) == 0)
     {
         strcat(myFlightXml,pclRotationXML);
     }
@@ -4116,9 +4140,14 @@ int PackFlightXml( AFTREC rpAftrec, CCAREC rpCcarecCKBS, CCAREC rpCcarecCKES,CIC
                                    rpAftrec.GD1E,//GD1E
                                    /*rpAftrec.ACT3,*/
                                    //Frank v1.8 20130228
+                                   /*
                                    strncmp(pcgActICAO,"YES",3) == 0 ? 3 : 5,
                                    strncmp(pcgActICAO,"YES",3) == 0 ? rpAftrec.ACT3 : rpAftrec.ACT5,
                                    strncmp(pcgActICAO,"YES",3) == 0 ? 3 : 5,
+                                   */
+                                   3,
+                                   strncmp(pcgActICAO,"YES",3) == 0 ? rpAftrec.ACT3 : rpAftrec.ACT5,
+                                   3,
                                    //Frank v1.8 20130228
                                    /*rpAftrec.TMOA,//TMO*/
                                    rpAftrec.ETDI,//ETAD
@@ -4153,7 +4182,7 @@ int PackFlightXml( AFTREC rpAftrec, CCAREC rpCcarecCKBS, CCAREC rpCcarecCKES,CIC
      strcat(myFlightXml,pclTmp1);
 
      /*fya v1.92 20140812*/
-    if (strlen(pclRotationXML) > 0)
+    if (strlen(pclRotationXML) > 0 && strncmp(pcgRotEnable,"YES",3) == 0)
     {
         strcat(myFlightXml,pclRotationXML);
     }
