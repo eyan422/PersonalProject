@@ -340,14 +340,14 @@ MAIN
 
 					if( igConnectionNo < igReconMax )
 					{
-					    informPeer();
+					    //informPeer();
 						ilRc = Sockt_Reconnect();
 					}
 					else
 					{
 			    	if ( ((igConnected == FALSE) && (strcmp(pclCurrentTime, pcgReconExpTime) >= 0)) || (igConnected == TRUE) )
 			    	{
-			    	    informPeer();
+			    	    //informPeer();
 			        ilRc = Sockt_Reconnect();
 						}
 					}
@@ -829,7 +829,7 @@ static int HandleInternalData()
                 else if(ilRC == RC_FAIL)
 		        {
 			       dbg(DEBUG, "<%s>Send_data error",pclFunc);
-			       informPeer();
+			       //informPeer();
                    ilRC = Sockt_Reconnect();
 		        }
 		        else if(ilRC == RC_SENDTIMEOUT)
@@ -841,7 +841,7 @@ static int HandleInternalData()
             {
                 if ((igConnected == TRUE) || (igOldCnnt == TRUE))
                     {
-                        informPeer();
+                        //informPeer();
                         ilRC = Sockt_Reconnect();
                     }
                 else
@@ -1854,7 +1854,7 @@ static int Receive_data(int ipSock,int ipTimeOut)
                 igSckTryACKCnt++;
                 if (igSock <= 0)
                 {
-                    informPeer();
+                    //informPeer();
                     ilRC = Sockt_Reconnect();
                 }
 
@@ -1884,7 +1884,7 @@ static int Receive_data(int ipSock,int ipTimeOut)
                 nap(igConDly);
             }
             */
-            informPeer();
+            //informPeer();
 
            ilRC = Sockt_Reconnect();
            GetServerTimeStamp( "UTC", 1, 0, pcgSckWaitACKExpTime);
@@ -1896,7 +1896,7 @@ static int Receive_data(int ipSock,int ipTimeOut)
     {
        dbg(DEBUG,"Current Time<%s>, Heartbeat Exp Rec Time<%s>", pclCurrentTime, pcgRcvHeartBeatExpTime);
 
-       informPeer();
+       //informPeer();
 
        (void) Sockt_Reconnect();
     }
