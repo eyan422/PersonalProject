@@ -1,11 +1,18 @@
 # depslib dependency file v1.0
-1406283392 source:d:\git\personalproject\test_frank\main.c
-	"test.h"
+1406315106 source:d:\git\personalproject\test_frank\main.c
+	"stack.h"
 
-1406284568 d:\git\personalproject\test_frank\test.h
+1406318593 d:\git\personalproject\test_frank\test.h
 	<stdio.h>
 	<stdlib.h>
 	<string.h>
+	<ctype.h>
+
+1406317436 d:\git\personalproject\test_frank\stack.h
+	<stdio.h>
+	<stdlib.h>
+	<string.h>
+	"test.h"
 
 1406289587 source:/Users/frankyan/git/PersonalProject/test_frank/main.c
 	"test.h"

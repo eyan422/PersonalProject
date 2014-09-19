@@ -1,23 +1,24 @@
 #ifndef _DEF_mks_version
   #define _DEF_mks_version
   #include "ufisvers.h" /* sets UFIS_VERSION, must be done before mks_version */
-  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/hwecon.c 1.61 04/08/2014 2:27:07 PM Exp  $";
+  static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/paicon.c 0.3 2014/08/19 2:27:07 PM Exp  $";
 #endif /* _DEF_mks_version */
 
 /******************************************************************************/
 /*                                                                            */
 /* UFIS AS HWECON.C                                                           */
 /*                                                                            */
-/* Author         : Christian Stybert                                         */
-/* Date           : September 2009                                            */
-/* Description    : Process to receive and send messages from/to SAFEGATE GOS */
+/* Author         : Yan Feng                                         */
+/* Date           : Aug 2014                                            */
+/* Description    : Process to receive and send messages from/to FAS */
 /*                                                                            */
 /* Update history :                                                           */
 /*                                                                            */
-/* 20121121 FYA:                                                              */
-/* 20140619 YYA:  UFIS-6225 Config to Disable Check WAIT ACK for Send      */
-/* 20140620 FYA:  v1.5 UFIS-6225 Send the received msgid back to hwemgr instead of waited one      */
-/* 20140620 FYA:  v1.6 If one process fails to send out message after three times, then inform the counterpart for reconnect too*/
+/* 20140819 FYA: The code was from hwecon.c which is modified for YYZ group3 PA interface
+					1)The sent heartbeat message format is updated
+					2)The received heartbeat message format is updated
+					3)tcp->udp
+					*/
 /******************************************************************************/
 /*                                                                            */
 /* source-code-control-system version string                                  */
@@ -154,6 +155,8 @@ static char	pcgSendHeartBeatExpTime[64] = "\0";  /* global Send heartbeat expect
 static char	pcgRcvHeartBeatExpTime[64] = "\0";   /* global Receive heartbeat expire time */
 static char	pcgReconExpTime[64] = "\0";   /* global Receive heartbeat expect time */
 
+static char *pcgConnType = NULL;
+
 static char	pcgSendMsgId[16] = "\0";
 
 static int	igModID_ConMgr = 0;
@@ -165,10 +168,10 @@ static int	igConDly = 50;
 static int	igConnected = FALSE;   /* global socket Connect status  */
 static int	igOldCnnt = FALSE;
 
-
-static int	igWaitAckToSend = TRUE;
-
-static int igDropTheOther=TRUE;
+/*fya paicon 0.1*/
+static int igObjID = 0;
+static int igMsgID = 0;
+static char * pcgHB_Header = NULL;
 
 static int	Init_Handler();
 static int	Reset(void);                        /* Reset program          */
@@ -183,6 +186,9 @@ static void	HandleQueues(void);                 /* Waiting for Sts.-switch*/
 /* Function prototypes														  */
 /******************************************************************************/
 
+/*FYA paicon 0.1*/
+static void buildHB_message(char *pcpDataBuf,char *pcpKeepAliveFormat, char *pcpHB_Flag,int ipObjID, int ipMsgID,int ipMsgNoForHeartbeat);
+
 static int	GetQueues();
 static int	GetConfig();
 static void	CloseTCP(void);
@@ -195,7 +201,6 @@ static void	snapit(void *pcpBuffer, long lpDataLen, FILE *pcpDbgFile);
 static int	GetCfgEntry(char *pcpFile,char *pcpSection,char *pcpEntry,short spType,char **pcpDest,
 				int ipValueType,char *pcpDefVal);
 static int	CheckValue(char *pcpEntry,char *pcpValue,int ipType);
-static int	SendKeepAliveMsg();
 static int	SendAckMsg();
 static int	GetMsgno(char *pcpBuff);
 
@@ -206,8 +211,13 @@ static int ReceiveACK(int ipSock,int ipTimeOut);
 static int Sockt_Reconnect(void);
 static int tcp_open_connection (int socket, char *Pservice, char *Phostname);
 static int FindMsgId(char *pcpData, char *pcpMsgId, int Mode);
-
-static void informPeer(void);
+//
+static int udp_socket(int *ilAcceptSocket);
+static void SendUDPMessage(char *pIP, int pPort, char *pMessage);
+static int resetUDP(int socket, char *Pservice, char *Phostname);
+static void CloseUDP(char *pcpCaller);
+static int udp_open_connection (int socket, char *Pservice, char *Phostname);
+//
 /******************************************************************************/
 /*                                                                            */
 /* The MAIN program                                                           */
@@ -286,8 +296,6 @@ MAIN
 
 		if(igInitOK == FALSE)
 		{
-
-
 			ilRc = Init_Handler();
 
 			if(ilRc == RC_SUCCESS)
@@ -340,19 +348,17 @@ MAIN
 
 					if( igConnectionNo < igReconMax )
 					{
-					    //informPeer();
 						ilRc = Sockt_Reconnect();
 					}
 					else
 					{
-			    	if ( ((igConnected == FALSE) && (strcmp(pclCurrentTime, pcgReconExpTime) >= 0)) || (igConnected == TRUE) )
-			    	{
-			    	    //informPeer();
-			        ilRc = Sockt_Reconnect();
+                        if ( ((igConnected == FALSE) && (strcmp(pclCurrentTime, pcgReconExpTime) >= 0)) || (igConnected == TRUE) )
+                        {
+                            ilRc = Sockt_Reconnect();
 						}
 					}
 				}
-//			sleep(1);
+//			    sleep(1);
 			}
 			now = time(NULL);
 		}
@@ -412,38 +418,6 @@ static int Init_Handler()
 		Terminate(30);
 	}
 
-	/*
-	if (strlen(prgCfg.recv_log) > 0)
-	{
-		pgReceiveLogFile = fopen(prgCfg.recv_log,"w");
-
-		if (!pgReceiveLogFile)
-		{
-			dbg(TRACE,"Init_Handler : ReceiveLog: <%> not opened! fopen() returns <%s>.",
-				prgCfg.recv_log,strerror(errno));
-		}
-	}
-
-	if (strlen(prgCfg.send_log) > 0)
-	{
-		pgSendLogFile = fopen(prgCfg.send_log,"w");
-
-		if (!pgSendLogFile)
-		{
-			dbg(TRACE,"Init_Handler : SendLog: <%> not opened! fopen() returns <%s>.",
-			prgCfg.send_log,strerror(errno));
-		}
-	}
-	*/
-
-	/* Initiate opening of the Server socket
-	ilRc = OpenServerSocket();
-    if ( ilRc == RC_SUCCESS)
-    {
-        igConnected = TRUE;
-        igOldCnnt = TRUE;
-    } */
-
 	return(ilRc);
 } /* end of Init_Handler */
 
@@ -498,7 +472,14 @@ static void Terminate(int ipSleep)
 {
 	dbg(TRACE,"Terminate: now leaving ...");
 
-	CloseTCP();
+	if( strcmp(pcgConnType,"tcp") == 0 )
+    {
+        CloseTCP();
+    }
+    else if( strcmp(pcgConnType,"udp") == 0 )
+    {
+        CloseUDP("Terminate");
+    }
 
 	if (pgReceiveLogFile != NULL)
 	{
@@ -530,7 +511,16 @@ static void HandleSignal(int pipSig)
 			break;
 		case SIGPIPE:
 			if (igSock != 0)
-				CloseTCP();
+                {
+                    if( strcmp(pcgConnType,"tcp") == 0 )
+                    {
+                        CloseTCP();
+                    }
+                    else if( strcmp(pcgConnType,"udp") == 0 )
+                    {
+                        CloseUDP("HandleSignal");
+                    }
+                }
 				break;
 		case SIGCHLD:
 			break;
@@ -809,18 +799,13 @@ static int HandleInternalData()
         {
 		    if (igSock > 0)
             {
-	    		ilRC = Send_data(igSock,pclData);
-	        	dbg(DEBUG, "<%s>ilRC<%d>",pclFunc,ilRC);
+                    ilRC = Send_data(igSock,pclData);
+		        	dbg(DEBUG, "<%s>ilRC<%d>",pclFunc,ilRC);
 
 		        if (ilRC == RC_SUCCESS)
 		        {
-                    if (igWaitAckToSend == TRUE)
-                    {
-                        igSckWaitACK = TRUE;
-                        igSckTryACKCnt = 0;
-                    }
-                    else
-                        igSckWaitACK = FALSE;
+                    igSckWaitACK = TRUE;
+                    igSckTryACKCnt = 0;
 
                     GetServerTimeStamp( "UTC", 1, 0, pcgSckWaitACKExpTime);
                     AddSecondsToCEDATime(pcgSckWaitACKExpTime, igSckACKCWait, 1);
@@ -829,7 +814,6 @@ static int HandleInternalData()
                 else if(ilRC == RC_FAIL)
 		        {
 			       dbg(DEBUG, "<%s>Send_data error",pclFunc);
-			       //informPeer();
                    ilRC = Sockt_Reconnect();
 		        }
 		        else if(ilRC == RC_SENDTIMEOUT)
@@ -840,10 +824,7 @@ static int HandleInternalData()
             else
             {
                 if ((igConnected == TRUE) || (igOldCnnt == TRUE))
-                    {
-                        //informPeer();
-                        ilRC = Sockt_Reconnect();
-                    }
+                    ilRC = Sockt_Reconnect();
                 else
                 	  ilRC = RC_FAIL;
             }
@@ -858,7 +839,7 @@ static int HandleInternalData()
 	else if (strcmp(cmdblk->command,"RACK") == 0)
     {
     	dbg(DEBUG,"RACK command");
-        if ((strcmp(pcgSendMsgId, pclSelection) == 0) || (igWaitAckToSend == FALSE))
+        if (strcmp(pcgSendMsgId, pclSelection) == 0)
         {
             igSckWaitACK = FALSE;
             igSckTryACKCnt = 0;
@@ -882,20 +863,6 @@ static int HandleInternalData()
 	        ilQueRc = SendCedaEvent(igModID_ConMgr,0,mod_name,"CEDA",pcgTwStart,pcgTwEnd,"CONX","","","","","","",NETOUT_NO_ACK);
         else
 	        ilQueRc = SendCedaEvent(igModID_ConMgr,0,mod_name,"CEDA",pcgTwStart,pcgTwEnd,"DROP","","","","","","",NETOUT_NO_ACK);
-    }
-	else if (strcmp(cmdblk->command,"RCON") == 0)
-    {
-        dbg(DEBUG,"%s ++++++++++Resending three times fail at counterpart ++++++++++",pclFunc);
-    	dbg(DEBUG,"RCON command: Re connect");
-
-        /*fya 20140724*/
-       igSckWaitACK = FALSE;
-       igSckTryACKCnt = 0;
-       ilRC = SendCedaEvent(igModID_ConMgr,0,mod_name,"CEDA",pcgTwStart,pcgTwEnd,"NACK","","","","","","",NETOUT_NO_ACK);
-
-        ilRC = Sockt_Reconnect();
-        GetServerTimeStamp( "UTC", 1, 0, pcgSckWaitACKExpTime);
-        AddSecondsToCEDATime(pcgSckWaitACKExpTime, igSckACKCWait, 1);
     }
 	else
 	{
@@ -1010,66 +977,14 @@ static int GetConfig()
 		ilRC = RC_SUCCESS;
 	}
 
-	/*
-	dbg(TRACE,"Now read parameters for interface");
-	if ((ilRC=GetCfgEntry(pcgConfigFile,"MAIN","MODE",CFG_STRING,&prgCfg.mode,CFG_ALPHA,"REAL"))
+	/*fya paicon 0.1*/
+	if ((ilRC=GetCfgEntry(pcgConfigFile,"MAIN","HB_HEADER",CFG_STRING,&pcgHB_Header,CFG_PRINT,"IED"))
                         != RC_SUCCESS)
 		return RC_FAIL;
 
-	if ((ilRC=GetCfgEntry(pcgConfigFile,"MAIN","TYPE",CFG_STRING,&prgCfg.type,CFG_PRINT,"SERVER"))
-                        != RC_SUCCESS)
-		{ }
-	if ((ilRC=GetCfgEntry(pcgConfigFile,"MAIN","HOST1",CFG_STRING,&prgCfg.host1,CFG_PRINT,""))
+    if ((ilRC=GetCfgEntry(pcgConfigFile,"MAIN","CONN_TYPE",CFG_STRING,&pcgConnType,CFG_PRINT,"udp"))
                         != RC_SUCCESS)
 		return RC_FAIL;
-	if ((ilRC=GetCfgEntry(pcgConfigFile,"MAIN","HOST2",CFG_STRING,&prgCfg.host2,CFG_PRINT,""))
-                        != RC_SUCCESS)
-		return RC_FAIL;
-	if ((ilRC=GetCfgEntry(pcgConfigFile,"MAIN","SERVICE_PORT",CFG_STRING,&prgCfg.service_port,CFG_PRINT,"EXCO_DGS"))
-                        != RC_SUCCESS)
-		return RC_FAIL;
-	if ((ilRC=GetCfgEntry(pcgConfigFile,"MAIN","WAIT_FOR_ACK",CFG_STRING,&prgCfg.wait_for_ack,CFG_NUM,"2"))
-                        != RC_SUCCESS)
-		return RC_FAIL;
-	else
-		igWaitForAck = atoi(prgCfg.wait_for_ack);
-	if ((ilRC=GetCfgEntry(pcgConfigFile,"MAIN","RECV_TIMEOUT",CFG_STRING,&prgCfg.recv_timeout,CFG_NUM,"60"))
-                        != RC_SUCCESS)
-		return RC_FAIL;
-	else
-		igRecvTimeout = atoi(prgCfg.recv_timeout);
-	if ((ilRC=GetCfgEntry(pcgConfigFile,"MAIN","MAX_SENDS",CFG_STRING,&prgCfg.max_sends,CFG_NUM,"2"))
-                        != RC_SUCCESS)
-		return RC_FAIL;
-	else
-		igMaxSends = atoi(prgCfg.max_sends);
-	if ((ilRC=GetCfgEntry(pcgConfigFile,"MAIN","RECV_LOG",CFG_STRING,&prgCfg.recv_log,CFG_PRINT,""))
-                        != RC_SUCCESS)
-		return RC_FAIL;
-	if ((ilRC=GetCfgEntry(pcgConfigFile,"MAIN","SEND_LOG",CFG_STRING,&prgCfg.send_log,CFG_PRINT,""))
-                        != RC_SUCCESS)
-		return RC_FAIL;
-	if ((ilRC=GetCfgEntry(pcgConfigFile,"MAIN","TRY_RECONNECT",CFG_STRING,&prgCfg.try_reconnect,CFG_NUM,"60"))
-                        != RC_SUCCESS)
-		return RC_FAIL;
-	*/
-	ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","DROP_THE_OTHER",CFG_STRING,pclTmpBuf);
-    if (ilRC == RC_SUCCESS)
-    {
-        if (strncmp(pclTmpBuf, "Y", 1) == 0 || strncmp(pclTmpBuf, "y", 1) == 0)
-        {
-            igModID_ConMgr = TRUE;
-        }
-        else
-        {
-            igModID_ConMgr = FALSE;
-        }
-    }
-    else
-    {
-        igDropTheOther = TRUE;
-    }
-	dbg(TRACE,"igDropTheOther <%s>", igDropTheOther==TRUE?"TRUE":"FALSE");
 
 
 	if ((ilRC=GetCfgEntry(pcgConfigFile,"MAIN","HEARTBEAT",CFG_STRING,&prgCfg.keep_alive,CFG_NUM,"0"))
@@ -1140,19 +1055,6 @@ static int GetConfig()
 	    dbg(TRACE,"Send ACK to Server Enable");
     }
 
-    ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","WAIT_ACK_SEND",CFG_STRING,pclTmpBuf);
-    if ((ilRC == RC_SUCCESS) && (strcmp(pclTmpBuf, "NO") == 0))
-    {
-        igWaitAckToSend = FALSE;
-	    dbg(TRACE,"Send Wait for ACK to Server Disable");
-    }
-    else
-    {
-        igWaitAckToSend = TRUE;
-	    dbg(TRACE,"Send Wait for ACK to Server Enable");
-    }
-
-
     ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","ACK_WAIT_TIME",CFG_STRING,pclTmpBuf);
     if ((ilRC == RC_SUCCESS) && (strcmp(pclTmpBuf, " ") != 0))
         igSckACKCWait = atoi(pclTmpBuf);
@@ -1179,17 +1081,6 @@ static int GetConfig()
     else
         igMgrDly = 30;
 
-
-	/*
-	if ((ilRC=GetCfgEntry(pcgConfigFile,"MAIN","HEADER_PREFIX",CFG_STRING,&prgCfg.header_prefix,CFG_PRINT,"#"))
-                        != RC_SUCCESS)
-		return RC_FAIL;
-	if ((ilRC=GetCfgEntry(pcgConfigFile,"MAIN","HEADER_SIZE",CFG_STRING,&prgCfg.header_size,CFG_NUM,"6"))
-                        != RC_SUCCESS)
-		return RC_FAIL;
-    else
-    	igHeaderSize = atoi(prgCfg.header_size);
-  */
 	if ((ilRC=GetCfgEntry(pcgConfigFile,"MAIN","SEND_ACK",CFG_STRING,&prgCfg.send_ack,CFG_NUM,"1"))
                         != RC_SUCCESS)
 
@@ -1210,70 +1101,7 @@ static int GetConfig()
 	{
 			sprintf(clAckFormatF,"%s/%s",getenv("CFG_PATH"),prgCfg.ack_format);
 	}
-	/*
-	if ((ilRC=GetCfgEntry(pcgConfigFile,"MAIN","MSGNO_KEYWORD",CFG_STRING,&prgCfg.msgno_keyword,CFG_PRINT,"msgno="))
-                        != RC_SUCCESS)
-		return RC_FAIL;
 
-	if ((ilRC=GetCfgEntry(pcgConfigFile,"MAIN","FTYP_KEYWORD",CFG_STRING,&prgCfg.ftyp_keyword,CFG_PRINT,""))
-                        != RC_SUCCESS)
-		return RC_FAIL;
-	*/
-
-	/* Special Position name handling. Remove trailing characters and leading zero */
-	/* A01R becomes A1. Safegate is not able to handle the complex names           */
-
-	/*
-	if ((ilRC=GetCfgEntry(pcgConfigFile,"MAIN","REMOVE_SUFFIX",CFG_STRING,&prgCfg.remove_suffix,CFG_PRINT,"NO"))
-                        != RC_SUCCESS)
-		return RC_FAIL;
-
-	if (strcmp(prgCfg.remove_suffix,"YES") == 0)
-	{
-		bgRemoveSuffix = TRUE;
-	}
-
-	// This is the list of stand positions that should not have the suffix removed
-
-	if ((ilRC=GetCfgEntry(pcgConfigFile,"MAIN","KEEP_SUFFIX",CFG_STRING,&prgCfg.keep_suffix,CFG_PRINT,","))
-                        != RC_SUCCESS)
-		return RC_FAIL;
-
-
-
-	if ((ilRC=GetCfgEntry(pcgConfigFile,"MAIN","REMOVE_ZERO",CFG_STRING,&prgCfg.remove_zero,CFG_PRINT,"NO"))
-                        != RC_SUCCESS)
-		return RC_FAIL;
-
-	if (strcmp(prgCfg.remove_zero,"YES") == 0)
-	{
-		bgRemoveZero = TRUE;
-	}
-
-
-	if ((ilRC=GetCfgEntry(pcgConfigFile,"MAIN","STAND_TAG",CFG_STRING,&prgCfg.stand_tag,CFG_PRINT,"stand>"))
-                        != RC_SUCCESS)
-		return RC_FAIL;
-	igStandTagLen = strlen(prgCfg.stand_tag);
-
-
-	// Load the KeepAlive and Ack formats
-
-	if(igKeepAlive)
-	{
-  		if ((fplFp = (FILE *)fopen(clKeepAliveFormatF,"r")) == (FILE *)NULL)
-		{
-			dbg(TRACE,"KeepAlive Format File <%s> does not exist",clKeepAliveFormatF);
-			return RC_FAIL;
-		}
-		else
-		{
-			ilLen = fread(pcgKeepAliveFormat,1,1023,fplFp);
-			pcgKeepAliveFormat[ilLen] = '\0';
-			fclose(fplFp);
-		}
-	}
-  */
 	if(igSendAck)
 	{
   	if ((fplFp = (FILE *) fopen(clAckFormatF,"r")) == (FILE *)NULL)
@@ -1322,8 +1150,8 @@ static int GetConfig()
 		}
 		else
 		{
-			ilLen = fread(pcgKeepAliveFormat,1,1023,fplFp);
-			pcgKeepAliveFormat[ilLen] = '\0';
+			ilLen = fread(pcgKeepAliveFormat,1,1024,fplFp);
+			pcgKeepAliveFormat[ilLen-1] = '\0';
 			fclose(fplFp);
 		}
   }
@@ -1355,7 +1183,7 @@ static int poll_q_and_sock()
 		/*---------------------------*/
 
 		// dbg(DEBUG,"time before que<%d>",time(0));
-                ilReadQueCnt++;
+        ilReadQueCnt++;
 		if ( (ilRc = que(QUE_GETBIGNW,0,mod_id,PRIORITY_3,igItemLen,
 				(char *) &prgItem)) == RC_SUCCESS)
 		{
@@ -1553,20 +1381,44 @@ static int SendHeartbeatMsg(char *pcpLastTimeSendingTime)
 	//Frank 20130107
 	//sprintf(pclDataBuf,pcgKeepAliveFormat,igMsgNoForHeartbeat,pclFormatTime);
 
-	if(igMsgNoForHeartbeat == 65535)
-  {
-		igMsgNoForHeartbeat = 0;
-  }
+	if ( strcmp(pcgHB_Header, "IED") == 0 )
+	{
+		buildHB_message(pclDataBuf,pcgKeepAliveFormat,pcgHB_Header,igObjID,igObjID,igObjID);
+	}
+	else
+	{
+		/*Original HB builder*/
+		sprintf(pclDataBuf,pcgKeepAliveFormat,pclFormatTime);
+	}
 
-  sprintf(pclDataBuf,pcgKeepAliveFormat,pclFormatTime);
-  igMsgNoForHeartbeat++;
+	/*fya paicon 0.1*/
+
+	if(igObjID == 255)
+	{
+		igObjID = 0;
+	}
+	igObjID++;
+
+    /*
+	if(igMsgID == 65535)
+	{
+		igMsgID = 0;
+	}
+	igMsgID++;
+
 	//Frank 20130107
+	if(igMsgNoForHeartbeat == 65535)
+	{
+		igMsgNoForHeartbeat = 0;
+	}
+	igMsgNoForHeartbeat++;
+    */
 
 	ilRC = Send_data(igSock,pclDataBuf);
 
 	if(ilRC == RC_SUCCESS)
 	{
-		dbg(TRACE,"<%s> HeartBeat sending successfully,pclDataBuf<\n%s>",pclFunc,pclDataBuf);
+		dbg(TRACE,"<%s> HeartBeat sending successfully,pclDataBuf<%s>",pclFunc,pclDataBuf);
 	}
 	else if(ilRC == RC_SENDTIMEOUT)
 	{
@@ -1719,6 +1571,9 @@ static int Receive_data(int ipSock,int ipTimeOut)
     char *pclMsgIdBgn = NULL;
     char pclTmpBuf[10] = "\0";
 
+    struct sockaddr_in si_other;
+    int slen = sizeof(si_other);
+
     /*
     if (igSckWaitACK == TRUE)
 	    rlTimeout.tv_sec = 2;
@@ -1744,8 +1599,8 @@ static int Receive_data(int ipSock,int ipTimeOut)
 
 	switch(ilFound)
 	{
-		case 0:
-		dbg(DEBUG, "<%s>-------------------Select time out -> no msg received",pclFunc);
+        case 0:
+            dbg(DEBUG, "<%s>-------------------Select time out -> no msg received",pclFunc);
             ilRC = RC_RECVTIMEOUT;
 			//return RC_FAIL;
 			//return RC_RECVTIMEOUT;
@@ -1769,73 +1624,99 @@ static int Receive_data(int ipSock,int ipTimeOut)
 				if(FD_ISSET( ipSock, &readfds))
 				{
 					memset( pclRecvBuffer, 0, sizeof(pclRecvBuffer) );
+                    dbg(DEBUG,"time before recv<%d>",time(0));
+                    if( strcmp(pcgConnType,"tcp") == 0 )
+                    {
+                        ilNo = recv( ipSock, pclRecvBuffer, sizeof(pclRecvBuffer), 0);
+                    }
+                    else if( strcmp(pcgConnType,"udp") == 0 )
+                    {
 
-							dbg(DEBUG,"time before recv<%d>",time(0));
-		    	    ilNo = recv( ipSock, pclRecvBuffer, sizeof(pclRecvBuffer), 0);
+                        /*Since connect() is also used in UDP, then read() is adopted instead of recvfrom() with IP and port info*/
+                        /*ilNo = recvfrom(ipSock, pclRecvBuffer, sizeof(pclRecvBuffer, 0, (struct sockaddr *)&si_other, &slen);*/
+                        ilNo = read(ipSock, pclRecvBuffer, sizeof(pclRecvBuffer));
+                        dbg(TRACE, "UDP Recieved from <%s> : <%s>", inet_ntoa(si_other.sin_addr), pclRecvBuffer);
+                    }
 		    	    dbg(DEBUG,"time after recv<%d>",time(0));
 
-		    	    if( ilNo > 0 )
-		          {
-		      	        //if(strstr(pclRecvBuffer,"heartbeat") == 0)
-		      	            dbg(TRACE,"<%s> Len<%d>Complete message<%s>",pclFunc,ilNo,pclRecvBuffer);
+                    if( ilNo > 0 )
+                    {
+                        //if(strstr(pclRecvBuffer,"heartbeat") == 0)
+                        dbg(TRACE,"<%s> Len<%d>Complete message<%s>",pclFunc,ilNo,pclRecvBuffer);
 
-	      	            if (strstr(pclRecvBuffer,"ack")!=0)
-				        {
-					        dbg(DEBUG,"<%s> Received the ack message",pclFunc);
+                        if (strstr(pclRecvBuffer,"ack")!=0)
+                        {
+                            dbg(DEBUG,"<%s> Received the ack message",pclFunc);
                             (void) FindMsgId(pclRecvBuffer, pclTmpBuf, 1);
-					        dbg(DEBUG,"<%s> Received the ack messageId<%s> : Wait ACK MsgId<%s>",pclFunc, pclTmpBuf,pcgSendMsgId);
-                            if ((strcmp(pcgSendMsgId, pclTmpBuf) == 0) || (igWaitAckToSend == FALSE))
+                            dbg(DEBUG,"<%s> Received the ack messageId<%s> : Wait ACK MsgId<%s>",pclFunc, pclTmpBuf,pcgSendMsgId);
+                            if (strcmp(pcgSendMsgId, pclTmpBuf) == 0)
                             {
                                  igSckWaitACK = FALSE;
                                  igSckTryACKCnt = 0;
-
-                                 /*fya v1.5*/
-			      	             /*ilRC = SendCedaEvent(igModID_ConSTB,0,mod_name,"CEDA",pcgTwStart,pcgTwEnd,"RACK","",pcgSendMsgId,"","","","",NETOUT_NO_ACK);
+                                 ilRC = SendCedaEvent(igModID_ConSTB,0,mod_name,"CEDA",pcgTwStart,pcgTwEnd,"RACK","",pcgSendMsgId,"","","","",NETOUT_NO_ACK);
                        nap(igConDly);
-			      	             ilRC = SendCedaEvent(igModID_ConMgr,0,mod_name,"CEDA",pcgTwStart,pcgTwEnd,"RACK","",pcgSendMsgId,"","","","",NETOUT_NO_ACK);
-                       nap(igMgrDly);*/
-                                ilRC = SendCedaEvent(igModID_ConSTB,0,mod_name,"CEDA",pcgTwStart,pcgTwEnd,"RACK","",pclTmpBuf,"","","","",NETOUT_NO_ACK);
-                       nap(igConDly);
-			      	             ilRC = SendCedaEvent(igModID_ConMgr,0,mod_name,"CEDA",pcgTwStart,pcgTwEnd,"RACK","",pclTmpBuf,"","","","",NETOUT_NO_ACK);
+                                 ilRC = SendCedaEvent(igModID_ConMgr,0,mod_name,"CEDA",pcgTwStart,pcgTwEnd,"RACK","",pcgSendMsgId,"","","","",NETOUT_NO_ACK);
                        nap(igMgrDly);
-
                             }
-					        // return RC_SUCCESS;
-		      	        }
-		      	        else if(strstr(pclRecvBuffer,"heartbeat") == 0)
-		      	        {
-                          (void) FindMsgId(pclRecvBuffer, pclTmpBuf, 0);
-                          strcpy(pcgMsgNoForACK, pclTmpBuf);
-                          if (strcmp(pcgMsgNoForACK, "0") != 0 )
-                          {
-			      	        // Send the ACK
-						    dbg(DEBUG,"<%s> Sending ACK message",pclFunc);
-						    SendAckMsg();
-			      	        ilRC = SendCedaEvent(igModID_ConSTB,0,mod_name,"CEDA",pcgTwStart,pcgTwEnd,"SACK","",pcgMsgNoForACK,"","","","",NETOUT_NO_ACK);
-			      	        ilRC = SendCedaEvent(igModID_Rcvr,0,mod_name,"CEDA",pcgTwStart,pcgTwEnd,"XMLI","",pcgMsgNoForACK,"",pclRecvBuffer,"","",NETOUT_NO_ACK);
-	                        if (ilRC == RC_SUCCESS)
-	                        {
-	            	             dbg(DEBUG,"<%s>SendCedaEvent<%d> executes successfully",pclFunc,igModID_Rcvr);
-	                        }
-	                        else
-	                        {
-	            	            dbg(TRACE,"<%s>SendCedaEvent<%d> executes unsuccessfully",pclFunc,igModID_Rcvr);
-	                        }
-						   // return RC_SUCCESS;
-                          }
-          	            }
+                            // return RC_SUCCESS;
+                        }
+                        else if (strstr(pclRecvBuffer,pcgHB_Header) != 0)
+                        {
+                            if (ilNo > 10)
+                            {
+                                dbg(DEBUG,"<%s> Received the ack message",pclFunc);
+                                (void) FindMsgId(pclRecvBuffer, pclTmpBuf, 1);
+                                dbg(DEBUG,"<%s> Received the ack messageId<%s> : Wait ACK MsgId<%s>",pclFunc, pclTmpBuf,pcgSendMsgId);
+                                if (strcmp(pcgSendMsgId, pclTmpBuf) == 0)
+                                {
+                                     igSckWaitACK = FALSE;
+                                     igSckTryACKCnt = 0;
+                                     ilRC = SendCedaEvent(igModID_ConSTB,0,mod_name,"CEDA",pcgTwStart,pcgTwEnd,"RACK","",pcgSendMsgId,"","","","",NETOUT_NO_ACK);
+                           nap(igConDly);
+                                     ilRC = SendCedaEvent(igModID_ConMgr,0,mod_name,"CEDA",pcgTwStart,pcgTwEnd,"RACK","",pcgSendMsgId,"","","","",NETOUT_NO_ACK);
+                           nap(igMgrDly);
+                                }
+                                else
+                                {
+                                    dbg(TRACE,"%s <%s> does not match <%s>",pclFunc, pcgSendMsgId, pclTmpBuf);
+                                }
+                            }
+                            else
+                            {
+                                dbg(TRACE,"%s IED heartbeat",pclFunc);
+                            }
+                        }
+                        else if(strstr(pclRecvBuffer, "heartbeat") == 0 )/*fya paicon 0.1*/
+                        {
+                            (void) FindMsgId(pclRecvBuffer, pclTmpBuf, 0);
+                            strcpy(pcgMsgNoForACK, pclTmpBuf);
+                            if (strcmp(pcgMsgNoForACK, "0") != 0 )
+                            {
+                                // Send the ACK
+                                dbg(DEBUG,"<%s> Sending ACK message",pclFunc);
+                                SendAckMsg();
+                                ilRC = SendCedaEvent(igModID_ConSTB,0,mod_name,"CEDA",pcgTwStart,pcgTwEnd,"SACK","",pcgMsgNoForACK,"","","","",NETOUT_NO_ACK);
+                                ilRC = SendCedaEvent(igModID_Rcvr,0,mod_name,"CEDA",pcgTwStart,pcgTwEnd,"XMLI","",pcgMsgNoForACK,"",pclRecvBuffer,"","",NETOUT_NO_ACK);
+                                if (ilRC == RC_SUCCESS)
+                                {
+                                     dbg(DEBUG,"<%s>SendCedaEvent<%d> executes successfully",pclFunc,igModID_Rcvr);
+                                }
+                                else
+                                {
+                                    dbg(TRACE,"<%s>SendCedaEvent<%d> executes unsuccessfully",pclFunc,igModID_Rcvr);
+                                }
+                                /* return RC_SUCCESS; */
+                            }
+                        }
+
                         ilRC = RC_SUCCESS;
                         GetServerTimeStamp( "UTC", 1, 0, pcgRcvHeartBeatExpTime);
                         AddSecondsToCEDATime(pcgRcvHeartBeatExpTime, igHeartBeatTimOut, 1);
-		          }
-		          else if( ilNo == 0 )
-			      {
-					    // dbg(DEBUG,"<%s>Received empty msg",pclFunc);
-					    ilRC = RC_SUCCESS;
-                        //GetServerTimeStamp( "UTC", 1, 0, pcgRcvHeartBeatExpTime);
-                        //AddSecondsToCEDATime(pcgRcvHeartBeatExpTime, igHeartBeatTimOut, 1);
-				  }
-					//sleep(1);
+                    }
+                    else if( ilNo == 0 )
+                    {
+                        ilRC = RC_SUCCESS;
+                    }
 				}
 		    }
 			break;
@@ -1853,10 +1734,7 @@ static int Receive_data(int ipSock,int ipTimeOut)
 
                 igSckTryACKCnt++;
                 if (igSock <= 0)
-                {
-                    //informPeer();
-                    ilRC = Sockt_Reconnect();
-                }
+                   ilRC = Sockt_Reconnect();
 
                 if (igSock > 0)
                 {
@@ -1869,23 +1747,11 @@ static int Receive_data(int ipSock,int ipTimeOut)
        }
        else
        {
-           dbg(DEBUG,"%s ++++++++++Resending three times fail ++++++++++",pclFunc);
+       		dbg(DEBUG,"%s ++++++++++Resending three times fail ++++++++++",pclFunc);
 
            igSckWaitACK = FALSE;
            igSckTryACKCnt = 0;
            ilRC = SendCedaEvent(igModID_ConMgr,0,mod_name,"CEDA",pcgTwStart,pcgTwEnd,"NACK","","","","","","",NETOUT_NO_ACK);
-
-           nap(igConDly);
-           /*
-            if (igDropTheOther == TRUE)
-            {
-                //fya 20140724
-                ilRC = SendCedaEvent(igModID_ConSTB,0,mod_name,"CEDA",pcgTwStart,pcgTwEnd,"RCON","","","","","","",NETOUT_NO_ACK);
-                nap(igConDly);
-            }
-            */
-            //informPeer();
-
            ilRC = Sockt_Reconnect();
            GetServerTimeStamp( "UTC", 1, 0, pcgSckWaitACKExpTime);
            AddSecondsToCEDATime(pcgSckWaitACKExpTime, igSckACKCWait, 1);
@@ -1895,9 +1761,6 @@ static int Receive_data(int ipSock,int ipTimeOut)
     if (strcmp(pclCurrentTime, pcgRcvHeartBeatExpTime) >= 0)
     {
        dbg(DEBUG,"Current Time<%s>, Heartbeat Exp Rec Time<%s>", pclCurrentTime, pcgRcvHeartBeatExpTime);
-
-       //informPeer();
-
        (void) Sockt_Reconnect();
     }
     return ilRC;
@@ -1919,26 +1782,32 @@ int OpenServerSocket()
 	}
 	else // Create socket
 	{
-		ilRC = tcp_socket(&igSock);
+	    if( strcmp(pcgConnType,"tcp") == 0 )
+	    {
+            ilRC = tcp_socket(&igSock);
+	    }
+	    else if( strcmp(pcgConnType,"udp") == 0 )
+	    {
+            ilRC = udp_socket(&igSock);
+	    }
 
-		if(ilRC == RC_FAIL || igSock <= 0)
-		{
-			dbg(TRACE,"<%s>tcp_socket return RC_FAIL: Error code<%d>description<%s>",pclFunc,errno,strerror(errno));
-			ilRC = RC_FAIL;
-		}
-		else
-		{
-			FD_ZERO( &readfds );
-			FD_ZERO( &writefds );
-			FD_ZERO( &exceptfds );
-			FD_SET( igSock, &readfds );
-			FD_SET( igSock, &writefds );
-			FD_SET( igSock, &exceptfds );
-			dbg(TRACE,"<%s>:Socket opened successfully, igSock<%d>",pclFunc,igSock);
-			ilRC = RC_SUCCESS;
-		}
+	    if(ilRC == RC_FAIL || igSock <= 0)
+        {
+            dbg(TRACE,"<%s>tcp_socket return RC_FAIL: Error code<%d>description<%s>",pclFunc,errno,strerror(errno));
+            ilRC = RC_FAIL;
+        }
+        else
+        {
+            FD_ZERO( &readfds );
+            FD_ZERO( &writefds );
+            FD_ZERO( &exceptfds );
+            FD_SET( igSock, &readfds );
+            FD_SET( igSock, &writefds );
+            FD_SET( igSock, &exceptfds );
+            dbg(TRACE,"<%s>:Socket opened successfully, igSock<%d>",pclFunc,igSock);
+            ilRC = RC_SUCCESS;
+        }
 	}
-
 	return ilRC;
 }/* end OpenServerSocket */
 
@@ -1946,128 +1815,76 @@ static void my_alarm()
 {
 }
 
-static int tcp_socket(int	*ilAcceptSocket)
+static int udp_socket(int *ilAcceptSocket)
 {
-	int ilRc = RC_SUCCESS;
-	char *pclFunc = "tcp_socket";
+    int ilRc = RC_SUCCESS;
+    char *pclFunc = "udp_socket";
+    int ilUdpfd = 0;
+    struct sigaction act_alarm;
+    struct sigaction act_default;
 
-	int ilTcpfd = 0;
-	//int ilAttempts = 0;
+    dbg( TRACE,"<%s>Going to run UDP(Client) connecting to IP<%s> at PORT<%s>",pclFunc,pcgIP,pcgPort);
 
-	//Frank 20130107
-  //int ilMaxAttempt = 5;
+    act_alarm.sa_handler = my_alarm;
+    sigemptyset( &act_alarm.sa_mask );
+    act_alarm.sa_flags = 0;
+    sigaction( SIGALRM, &act_alarm, &act_default );
 
-  int ilOn = 1;
-
-  int ilFound = 0;
-  int ili = 0;
-
-  struct sockaddr_in rlSin;
-  struct linger rlLinger;
-
-  char pclMessage[2000] = "\0";
-
-  struct sigaction act_alarm;
-  struct sigaction act_default;
-
-  int ilProcessId = 0;
-
-  //Frank 20130107
-  //ilMaxAttempt = igReconMax;
-
-  dbg( TRACE,"<%s>Going to run TCP(Client) connecting to IP<%s> at PORT<%s>",pclFunc,pcgIP,pcgPort);
-
-  act_alarm.sa_handler = my_alarm;
-  sigemptyset( &act_alarm.sa_mask );
-  act_alarm.sa_flags = 0;
-  sigaction( SIGALRM, &act_alarm, &act_default );
-
-  ilTcpfd = socket( AF_INET, SOCK_STREAM, PF_UNSPEC );
-  if( ilTcpfd <= 0 )
-  {
-     dbg( TRACE,"<%s>Unable to create socket! ERROR!",pclFunc);
-     return RC_FAIL;
-  }
-  else
-  {
-  	dbg( TRACE,"<%s>Socket created ilTcpfd<%d>",pclFunc,ilTcpfd);
-  }
-
-  //TRYAGAIN:	ilAttempts = 0;
-
-  //Frank 20130107
-	//while(ilAttempts < ilMaxAttempt )
-	//{
-		alarm(CONNECT_TIMEOUT);
-		//ilRc = connect( ilTcpfd, (struct sockaddr *)&rlSin, sizeof(rlSin) );
-		ilRc = tcp_open_connection(ilTcpfd, pcgPort , pcgIP );
-		alarm(0);
-
-		/*
-		if(ilRc < 0)
-		{
-			ilAttempts++;
-    	dbg( TRACE,"<%s>Error code<%d> Description<%s> in connect to server!! Number of attempt = %d",pclFunc,errno,strerror(errno), ilAttempts );
-    	sleep( 1 );
-    }
-    else if(ilRc == RC_SUCCESS)
+    ilUdpfd = socket( AF_INET, SOCK_DGRAM, 0);
+    if( ilUdpfd <= 0 )
     {
-    	break;
+        dbg( TRACE,"<%s>Unable to create socket! ERROR!",pclFunc);
+        return RC_FAIL;
     }
-    */
-	//}
-
-	//Pay attention to this line
-	(*ilAcceptSocket) = ilTcpfd;
-
-	return ilRc;
-
-	//Frank 20130107
-	/*
-	if( ilAttempts >= ilMaxAttempt )
-  {
-  	dbg( TRACE,"<%s>Still cannot connect! EXIT!!",pclFunc );
-  	return RC_FAIL;
-  	//exit( -5 );
-  }
-  else
-  {
-  */
-
-  /*
-	if(ilRc == RC_SUCCESS)
-	{
-  	dbg( TRACE,"<%s>Connection is established successfully ilTcpfd<%d>*ilAcceptSocket<%d>", pclFunc,ilTcpfd,*ilAcceptSocket );
-  	dbg(TRACE,"%s Sending Batch file to hwepde",pclFunc);
-
-    ilProcessId = tool_get_q_id ("hwepde");
-    if ((ilProcessId == RC_FAIL) || (ilProcessId == RC_NOT_FOUND))
-	  {
-	    dbg(TRACE,"%s: ====== ERROR ====== hwepde Mod Id not found",pclFunc);
-	  }
     else
     {
-    	if(ilProcessId != 0)
-			{
-    		SendCedaEvent(ilProcessId,0,mod_name,mod_name," "," ","BAT","","",
-              "","","",3,NETOUT_NO_ACK);
+        dbg( TRACE,"<%s>Socket created ilUdpfd<%d>",pclFunc,ilUdpfd);
+    }
 
-        dbg(TRACE,"%s SendCedaEvent1 has executed,send to<%d>",pclFunc,ilProcessId);
-			}
-			else
-			{
-				dbg(TRACE,"%s ilProcessId<%d>==0",pclFunc,ilProcessId);
-			}
-  	}
-  	return RC_SUCCESS;
-  }
-  else
-  {
-  	return RC_FAIL;
-  }
-  */
-  	//Frank 20130107
-  //}
+    alarm(CONNECT_TIMEOUT);
+    ilRc = udp_open_connection(ilUdpfd, pcgPort , pcgIP );
+    alarm(0);
+
+    //Pay attention to this line
+    (*ilAcceptSocket) = ilUdpfd;
+
+    return ilRc;
+}
+
+static int tcp_socket(int	*ilAcceptSocket)
+{
+    int ilRc = RC_SUCCESS;
+    char *pclFunc = "tcp_socket";
+    int ilTcpfd = 0;
+    struct sigaction act_alarm;
+    struct sigaction act_default;
+
+    dbg( TRACE,"<%s>Going to run TCP(Client) connecting to IP<%s> at PORT<%s>",pclFunc,pcgIP,pcgPort);
+
+    act_alarm.sa_handler = my_alarm;
+    sigemptyset( &act_alarm.sa_mask );
+    act_alarm.sa_flags = 0;
+    sigaction( SIGALRM, &act_alarm, &act_default );
+
+    ilTcpfd = socket( AF_INET, SOCK_STREAM, PF_UNSPEC );
+    if( ilTcpfd <= 0 )
+    {
+        dbg( TRACE,"<%s>Unable to create socket! ERROR!",pclFunc);
+        return RC_FAIL;
+    }
+    else
+    {
+        dbg( TRACE,"<%s>Socket created ilTcpfd<%d>",pclFunc,ilTcpfd);
+    }
+
+    alarm(CONNECT_TIMEOUT);
+    ilRc = tcp_open_connection(ilTcpfd, pcgPort , pcgIP );
+    alarm(0);
+
+    //Pay attention to this line
+    (*ilAcceptSocket) = ilTcpfd;
+
+    return ilRc;
 }
 
 /* ***************************************************************** */
@@ -2077,7 +1894,8 @@ static int tcp_socket(int	*ilAcceptSocket)
 static void CloseTCP()
 {
 	int ilRc = RC_SUCCESS;
-	dbg(DEBUG,"CloseTCP is called,igSock<%d>",igSock);
+	char *pclFunc = "CloseTCP";
+	dbg(DEBUG,"%s is called,igSock<%d>",pclFunc, igSock);
 
 	if (igSock > 0)
 	{
@@ -2091,10 +1909,34 @@ static void CloseTCP()
 		igMsgNoForACK = 0;
 		igMsgNo = 0;
 		ilRc = close(igSock);
-		dbg(TRACE,"CloseTCP: connection closed!ilRc<%d>",ilRc);
+		dbg(TRACE,"%s: connection closed!ilRc<%d>",pclFunc, ilRc);
 	}
 } /* end of CloseTCP() */
 
+static void CloseUDP(char *pcpCaller)
+{
+	int ilRc = RC_SUCCESS;
+	char *pclFunc = "CloseUDP";
+	dbg(DEBUG,"%s is called, @@Caller<%s>, igSock<%d>",pclFunc, pcpCaller, igSock);
+
+	if (igSock > 0)
+	{
+		FD_CLR( igSock, &readfds );
+		FD_CLR( igSock, &writefds );
+		FD_CLR( igSock, &exceptfds );
+		FD_ZERO( &readfds );
+		FD_ZERO( &writefds );
+		FD_ZERO( &exceptfds );
+		igMsgNoForHeartbeat=0;
+		igMsgNoForACK = 0;
+		igMsgNo = 0;
+
+        ilRc = resetUDP(igSock, pcgPort , pcgIP);
+        dbg(TRACE,"resetUDP: connection reset, ilRc<%d>",ilRc);
+		ilRc = close(igSock);
+		dbg(TRACE,"%s: connection closed!ilRc<%d>",pclFunc,ilRc);
+	}
+} /* end of CloseUDP() */
 
 /* **************************************************************** */
 /* The snapit routine                                               */
@@ -2209,7 +2051,7 @@ static int CheckValue(char *pcpEntry,char *pcpValue,int ipType)
 /* The Send_data routine                                            */
 /* Sends telegrams to the GOS-system                                */
 /* **************************************************************** */
-static int Send_data(int ipSock,char *pcpData)
+static int Send_data(int ipSock, char *pcpData)
 {
 	int ilRc = RC_SUCCESS;
 	int ilBytes = 0;
@@ -2221,12 +2063,7 @@ static int Send_data(int ipSock,char *pcpData)
 	BOOL blKeepSuffix = FALSE;
 	int ilFound = 0;
 	static char	pclSendBuffer[BUFF];
-        char pclTmpStr[12] = "\0";
-
-	struct timeval rlTimeout;
-
-    rlTimeout.tv_sec = 2;  /* blocked for 5 seconds */
-    rlTimeout.tv_usec = 0;  /* blocked for 0 useconds */
+    char pclTmpStr[12] = "\0";
 
 	ilBytes = strlen(pcpData);
 
@@ -2241,11 +2078,20 @@ static int Send_data(int ipSock,char *pcpData)
     if (strstr(pclSendBuffer,"heartbeat") == 0)
         dbg(DEBUG,"Send_data: Mesg sent (%s)", pclSendBuffer );
 
-	if (ipSock > 0 && strlen(pclSendBuffer)!=0)
+	if (ipSock > 0 && strlen(pclSendBuffer) != 0)
 	{
 		errno = 0;
 		alarm(WRITE_TIMEOUT);
-		ilRc = write(ipSock,pclSendBuffer,ilBytes);
+        if( strcmp(pcgConnType,"tcp") == 0 )
+        {
+            ilRc = write(ipSock,pclSendBuffer,ilBytes);
+        }
+        else if( strcmp(pcgConnType,"udp") == 0 )
+        {
+            /*Since connect() is also used in UDP, then read() is adopted instead of recvfrom() with IP and port info*/
+            /*SendUDPMessage(pcgIP, pcgPort, pclSendBuffer);*/
+            ilRc = write(ipSock,pclSendBuffer,ilBytes);
+        }
 		alarm(0);
 
 		if (ilRc == -1)
@@ -2255,38 +2101,26 @@ static int Send_data(int ipSock,char *pcpData)
 				dbg(TRACE,"Send_data: Write failed: Socket <%d>! <%d>=<%s>",ipSock,errno,strerror(errno));
 				ilRc = RC_FAIL;
 			}
-      else
-      {
-         bgAlarm = FALSE;
-         ilRc = RC_SENDTIMEOUT;
-      }
-      //CloseTCP();
-      //igSock = 0;
+            else
+            {
+                bgAlarm = FALSE;
+                ilRc = RC_SENDTIMEOUT;
+            }
 		}
 		else
 		{
 			dbg(DEBUG,"Send_data: wrote succeed",ilRc,ipSock);
 			ilRc = RC_SUCCESS;
 		}
-  }
-  else
-  {
-		dbg(TRACE,"Send_data: No connection! Can't send!");
-		ilRc = RC_FAIL;
-  }
+    }
+    else
+    {
+        dbg(TRACE,"Send_data: No connection! Can't send!");
+        ilRc = RC_FAIL;
+    }
 
   return ilRc;
 } /* end of Send_data */
-
-/* **************************************************************** */
-/* The Send_KeepAlive routine                                       */
-/* To be implemented in the future                                  */
-/* **************************************************************** */
-
-static int SendKeepAliveMsg()
-{
-	return RC_SUCCESS;
-} /* end of SendKeepAliveMsg() */
 
 /* **************************************************************** */
 /* The Send Ack routine                                             */
@@ -2380,18 +2214,34 @@ static int Sockt_Reconnect(void)
     igConnectionNo++;
 
     igOldCnnt = igConnected;
-    CloseTCP();
+
+    if( strcmp(pcgConnType,"tcp") == 0 )
+    {
+        CloseTCP();
+    }
+    else if( strcmp(pcgConnType,"udp") == 0 )
+    {
+        CloseUDP("Sockt_Reconnect");
+    }
+
     igSock = 0;
 	dbg(TRACE,"Keep trying to connect <%s><%s>",pcgIP,pcgPort);
-//    for (ilCount = 0; ilCount < igReconMax; ilCount++)
+    //for (ilCount = 0; ilCount < igReconMax; ilCount++)
 	//{
 	 	 ilRc = OpenServerSocket();
 		 dbg(DEBUG,"ilRc<%d>",ilRc);
 		 ilCount++;
 	 	 if (ilRc != RC_SUCCESS)
          {
-             CloseTCP();
-             igSock = 0;
+            if( strcmp(pcgConnType,"tcp") == 0 )
+            {
+                CloseTCP();
+            }
+            else if( strcmp(pcgConnType,"udp") == 0 )
+            {
+                CloseUDP("Sockt_Reconnect");
+            }
+            igSock = 0;
          }
 	//}
 
@@ -2424,65 +2274,56 @@ static int Sockt_Reconnect(void)
 
    dbg(DEBUG," %s pcgReconExpTime<%s>Heartbeat Exp Rec Time<%s> igHeartBeatTimOut<%d>", pclFunc,pcgReconExpTime,pcgRcvHeartBeatExpTime,igHeartBeatTimOut);
 
-   //Frank 20130107
-   //dbg(TRACE,"%s Getting the XMLO command from %s IPC que",pclFunc,mod_name);
-   //GetFromQue();
-
 	return ilRc;
 }
 
-/*
-static int Sockt_Reconnect(void)
+static int udp_open_connection (int socket, char *Pservice, char *Phostname)
 {
-	int ilRc = RC_SUCCESS;
-	int ilQueRc = RC_SUCCESS;
-    int ilCount = 0;
-    igOldCnnt = igConnected;
-    CloseTCP();
-    igSock = 0;
-	dbg(TRACE,"Keep trying to connect <%s><%s>",pcgIP,pcgPort);
-    for (ilCount = 0; ilCount < igReconMax; ilCount++)
-	{
-	 	 ilRc = OpenServerSocket();
-		 dbg(DEBUG,"ilRc<%d>",ilRc);
-		 ilCount++;
-	 	 if(ilRc == RC_SUCCESS)
-             break;
-         else
-             CloseTCP();
-         sleep(1);
-	}
+    int rc=RC_FAIL;
+    int i = 0;
+    struct hostent *hp;
+    struct sockaddr_in dummy;
+    int serr=0;
+    struct servent *sp;
+    char *pclFunc = "udp_open_connection";
 
-	if(ilRc == RC_SUCCESS)
+    if (( hp = gethostbyname( Phostname)) == NULL )
     {
-        dbg(TRACE,"ilCount[%d]igSock<%d>, connection success",ilCount,igSock);
-        igConnected = TRUE;
-    }
-	else
-    {
-        dbg(TRACE,"ilCount[%d]igSock<%d>, connection fails",ilCount,igSock);
-        igConnected = FALSE;
+        dbg(TRACE,"%s: ERROR gethostbyname(%s): %s",pclFunc, Phostname, strerror(errno));
+        return RC_FAIL;
     }
 
-    if (igOldCnnt != igConnected)
+    dbg(DEBUG,"%s: got hostname %s", pclFunc,Phostname);
+
+    if (( sp = getservbyname(Pservice, NULL) ) == NULL )
     {
-        if (igConnected == TRUE)
-	        ilQueRc = SendCedaEvent(igModID_ConMgr,0,mod_name,"CEDA",pcgTwStart,pcgTwEnd,"CONX","","","","","","",NETOUT_NO_ACK);
-        else
-	        ilQueRc = SendCedaEvent(igModID_ConMgr,0,mod_name,"CEDA",pcgTwStart,pcgTwEnd,"DROP","","","","","","",NETOUT_NO_ACK);
+        dbg(TRACE,"%s: ERROR getservbyname(%s): %s",pclFunc, Pservice, strerror(errno) );
+        return RC_FAIL;
     }
-    GetServerTimeStamp( "UTC", 1, 0, pcgReconExpTime);
-    AddSecondsToCEDATime(pcgReconExpTime, igReconIntv, 1);
-	return ilRc;
-}
-*/
+
+    dbg(DEBUG,"%s: got service %s", pclFunc, Pservice);
+
+    dummy.sin_port = sp->s_port;
+    memcpy((char *) &dummy.sin_addr, *hp->h_addr_list, hp->h_length);
+    dummy.sin_family = AF_INET;
+
+    rc = connect(socket, (struct sockaddr *) &dummy, sizeof(dummy));
+    if (rc < 0)
+    {
+        dbg(TRACE,"%s: ERROR while connect: %s", pclFunc, strerror(errno));
+        return RC_FAIL;
+    }
+
+    dbg(DEBUG,"%s: got udp server connection",pclFunc);
+    return RC_SUCCESS;
+} /* end of udp_open_connection */
 
 static int tcp_open_connection (int socket, char *Pservice, char *Phostname)
 {
   int rc=RC_FAIL;
   int i = 0;
   struct hostent *hp;
-  struct sockaddr_in    dummy;
+  struct sockaddr_in dummy;
   int serr=0;
   struct servent *sp;
 
@@ -2511,8 +2352,7 @@ static int tcp_open_connection (int socket, char *Pservice, char *Phostname)
   rc = connect(socket, (struct sockaddr *) &dummy, sizeof(dummy));
   if (rc < 0)
   {
-    dbg(TRACE,"tcp_open_connection: ERROR while connect: %s",
-               strerror(errno));
+    dbg(TRACE,"tcp_open_connection: ERROR while connect: %s",strerror(errno));
     return RC_FAIL;
   }
 
@@ -2520,7 +2360,6 @@ static int tcp_open_connection (int socket, char *Pservice, char *Phostname)
   return RC_SUCCESS;
 
 } /* end of tcp_open_connection */
-
 
 static void GetFromQue()
 {
@@ -2663,39 +2502,116 @@ static int FindMsgId(char *pcpData, char *pcpMsgId, int Mode)
     char *pclMsgIdEnd=NULL;
     int ilMsgId = 0;
 
-    if (Mode == 1)
-        sprintf(pclKeyFnd, "acknowledge messageId=");
-    else
-        sprintf(pclKeyFnd, "messageId=");
-
-    ilMsgId = 0;
-    pclMsgIdBgn = strstr(pcpData, pclKeyFnd);
-    if (pclMsgIdBgn != NULL)
+    if (strstr(pcpData,"IED") == 0)
     {
-        pclMsgIdBgn += strlen(pclKeyFnd)+1;
-        pclMsgIdEnd = strstr(pclMsgIdBgn, "\"");
-        if ((pclMsgIdBgn != NULL) && (pclMsgIdEnd >= pclMsgIdBgn))
+        if (Mode == 1)
+            sprintf(pclKeyFnd, "acknowledge messageId=");
+        else
+            sprintf(pclKeyFnd, "messageId=");
+
+        ilMsgId = 0;
+        pclMsgIdBgn = strstr(pcpData, pclKeyFnd);
+        if (pclMsgIdBgn != NULL)
         {
-            strncpy(pclTmpBuf, pclMsgIdBgn,(pclMsgIdEnd - pclMsgIdBgn));
-            pclTmpBuf[pclMsgIdEnd - pclMsgIdBgn] = '\0';
-            ilMsgId = atoi(pclTmpBuf);
-            dbg(DEBUG,"<%s> Received the message id <%d>",pclFunc, ilMsgId);
+            pclMsgIdBgn += strlen(pclKeyFnd)+1;
+            pclMsgIdEnd = strstr(pclMsgIdBgn, "\"");
+            if ((pclMsgIdBgn != NULL) && (pclMsgIdEnd >= pclMsgIdBgn))
+            {
+                strncpy(pclTmpBuf, pclMsgIdBgn,(pclMsgIdEnd - pclMsgIdBgn));
+                pclTmpBuf[pclMsgIdEnd - pclMsgIdBgn] = '\0';
+                ilMsgId = atoi(pclTmpBuf);
+                dbg(DEBUG,"<%s> Received the message id <%d>",pclFunc, ilMsgId);
+            }
         }
+
+        sprintf(pcpMsgId, "%d", ilMsgId);
     }
-    sprintf(pcpMsgId, "%d", ilMsgId);
+    else
+    {
+        strncpy(pcpMsgId,pcpData+3,2);
+    }
+
 	return ilRC;
 }
 
-static void informPeer(void)
+static void buildHB_message(char *pcpDataBuf,char *pcpKeepAliveFormat, char *pcpHB_Header,int ipObjID,int ipMsgID, int ipMsgNoForHeartbeat)
 {
-    int ilRC = RC_SUCCESS;
-    char pclFunc[] = "informPeer";
-    dbg(TRACE,"%s Inform the peer in reconnection",pclFunc);
+	char *pclFunc = "buildHB_message";
+	sprintf(pcpDataBuf,pcpKeepAliveFormat,pcpHB_Header,ipObjID,ipMsgID,ipMsgNoForHeartbeat);
 
-    if (igDropTheOther == TRUE)
+	dbg(TRACE,"%s pcpHB_Header<%s> Message<%s>",pclFunc, pcpHB_Header, pcpDataBuf);
+}
+
+static void SendUDPMessage(char *pIP, int pPort, char *pMessage)
+{
+	int sockfd;
+	struct sockaddr_in their_addr;
+	struct hostent *he;
+	int numbytes;
+
+	if ((he = gethostbyname(pIP)) == NULL)
+	{
+		dbg(TRACE,"SendUDPMessage: gethostbyname error");
+		return;
+	}
+
+	if((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1)
+	{
+		dbg(TRACE,"SendUDPMessage: create socket error");
+		close(sockfd);
+		return;
+	}
+
+	their_addr.sin_family = AF_INET;
+	/* short, network byte order */
+	their_addr.sin_port = htons(pPort);
+	their_addr.sin_addr = *((struct in_addr *)he->h_addr);
+
+	/* zero the rest of the struct */
+	memset(&(their_addr.sin_zero), '\0', 8);
+
+	if((numbytes = sendto(sockfd, pMessage, strlen(pMessage), 0, (struct sockaddr *)&their_addr, sizeof(struct sockaddr))) == -1)
+	{
+		dbg(TRACE,"SendUDPMessage: Send Message error");
+	}
+	close(sockfd);
+}
+
+static int resetUDP(int socket, char *Pservice, char *Phostname)
+{
+    int rc=RC_FAIL;
+    int i = 0;
+    struct hostent *hp;
+    struct sockaddr_in dummy;
+    int serr=0;
+    struct servent *sp;
+    char *pclFunc = "resetUDP";
+
+    if (( hp = gethostbyname( Phostname)) == NULL )
     {
-        //fya 20140724
-        ilRC = SendCedaEvent(igModID_ConSTB,0,mod_name,"CEDA",pcgTwStart,pcgTwEnd,"RCON","","","","","","",NETOUT_NO_ACK);
-        nap(igConDly);
+        dbg(TRACE,"%s: ERROR gethostbyname(%s): %s",pclFunc, Phostname, strerror(errno));
+        return RC_FAIL;
     }
+    dbg(DEBUG,"%s: got hostname %s", pclFunc,Phostname);
+    if (( sp = getservbyname(Pservice, NULL) ) == NULL )
+    {
+        dbg(TRACE,"%s: ERROR getservbyname(%s): %s",pclFunc, Pservice, strerror(errno) );
+        return RC_FAIL;
+    }
+    dbg(DEBUG,"%s: got service %s", pclFunc, Pservice);
+
+    dummy.sin_port = sp->s_port;
+    memcpy((char *) &dummy.sin_addr, *hp->h_addr_list, hp->h_length);
+    dummy.sin_family = AF_UNSPEC;
+
+	dbg(TRACE,"%s Set socket sin_famliy as AF_UNSPEC",pclFunc);
+    rc = connect(socket, (struct sockaddr *) &dummy, sizeof(dummy));
+    if (rc < 0)
+    {
+        dbg(TRACE,"%s: ERROR reset connect: %s", pclFunc, strerror(errno));
+        return RC_FAIL;
+    }
+
+    dbg(DEBUG,"%s: got udp server connection",pclFunc);
+    return RC_SUCCESS;
 }

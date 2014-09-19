@@ -1,4 +1,4 @@
-#include "test.h"
+#include "stack.h"
 
 int main(int argc, char *argv[])
 {
@@ -13,10 +13,14 @@ int main(int argc, char *argv[])
 
     /*1 read spreadsheet*/
     readSpreadsheet(argv[1], &rgFile);
-
     buildArray(rgFile.rlLine[0].pclLine, &rgSpec);
+    storeID(&rgFile, rgSpec);
 
+    calculateValue(&rgFile, rgSpec);
+
+    /*
     initArray(rgSpec);
+    */
 
     #if 0
     #endif
