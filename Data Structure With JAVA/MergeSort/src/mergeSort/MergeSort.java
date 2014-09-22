@@ -5,6 +5,7 @@ public class MergeSort
 	public static void main(String[] arg)
 	{
 		int[] a = {77, 44, 99, 66, 33, 55, 88, 22};
+		System.out.println("length:"+a.length);
 		sort(a);
 		print(a);
 	}
@@ -39,7 +40,7 @@ public class MergeSort
 		int [] tmp = new int[q-p];
 		while(i < m && j < q)
 		{
-			tmp[k++] = a[i] < a[j]?a[i++]:a[j++];
+			tmp[k++] = a[i] < a[j] ? a[i++] : a[j++];
 		}
 		System.arraycopy(a,i,a,p+k,m-i);
 		System.arraycopy(tmp,0,a,p,k);
