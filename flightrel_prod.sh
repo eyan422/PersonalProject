@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/bash
 
 # 20130821 - this is required for alias use in non-interactive shell
 # 20130910 - add pause between cput's
@@ -12,7 +12,7 @@ shopt -s expand_aliases
 #3>Check the number of URNO sent to BRS under /ceda/tmp/Count_resultXXX.txt  
 
 # Setup Environment
-#. /ceda/etc/OracleEnv
+. /ceda/etc/OracleEnv
 . /ceda/etc/UfisEnvCron
 . /ceda/etc/UfisEnv
 cd /ceda/etc
@@ -21,7 +21,7 @@ alias sql="sqlplus -s $CEDADBUSER/$CEDADBPW"
 
 
 COUNT_DATE=0
-TOTAL_DATE_NUM=2
+TOTAL_DATE_NUM=6
 COUNT_RECORDS=0
 
 rm /ceda/tmp/CountStar.txt

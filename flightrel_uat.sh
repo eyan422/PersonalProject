@@ -1,19 +1,17 @@
-#!/bin/bash
+#!/usr/bin/bash
 
 # 20130821 - this is required for alias use in non-interactive shell
-# 20130910 - add pause between cput's
-# 20130911 - add cput's "timeout" argument to the command itself.
+# 20130911 - add sleep after cput, and add timeout parameter to cput itself
 
 shopt -s expand_aliases
 
 #Usage:
 #1>Modify this file's privilage using "chmod 777 SendRecordToBRS.sh"
-#2>Check the URNOs sent to BRS under /ceda/tmp/resultXXX.txt
-#3>Check the number of URNO sent to BRS under /ceda/tmp/Count_resultXXX.txt  
+#2>Check the number of URNO sent to BRS under /ceda/tmp/Count_resultXXX.txt  
 
 # Setup Environment
 #. /ceda/etc/OracleEnv
-. /ceda/etc/UfisEnvCron
+#. /ceda/etc/UfisEnvCron
 . /ceda/etc/UfisEnv
 cd /ceda/etc
 
@@ -21,7 +19,7 @@ alias sql="sqlplus -s $CEDADBUSER/$CEDADBPW"
 
 
 COUNT_DATE=0
-TOTAL_DATE_NUM=2
+TOTAL_DATE_NUM=6
 COUNT_RECORDS=0
 
 rm /ceda/tmp/CountStar.txt
@@ -119,9 +117,9 @@ EOF
 
 		#URNO=`echo $VALUE | cut -d " " $FIELD`
 			echo URNO=$URNO >> /ceda/tmp/LogAndURNO_List.txt
-
+		
 		if [ -n "$URNO" ];then
-			cput 0 flight UFR "URNO,FTYP" "$URNO,O" "WHERE URNO=$URNO" 7
+			cput 0 flight UFR "URNO,FTYP" "$URNO,O" "WHERE URNO=$URNO"  7
                         sleep 1
 		else
 			echo "URNO is null"

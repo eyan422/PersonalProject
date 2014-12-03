@@ -95,7 +95,7 @@ static EVENT *prgOutEvent  = NULL;
 
 static char cgProcessName[20] = "\0";
 static char  cgConfigFile[512] = "\0";
-extern char  cgHopo[8] = "\0";                         /* default home airport    */
+/*extern char  cgHopo[8] = "\0";*/                         /* default home airport    */
 static char  cgTabEnd[8] ="\0";                       /* default table extension */
 
 static long lgEvtCnt = 0;
