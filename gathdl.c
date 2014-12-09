@@ -223,6 +223,9 @@ static char	pcgSeparator[16] = "\0";
 extern char  cgHopo[8];
 static int igTimeWindowUpperLimit;
 static int igTimeWindowLowerLimit;
+
+static char pcgTimeWindowRefField_AFTTAB_Arr[8];
+static char pcgTimeWindowRefField_AFTTAB_Dep[8];
 /******************************************************************************/
 /* Function prototypes														  */
 /******************************************************************************/
@@ -1041,13 +1044,7 @@ static int HandleInternalData()
 	}
 	else if (strcmp(cmdblk->command,"UFR") == 0 || strcmp(cmdblk->command,"IFR") == 0 || strcmp(cmdblk->command,"DFR") == 0)
 	{
-		dbg(DEBUG,"<%s> %s command is received", pclFunc,cmdblk->command);
-
-		if( isInTimeWindow(pclTimeWindowRefFieldVal, pcgTimeWindowLowerLimit, pcgTimeWindowUpperLimit) == RC_FAIL )
-        {
-            return RC_FAIL;
-        }
-
+	    dbg(DEBUG,"<%s> %s command is received", pclFunc,cmdblk->command);
 		PutDefaultValue(&rlSentMsg);
 
 		/*Common Part->Getting data*/
@@ -1087,6 +1084,11 @@ static int HandleInternalData()
 		switch(pclAdidNewData[0])
 		{
 			case 'A':
+                if( isInTimeWindow(pcgTimeWindowRefField_AFTTAB_Arr, pcgTimeWindowLowerLimit, pcgTimeWindowUpperLimit) == RC_FAIL )
+                {
+                    return RC_FAIL;
+                }
+
 				strcpy(rlSentMsg.pclAdid,pclAdidNewData);
 
 				/*get GTA1*/
@@ -1100,6 +1102,11 @@ static int HandleInternalData()
 
 				break;
 			case 'D':
+                if( isInTimeWindow(pcgTimeWindowRefField_AFTTAB_Dep, pcgTimeWindowLowerLimit, pcgTimeWindowUpperLimit) == RC_FAIL )
+                {
+                    return RC_FAIL;
+                }
+
 				strcpy(rlSentMsg.pclAdid,pclAdidNewData);
 
 				/*get GTD1*/
@@ -1431,6 +1438,29 @@ static int GetConfig()
 	{
 		dbg(TRACE,"Port is not null<%s>",pcgPort);
 	}
+
+	ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","TIME_WINDOW_REFERENCE_FIELD_AFTTAB_ARR",CFG_STRING,pcgTimeWindowRefField_AFTTAB_Arr);
+    if (ilRC == RC_SUCCESS)
+    {
+        dbg(DEBUG,"pcgTimeWindowRefField_AFTTAB_Arr<%s>",pcgTimeWindowRefField_AFTTAB_Arr);
+    }
+    else
+    {
+        strcpy(pcgTimeWindowRefField_AFTTAB_Arr,"STOA");
+        dbg(DEBUG,"pcgTimeWindowRefField_AFTTAB_Arr<%s>",pcgTimeWindowRefField_AFTTAB_Arr);
+    }
+
+    ilRC = iGetConfigEntry(pcgConfigFile,"MAIN","TIME_WINDOW_REFERENCE_FIELD_AFTTAB_DEP",CFG_STRING,pcgTimeWindowRefField_AFTTAB_Dep);
+    if (ilRC == RC_SUCCESS)
+    {
+        dbg(DEBUG,"pcgTimeWindowRefField_AFTTAB_Dep<%s>",pcgTimeWindowRefField_AFTTAB_Dep);
+    }
+    else
+    {
+        strcpy(pcgTimeWindowRefField_AFTTAB_Dep,"STOD");
+        dbg(DEBUG,"pcgTimeWindowRefField_AFTTAB_Dep<%s>",pcgTimeWindowRefField_AFTTAB_Dep);
+    }
+
 	return RC_SUCCESS;
 } /* End of GetConfig() */
 
@@ -1641,96 +1671,6 @@ static int poll_q_and_sock()
 
 	return ilRc;
 } /* end of poll_q_and_sock() */
-
-static int SendHeartbeatMsg(char *pcpLastTimeSendingTime)
-{
-	int ilRC = RC_SUCCESS;
-	char pclFunc[] = "SendHeratbeatMsg:";
-	char pclFormatTime[128]="\0";
-	char pclDataBuf[L_BUFF];
-	int ilNumOfZero = 0;
-	int ilCount = 0;
-	char pclBuffer[33] = "\0";
-	char pclMsgNoForHeartbeat[32] = "\0";
-	char pclCurrentTime[64] = "\0";
-
-	memset(pclDataBuf,0,sizeof(pclDataBuf));
-	memset(pclMsgNoForHeartbeat,0,sizeof(pclMsgNoForHeartbeat));
-	/*FormatTime(pclFormatTime,pcpLastTimeSendingTime);*/
-
-	memset(pclCurrentTime,0x00,32);
-	GetServerTimeStamp( "UTC", 1, 0, pclCurrentTime );
-
-	if(igMsgNoForHeartbeat > 0)
-	{
-		if(itoa(igMsgNoForHeartbeat,pclBuffer,10) == NULL)
-		{
-			dbg(TRACE,"<%s> pclBuffer is null",pclFunc);
-		}
-		else
-		{
-			if (strlen(pclBuffer) < POS_LEN)
-            {
-                ilNumOfZero = POS_LEN - strlen(pclBuffer);
-                for(ilCount = 0; ilCount < ilNumOfZero; ilCount++)
-                {
-                    strcat(pclMsgNoForHeartbeat,"0");
-                }
-                strcat(pclMsgNoForHeartbeat,pclBuffer);
-            }
-            else if (strlen(pclBuffer) == POS_LEN)
-            {
-                strcpy(pclMsgNoForHeartbeat,pclBuffer);
-            }
-            else
-            {
-                strncpy(pclMsgNoForHeartbeat,pclBuffer,4);
-            }
-		}
-	}
-	else if(igMsgNoForHeartbeat == 0)
-	{
-		strcpy(pclMsgNoForHeartbeat,"0000");
-	}
-
-	dbg(DEBUG,"<%s> igMsgNoForHeartbeat<%d>pclBuffer<%s>pclMsgNoForHeartbeat<%s>",pclFunc,igMsgNoForHeartbeat,pclBuffer,pclMsgNoForHeartbeat);
-
-	dbg(DEBUG,"<%s>========================= START-HeartBeat ===============================",pclFunc);
-	/*dbg(DEBUG,"<%s> Send Heartbeat Msg pclFormatTime<%s>",pclFunc,pclFormatTime);*/
-
-	sprintf(pclDataBuf,pcgKeepAliveFormat,pclCurrentTime);
-	dbg(TRACE,"<%s> The length of sent data pclDataBuf is <%d>",pclFunc,strlen(pclDataBuf) - 1);
-	/*
-	sprintf(pclDataBuf,pcgKeepAliveFormat,pclMsgNoForHeartbeat,"ufis",pclCurrentTime,pclCurrentTime);
-	dbg(DEBUG,"<%s> Send Ack Msg MsgNoForACK - pclMsgNoForHeartbeat<%s> pclCurrentTime<%s> strlen(pclDataBuf) - 1 <%d>",pclFunc,pclMsgNoForHeartbeat,pclCurrentTime,strlen(pclDataBuf)-1);
-	*/
-
-	if(igMsgNoForHeartbeat == 9999)
-    {
-		igMsgNoForHeartbeat = 0;
-    }
-
-    /*sprintf(pclDataBuf,pcgKeepAliveFormat,pclFormatTime);*/
-    igMsgNoForHeartbeat++;
-
-	ilRC = Send_data(igSock,pclDataBuf);
-
-	if(ilRC == RC_SUCCESS)
-	{
-		dbg(TRACE,"<%s> HeartBeat sending successfully,pclDataBuf<\n%s>",pclFunc,pclDataBuf);
-	}
-	else if(ilRC == RC_SENDTIMEOUT)
-	{
-		dbg(TRACE,"<%s> HeartBeat sending timeout",pclFunc);
-	}
-	else if(ilRC == RC_FAIL)
-	{
-		dbg(TRACE,"<%s>HeartBeat sending fails",pclFunc);
-	}
-	dbg(DEBUG,"<%s>========================= END-HeartBeat ================================",pclFunc);
-
-	return ilRC;
-} /* end of SendHeratbeatMsg() */
 
 void FormatTime(char *pcpTime, char *pcpLastTimeSendingTime)
 {
