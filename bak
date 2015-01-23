@@ -1,0 +1,65 @@
+#!/bin/ksh
+:
+###########################################################################
+#
+# bak
+#
+# copy file to bak-folder
+#
+# Usage:        tool
+#
+# Type:         shell
+#
+# Uses:         -
+#
+# Input:        -
+#
+# Output:       -
+#
+# HISTORY
+# 20030807      SHA     First Version based on HKR 
+#                       Added comments, check filename, create directory
+#
+###########################################################################
+RIGHTS='(c) 2000,2001 ABB Airport Technologies GmbH'
+###########################################################################
+VERSION='2.0-20010720'
+###########################################################################
+
+
+# CORRECT NUMBER OF PARAMETERS ? ########################
+if [ $# -lt 1 ]
+ then
+  echo " "
+  echo "USAGE: bak filename"
+  echo " "
+  exit -1
+fi
+
+if [ ! -f $1 ]
+ then
+  echo "SOURCE FILE DOSEN'T EXIST !"
+  echo " "
+  exit -1
+fi
+
+if [ ! -d "Old" ]
+ then
+  mkdir Old
+fi
+
+
+WHO=`pwd`
+NOW=`date +%y%m%d%H%M`
+NOW2=`date +%Y%m%d%H%M%S`
+
+DATEI=$1
+cp $DATEI $WHO/Old/$DATEI"_"$NOW2
+
+echo " "
+echo "Copied file $DATEI to $WHO/Old as $DATEI"_"$NOW2"
+echo " "
+
+# END OF SCRIPT
+###########################################################################
+
