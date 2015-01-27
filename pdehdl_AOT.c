@@ -2455,8 +2455,8 @@ static int HandleData(EVENT *prpEvent) {
     strcpy(pcgTwStart, prlCmdblk->tw_start);
     strcpy(pcgTwEnd, prlCmdblk->tw_end);
 
-	if(checkHopo(pcgTwEnd, cgHopo) == RC_FAIL)
-		return RC_FAIL;
+	/*if(checkHopo(pcgTwEnd, cgHopo) == RC_FAIL)
+		return RC_FAIL;*/
 
     dbg(TRACE, "========== START <%10.10d> ==========", lgEvtCnt);
 
