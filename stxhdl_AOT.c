@@ -1,7 +1,7 @@
 #ifndef _DEF_mks_version
   #define _DEF_mks_version
   #include "ufisvers.h" /* sets UFIS_VERSION, must be done before mks_version */
-  static char mks_version[] MARK_UNUSED = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/stxhdl.c 1.3a 2004/08/12 00:11:35SGT fya Exp  $";
+  static char mks_version[] MARK_UNUSED = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/stxhdl.c 1.3a 2015/01/27 00:11:35SGT fya Exp  $";
 #endif /* _DEF_mks_version */
 /*****************************************************************************/
 /*                                                                           */
@@ -57,10 +57,12 @@ static char         pcgTABEnd[iMIN];
 /*FYA v1.3a UFIS-8302*/
 /*static char pcgHomeAP[iMIN];*/
 static char	pcgHomeAP[iMIN_BUF_SIZE];
+static char	pcgHomeAP_sgstab[iMIN_BUF_SIZE];
 static char cgProcessName[iMIN] = "\0";
 
 static char cgCfgBuffer[1024];
 static int igMultiHopo = FALSE;
+static char pcgCfgFile[32];
 
 static int          igOrgAth;
 char pcgTwEnd[64];
@@ -127,6 +129,7 @@ static void readDefaultHopo(char *pcpHopo);
 static void setupHopo(char *pcpHopo);
 static int checkHopo(char *pcpTwEnd, char *pcpHopo);
 static char *to_upper(char *pcgIfName);
+static int checkAndsetHopo(char *pcpTwEnd, char *pcpHopo_sgstab);
 
 
 /******************************************************************************/
@@ -402,6 +405,8 @@ static int init_stxhdl(void)
    /* debug messge */
    dbg(DEBUG,"<init_stxhdl> built filename: <%s>", pclCfgFile);
 
+   strcpy(pcgCfgFile,pclCfgFile);
+
 	/* -------------------------------------------------------------- */
 	/* debug_level setting ------------------------------------------ */
 	/* -------------------------------------------------------------- */
@@ -438,7 +443,7 @@ static int init_stxhdl(void)
 
 	/* -------------------------------------------------------------- */
 
-    setHomeAirport(cgProcessName, pcgHomeAP);
+    setHomeAirport(cgProcessName, pcgHomeAP_sgstab);
 
    /* try to read configuration file */
    memset((void*)pclSections, 0x00, iMAX_BUF_SIZE);
@@ -506,21 +511,25 @@ static int init_stxhdl(void)
       /* the home airport */
       if ((ilRC = iGetConfigEntry(pclCfgFile, pclCurSec, "home_airport", CFG_STRING, rgTM.prSection[ilCurSec].pcHomeAirport)) != RC_SUCCESS)
       {
-         strcpy(rgTM.prSection[ilCurSec].pcHomeAirport, pcgHomeAP);
-      }
-  		dbg(DEBUG,"<init_stxhdl> NO Home-Airport in Section <%s>: using <%s>",
+         //strcpy(rgTM.prSection[ilCurSec].pcHomeAirport, pcgHomeAP);
+
+         memset(rgTM.prSection[ilCurSec].pcHomeAirport,0,sizeof(rgTM.prSection[ilCurSec].pcHomeAirport));
+
+         dbg(DEBUG,"<init_stxhdl> NO Home-Airport in Section <%s>: keep it null",
 			pclCurSec,rgTM.prSection[ilCurSec].pcHomeAirport);
+      }
 
-		if (CheckAPC3(rgTM.prSection[ilCurSec].pcHomeAirport) != RC_SUCCESS)
-		{
-    		dbg(DEBUG,"<init_stxhdl> No Valid Home-Airport: <%s>",
-				rgTM.prSection[ilCurSec].pcHomeAirport);
+        if(rgTM.prSection[ilCurSec].pcHomeAirport != NULL && strlen(rgTM.prSection[ilCurSec].pcHomeAirport) > 0)
+        {
+            if (CheckAPC3(rgTM.prSection[ilCurSec].pcHomeAirport) != RC_SUCCESS)
+            {
+                dbg(DEBUG,"<init_stxhdl> No Valid Home-Airport: <%s>",
+                    rgTM.prSection[ilCurSec].pcHomeAirport);
 
-            strcpy(rgTM.prSection[ilCurSec].pcHomeAirport, pcgHomeAP);
-		}
-		dbg(DEBUG,"<init_stxhdl> Home-Airport: <%s>", rgTM.prSection[ilCurSec].pcHomeAirport);
-
-
+                //strcpy(rgTM.prSection[ilCurSec].pcHomeAirport, pcgHomeAP);
+            }
+            dbg(DEBUG,"<init_stxhdl> Home-Airport: <%s>", rgTM.prSection[ilCurSec].pcHomeAirport);
+        }
 
       /* the table extension */
       if ((ilRC = iGetConfigEntry(pclCfgFile, pclCurSec, "table_extension", CFG_STRING, rgTM.prSection[ilCurSec].pcTableExtension)) != RC_SUCCESS)
@@ -2226,6 +2235,8 @@ static int HandleData()
    char         *pclFields       = NULL;
    char         *pclDatablk      = NULL;
 
+   char *pclFunc = "HandleData";
+
    /* only a message */
    dbg(DEBUG,"<HandleData> -------- START ---------");
 
@@ -2237,6 +2248,14 @@ static int HandleData()
 
    /*FYA v1.3a UFIS-8302*/
    strcpy(pcgTwEnd, prlCmdblk->tw_end);
+
+   if(checkAndsetHopo(pcgTwEnd, pcgHomeAP_sgstab) == RC_FAIL)
+        return RC_FAIL;
+
+  dbg(TRACE,"%s: TABEND = <%s>",pclFunc,pcgTABEnd);
+  memset(pcgTwEnd,0x00,sizeof(pcgTwEnd));
+  sprintf(pcgTwEnd,"%s,%s,%s",pcgHomeAP,pcgTABEnd,mod_name);
+  dbg(TRACE,"Init_exchdl : TW_END = <%s>",pcgTwEnd);
 
    /* is there a ctxblk? */
    if (strstr(prlBCHead->recv_name, "CTX") != NULL)
@@ -2285,8 +2304,10 @@ static int HandleData()
                prlCmdblk->command, rgTM.prSection[ilCurSec].pcCommand);
 
     /*FYA v1.3a UFIS-8302*/
-      /*if(checkHopo(pcgTwEnd, rgTM.prSection[ilCurSec].pcHomeAirport) == RC_FAIL)
-        return RC_FAIL;*/
+    if(rgTM.prSection[ilCurSec].pcHomeAirport == NULL || strlen(rgTM.prSection[ilCurSec].pcHomeAirport) == 0)
+    {
+        strcpy(rgTM.prSection[ilCurSec].pcHomeAirport, pcgHomeAP);
+    }
 
       if (!strcmp(prlCmdblk->command, rgTM.prSection[ilCurSec].pcCommand))
       {
@@ -7035,7 +7056,7 @@ static void setHomeAirport(char *pcpProcessName, char *pcpHopo)
 		{
 			dbg(TRACE, "%s: HOME_AIRPORT_SOURCE is null, read the default value from sgs.tab", pclFunc);
 			readDefaultHopo(pcpHopo);
-			setupHopo(pcpHopo);
+			//setupHopo(pcpHopo);
 		}
 		else
 		{
@@ -7043,13 +7064,13 @@ static void setHomeAirport(char *pcpProcessName, char *pcpHopo)
 			{
 				dbg(TRACE, "%s: HOME_AIRPORT_SOURCE is SGS.TAB, read the default value from sgs.tab", pclFunc);
 				readDefaultHopo(pcpHopo);
-				setupHopo(pcpHopo);
+				//setupHopo(pcpHopo);
 			}
 			else if(strcmp(cgCfgBuffer,"CONFIG") == 0)
 			{
 			    igMultiHopo = TRUE;
 
-			    dbg(TRACE, "%s: igMultiHopo is set as TRUE", pclFunc);
+			    dbg(TRACE, "%s: igMultiHopo is set as TRUE-1", pclFunc);
 
 				memset(cgCfgBuffer,0x0,sizeof(cgCfgBuffer));
 				ilRc = ReadConfigEntry("HOME_AIRPORT", to_upper(pcpProcessName), cgCfgBuffer);
@@ -7064,14 +7085,14 @@ static void setHomeAirport(char *pcpProcessName, char *pcpHopo)
 					{
 						dbg(TRACE, "%s: <%s> is not found-1, read the default value from sgs.tab", pclFunc, to_upper(pcpProcessName));
 						readDefaultHopo(pcpHopo);
-						setupHopo(pcpHopo);
+						//setupHopo(pcpHopo);
 					}
 				}
 				else
 				{
 					dbg(TRACE, "%s: <%s> is not found-2, read the default value from sgs.tab", pclFunc, to_upper(pcpProcessName));
 					readDefaultHopo(pcpHopo);
-					setupHopo(pcpHopo);
+					//setupHopo(pcpHopo);
 				}
 			}
 		}
@@ -7080,9 +7101,11 @@ static void setHomeAirport(char *pcpProcessName, char *pcpHopo)
 	}
 	else
 	{
+	    igMultiHopo = TRUE;
+	    dbg(TRACE, "%s: igMultiHopo is set as TRUE-2", pclFunc);
 		dbg(TRACE, "%s: HOME_AIRPORT_SOURCE is not found-3, read the default value from sgs.tab", pclFunc);
 		readDefaultHopo(pcpHopo);
-		setupHopo(pcpHopo);
+		//setupHopo(pcpHopo);
 	}
 }
 
@@ -7111,32 +7134,37 @@ static void setupHopo(char *pcpHopo)
 	dbg(TRACE, "<%s> home airport <%s>", pclFunc, pcpHopo);
 }
 
-static int checkHopo(char *pcpTwEnd, char *pcpHopo)
+static int checkAndsetHopo(char *pcpTwEnd, char *pcpHopo_sgstab)
 {
-	char *pclFunc = "checkHopo";
+	char *pclFunc = "checkAndsetHopo";
 
-	char pclHopoEvent[512] = "\0";
+	/*char pclHopoEvent[512] = "\0";*/
 
 	if ( (pcpTwEnd == NULL) || (strlen(pcpTwEnd) == 0) )
 	{
-		strcpy(pclHopoEvent, pcpHopo);
-	}else
-	{
-		get_real_item(pclHopoEvent, pcpTwEnd, 1);
-		if (strlen(pclHopoEvent) == 0)
-			strcpy(pclHopoEvent, pcpHopo);
-	}
-
-	if  ( strncmp(pclHopoEvent,pcpHopo,3) != 0 )
-	{
-		dbg(TRACE, "%s: Received pcpTwEnd = <%s> not matching with initial HOPO<%s>",
-				   pclFunc, pcpTwEnd, pcpHopo);
+	    dbg(TRACE, "%s: Received pcpTwEnd = <%s> is null",pclFunc, pcpTwEnd);
 		return RC_FAIL;
 	}
 	else
 	{
-		dbg(TRACE, "%s: Received pcpTwEnd = <%s> matching with initial HOPO<%s>",
-				   pclFunc, pcpTwEnd, pcpHopo);
+		get_real_item(pcgHomeAP, pcpTwEnd, 1);
+		if (strlen(pcgHomeAP) == 0)
+		{
+		    dbg(TRACE, "%s: Extracting pcpTwEnd = <%s> for received hopo fails",pclFunc, pcpTwEnd);
+		    return RC_FAIL;
+		}
+	}
+
+	if  ( strstr(pcpHopo_sgstab, pcgHomeAP) != 0 )
+	{
+		dbg(TRACE, "%s: Received pcpTwEnd = <%s> is not in SGS.TAB HOPO<%s>",
+				   pclFunc, pcpTwEnd, pcpHopo_sgstab);
+		return RC_FAIL;
+	}
+	else
+	{
+		dbg(TRACE, "%s: Received pcpTwEnd = <%s> is in SGS.TAB HOPO<%s>",
+				   pclFunc, pcpTwEnd, pcpHopo_sgstab);
 		return RC_SUCCESS;
 	}
 }
