@@ -30322,7 +30322,7 @@ static void setHomeAirport(char *pcpProcessName, char *pcpHopo)
 		{
 			dbg(TRACE, "%s: HOME_AIRPORT_SOURCE is null, read the default value from sgs.tab", pclFunc);
 			readDefaultHopo(pcpHopo);
-			setupHopo(pcpHopo);
+			//setupHopo(pcpHopo);
 		}
 		else
 		{
@@ -30330,7 +30330,7 @@ static void setHomeAirport(char *pcpProcessName, char *pcpHopo)
 			{
 				dbg(TRACE, "%s: HOME_AIRPORT_SOURCE is SGS.TAB, read the default value from sgs.tab", pclFunc);
 				readDefaultHopo(pcpHopo);
-				setupHopo(pcpHopo);
+				//setupHopo(pcpHopo);
 			}
 			else if(strcmp(cgCfgBuffer,"CONFIG") == 0)
 			{
@@ -30351,14 +30351,14 @@ static void setHomeAirport(char *pcpProcessName, char *pcpHopo)
 					{
 						dbg(TRACE, "%s: <%s> is not found-1, read the default value from sgs.tab", pclFunc, to_upper(pcpProcessName));
 						readDefaultHopo(pcpHopo);
-						setupHopo(pcpHopo);
+						//setupHopo(pcpHopo);
 					}
 				}
 				else
 				{
 					dbg(TRACE, "%s: <%s> is not found-2, read the default value from sgs.tab", pclFunc, to_upper(pcpProcessName));
 					readDefaultHopo(pcpHopo);
-					setupHopo(pcpHopo);
+					//setupHopo(pcpHopo);
 				}
 			}
 		}
@@ -30371,7 +30371,7 @@ static void setHomeAirport(char *pcpProcessName, char *pcpHopo)
 	    dbg(TRACE, "%s: igMultiHopo is set as TRUE-2", pclFunc);
 		dbg(TRACE, "%s: HOME_AIRPORT_SOURCE is not found-3, read the default value from sgs.tab", pclFunc);
 		readDefaultHopo(pcpHopo);
-		setupHopo(pcpHopo);
+		//setupHopo(pcpHopo);
 	}
 }
 
