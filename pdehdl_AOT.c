@@ -92,6 +92,7 @@ static char cgConfigFile[512] = "\0";
 /*FYA v1.26c UFIS-8297*/
 /*static char cgHopo[8] = "\0";*/ /* default home airport    */
 static char cgHopo[256] = "\0"; /* default home airport    */
+static char cgHopo_sgstab[256] = "\0"; /* default home airport    */
 static char cgTabEnd[8] = "\0"; /* default table extension */
 
 static long lgEvtCnt = 0;
@@ -357,7 +358,7 @@ static int SendSingle(char *pcpData);
 static void setHomeAirport(char *pcpProcessName, char *pcpHopo);
 static void readDefaultHopo(char *pcpHopo);
 static void setupHopo(char *pcpHopo);
-static int checkHopo(char *pcpTwEnd, char *pcpHopo);
+static int checkAndsetHopo(char *pcpTwEnd, char *pcpHopo);
 static char *to_upper(char *pcgIfName);
 /******************************************************************************/
 /*                                                                            */
@@ -807,7 +808,8 @@ static int Init_Pdehdl() {
     }
 	#endif
 
-	setHomeAirport(cgProcessName, cgHopo);
+	setHomeAirport(cgProcessName, cgHopo_sgstab);
+	dbg(TRACE,"Init_exchdl : HOMEAP = <%s>",cgHopo_sgstab);
 
     if (ilRc == RC_SUCCESS) {
 
@@ -2433,6 +2435,8 @@ static int GetCommand(char *pcpCommand, int *pipCmd) {
 
 /******************************************************************************/
 static int HandleData(EVENT *prpEvent) {
+
+    char * pclFunc = "HandleData";
     int ilRc = RC_SUCCESS; /* Return code */
     int i, ilCmd = 0;
     BC_HEAD *prlBchead = NULL;
@@ -2457,6 +2461,14 @@ static int HandleData(EVENT *prpEvent) {
 
 	/*if(checkHopo(pcgTwEnd, cgHopo) == RC_FAIL)
 		return RC_FAIL;*/
+
+    if(checkAndsetHopo(pcgTwEnd, cgHopo_sgstab) == RC_FAIL)
+        return RC_FAIL;
+
+    dbg(TRACE,"%s: TABEND = <%s>",pclFunc,cgTabEnd);
+    memset(pcgTwEnd,0x00,sizeof(pcgTwEnd));
+    sprintf(pcgTwEnd,"%s,%s,%s",cgHopo,cgTabEnd,mod_name);
+    dbg(TRACE,"Init_exchdl : TW_END = <%s>",pcgTwEnd);
 
     dbg(TRACE, "========== START <%10.10d> ==========", lgEvtCnt);
 
@@ -4294,7 +4306,7 @@ static void setHomeAirport(char *pcpProcessName, char *pcpHopo)
 		{
 			dbg(TRACE, "%s: HOME_AIRPORT_SOURCE is null, read the default value from sgs.tab", pclFunc);
 			readDefaultHopo(pcpHopo);
-			setupHopo(pcpHopo);
+			//setupHopo(pcpHopo);
 		}
 		else
 		{
@@ -4302,13 +4314,13 @@ static void setHomeAirport(char *pcpProcessName, char *pcpHopo)
 			{
 				dbg(TRACE, "%s: HOME_AIRPORT_SOURCE is SGS.TAB, read the default value from sgs.tab", pclFunc);
 				readDefaultHopo(pcpHopo);
-				setupHopo(pcpHopo);
+				//setupHopo(pcpHopo);
 			}
 			else if(strcmp(cgCfgBuffer,"CONFIG") == 0)
 			{
 			    igMultiHopo = TRUE;
 
-			    dbg(TRACE, "%s: igMultiHopo is set as TRUE", pclFunc);
+			    dbg(TRACE, "%s: igMultiHopo is set as TRUE-1", pclFunc);
 
 				memset(cgCfgBuffer,0x0,sizeof(cgCfgBuffer));
 				ilRc = ReadConfigEntry("HOME_AIRPORT", to_upper(pcpProcessName), cgCfgBuffer);
@@ -4323,14 +4335,14 @@ static void setHomeAirport(char *pcpProcessName, char *pcpHopo)
 					{
 						dbg(TRACE, "%s: <%s> is not found-1, read the default value from sgs.tab", pclFunc, to_upper(pcpProcessName));
 						readDefaultHopo(pcpHopo);
-						setupHopo(pcpHopo);
+						//setupHopo(pcpHopo);
 					}
 				}
 				else
 				{
 					dbg(TRACE, "%s: <%s> is not found-2, read the default value from sgs.tab", pclFunc, to_upper(pcpProcessName));
 					readDefaultHopo(pcpHopo);
-					setupHopo(pcpHopo);
+					//setupHopo(pcpHopo);
 				}
 			}
 		}
@@ -4339,9 +4351,11 @@ static void setHomeAirport(char *pcpProcessName, char *pcpHopo)
 	}
 	else
 	{
+	    igMultiHopo = TRUE;
+	    dbg(TRACE, "%s: igMultiHopo is set as TRUE-2", pclFunc);
 		dbg(TRACE, "%s: HOME_AIRPORT_SOURCE is not found-3, read the default value from sgs.tab", pclFunc);
 		readDefaultHopo(pcpHopo);
-		setupHopo(pcpHopo);
+		//setupHopo(pcpHopo);
 	}
 }
 
@@ -4370,32 +4384,37 @@ static void setupHopo(char *pcpHopo)
 	dbg(TRACE, "<%s> home airport <%s>", pclFunc, pcpHopo);
 }
 
-static int checkHopo(char *pcpTwEnd, char *pcpHopo)
+static int checkAndsetHopo(char *pcpTwEnd, char *pcpHopo_sgstab)
 {
-	char *pclFunc = "checkHopo";
+	char *pclFunc = "checkAndsetHopo";
 
-	char pclHopoEvent[512] = "\0";
+	/*char pclHopoEvent[512] = "\0";*/
 
 	if ( (pcpTwEnd == NULL) || (strlen(pcpTwEnd) == 0) )
 	{
-		strcpy(pclHopoEvent, pcpHopo);
-	}else
-	{
-		get_real_item(pclHopoEvent, pcpTwEnd, 1);
-		if (strlen(pclHopoEvent) == 0)
-			strcpy(pclHopoEvent, pcpHopo);
-	}
-
-	if  ( strncmp(pclHopoEvent,pcpHopo,3) != 0 )
-	{
-		dbg(TRACE, "%s: Received pcpTwEnd = <%s> not matching with initial HOPO<%s>",
-				   pclFunc, pcpTwEnd, pcpHopo);
+	    dbg(TRACE, "%s: Received pcpTwEnd = <%s> is null",pclFunc, pcpTwEnd);
 		return RC_FAIL;
 	}
 	else
 	{
-		dbg(TRACE, "%s: Received pcpTwEnd = <%s> matching with initial HOPO<%s>",
-				   pclFunc, pcpTwEnd, pcpHopo);
+		get_real_item(cgHopo, pcpTwEnd, 1);
+		if (strlen(cgHopo) == 0)
+		{
+		    dbg(TRACE, "%s: Extracting pcpTwEnd = <%s> for received hopo fails",pclFunc, pcpTwEnd);
+		    return RC_FAIL;
+		}
+	}
+
+	if  ( strstr(pcpHopo_sgstab, cgHopo) != 0 )
+	{
+		dbg(TRACE, "%s: Received pcpTwEnd = <%s> is not in SGS.TAB HOPO<%s>",
+				   pclFunc, pcpTwEnd, pcpHopo_sgstab);
+		return RC_FAIL;
+	}
+	else
+	{
+		dbg(TRACE, "%s: Received pcpTwEnd = <%s> is in SGS.TAB HOPO<%s>",
+				   pclFunc, pcpTwEnd, pcpHopo_sgstab);
 		return RC_SUCCESS;
 	}
 }
