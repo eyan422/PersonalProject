@@ -795,6 +795,8 @@ static int Init_Pdehdl() {
     char pclTmpBuf[128];
     char *pclTmpPtr;
 
+    char *pclFunc = "Init_Pdehdl";
+
 	#if 0
     if (ilRc == RC_SUCCESS) {
         /* read HomeAirPort from SGS.TAB */
@@ -809,7 +811,7 @@ static int Init_Pdehdl() {
 	#endif
 
 	setHomeAirport(cgProcessName, cgHopo_sgstab);
-	dbg(TRACE,"Init_exchdl : HOMEAP = <%s>",cgHopo_sgstab);
+	dbg(TRACE,"%s : HOMEAP = <%s>",pclFunc,cgHopo_sgstab);
 
     if (ilRc == RC_SUCCESS) {
 
@@ -2462,15 +2464,15 @@ static int HandleData(EVENT *prpEvent) {
 	/*if(checkHopo(pcgTwEnd, cgHopo) == RC_FAIL)
 		return RC_FAIL;*/
 
+    dbg(TRACE, "========== START <%10.10d> ==========", lgEvtCnt);
+
     if(checkAndsetHopo(pcgTwEnd, cgHopo_sgstab) == RC_FAIL)
         return RC_FAIL;
 
     dbg(TRACE,"%s: TABEND = <%s>",pclFunc,cgTabEnd);
     memset(pcgTwEnd,0x00,sizeof(pcgTwEnd));
     sprintf(pcgTwEnd,"%s,%s,%s",cgHopo,cgTabEnd,mod_name);
-    dbg(TRACE,"Init_exchdl : TW_END = <%s>",pcgTwEnd);
-
-    dbg(TRACE, "========== START <%10.10d> ==========", lgEvtCnt);
+    dbg(TRACE,"%s : TW_END = <%s>",pclFunc,pcgTwEnd);
 
     /****************************************/
     /* DebugPrintBchead(DEBUG,prlBchead); */
@@ -4405,16 +4407,16 @@ static int checkAndsetHopo(char *pcpTwEnd, char *pcpHopo_sgstab)
 		}
 	}
 
-	if  ( strstr(pcpHopo_sgstab, cgHopo) != 0 )
+	if  ( strstr(pcpHopo_sgstab, cgHopo) == 0 )
 	{
-		dbg(TRACE, "%s: Received pcpTwEnd = <%s> is not in SGS.TAB HOPO<%s>",
-				   pclFunc, pcpTwEnd, pcpHopo_sgstab);
+		dbg(TRACE, "%s: Received HOPO = <%s> is not in SGS.TAB HOPO<%s>",
+				   pclFunc, cgHopo, pcpHopo_sgstab);
 		return RC_FAIL;
 	}
 	else
 	{
-		dbg(TRACE, "%s: Received pcpTwEnd = <%s> is in SGS.TAB HOPO<%s>",
-				   pclFunc, pcpTwEnd, pcpHopo_sgstab);
+		dbg(TRACE, "%s: Received HOPO = <%s> is in SGS.TAB HOPO<%s>",
+				   pclFunc, cgHopo, pcpHopo_sgstab);
 		return RC_SUCCESS;
 	}
 }

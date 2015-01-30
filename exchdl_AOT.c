@@ -904,10 +904,11 @@ static int Init_exchdl()
   dbg(TRACE,"Init_exchdl : HOMEAP = <%s>",pcgHomeAp_sgstab);
 
   /* MEI v1.45 */
+  /*
   memset(pcgHomeAp4,0x00,sizeof(pcgHomeAp4));
   syslibSearchDbData("APTTAB","APC3",pcgHomeAp,"APC4",pcgHomeAp4,&ilCount,"\n");
   dbg(TRACE,"Init_exchdl : HOMEAP4 = <%s>",pcgHomeAp4);
-
+    */
 
   /* reading default table-extension from sgs.tab */
   memset(pcgTabEnd,0x00,sizeof(pcgTabEnd));
@@ -1257,12 +1258,15 @@ long llSize=0;
   strcpy(pcgTwEnd,cmdblk->tw_end);
 
   if(checkAndsetHopo(pcgTwEnd, pcgHomeAp_sgstab) == RC_FAIL)
+  {
+	dbg(TRACE," ========================= START / END =========================");
         return RC_FAIL;
+  }
 
   dbg(TRACE,"%s: TABEND = <%s>",pclFunc,pcgTabEnd);
   memset(pcgTwEnd,0x00,XS_BUFF);
   sprintf(pcgTwEnd,"%s,%s,%s",pcgHomeAp,pcgTabEnd,mod_name);
-  dbg(TRACE,"Init_exchdl : TW_END = <%s>",pcgTwEnd);
+  dbg(TRACE,"%s: TW_END = <%s>",pclFunc,pcgTwEnd);
 
   /***********************************/
   /*    DebugPrintItem(DEBUG,prgItem);   */
@@ -30421,16 +30425,16 @@ static int checkAndsetHopo(char *pcpTwEnd, char *pcpHopo_sgstab)
 		}
 	}
 
-	if  ( strstr(pcpHopo_sgstab, pcgHomeAp) != 0 )
+	if  ( strstr(pcpHopo_sgstab, pcgHomeAp) == 0 )
 	{
-		dbg(TRACE, "%s: Received pcpTwEnd = <%s> is not in SGS.TAB HOPO<%s>",
-				   pclFunc, pcpTwEnd, pcpHopo_sgstab);
+		dbg(TRACE, "%s: Received HOPO = <%s> is not in SGS.TAB HOPO<%s>",
+				   pclFunc, pcgHomeAp, pcpHopo_sgstab);
 		return RC_FAIL;
 	}
 	else
 	{
-		dbg(TRACE, "%s: Received pcpTwEnd = <%s> is in SGS.TAB HOPO<%s>",
-				   pclFunc, pcpTwEnd, pcpHopo_sgstab);
+		dbg(TRACE, "%s: Received HOPO = <%s> is in SGS.TAB HOPO<%s>",
+				   pclFunc, pcgHomeAp, pcpHopo_sgstab);
 		return RC_SUCCESS;
 	}
 }

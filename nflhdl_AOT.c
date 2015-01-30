@@ -1141,7 +1141,7 @@ static int HandleData(void)
     dbg(TRACE,"%s: TABEND = <%s>",pclFunc,pcgTABEnd);
     memset(pcgTwEnd,0x00,sizeof(pcgTwEnd));
     sprintf(pcgTwEnd,"%s,%s,%s",pcgHomeAP,pcgTABEnd,mod_name);
-    dbg(TRACE,"Init_exchdl : TW_END = <%s>",pcgTwEnd);
+    dbg(TRACE,"%s : TW_END = <%s>",pclFunc,pcgTwEnd);
 
 	/* convert to uppercase */
 	StringUPR((UCHAR*)prlCmdblk->command);
@@ -1910,16 +1910,16 @@ static int checkAndsetHopo(char *pcpTwEnd, char *pcpHopo_sgstab)
 		}
 	}
 
-	if  ( strstr(pcpHopo_sgstab, pcgHomeAP) != 0 )
+	if  ( strstr(pcpHopo_sgstab, pcgHomeAP) == 0 )
 	{
-		dbg(TRACE, "%s: Received pcpTwEnd = <%s> is not in SGS.TAB HOPO<%s>",
-				   pclFunc, pcpTwEnd, pcpHopo_sgstab);
+		dbg(TRACE, "%s: Received HOPO = <%s> is not in SGS.TAB HOPO<%s>",
+				   pclFunc, pcgHomeAP, pcpHopo_sgstab);
 		return RC_FAIL;
 	}
 	else
 	{
-		dbg(TRACE, "%s: Received pcpTwEnd = <%s> is in SGS.TAB HOPO<%s>",
-				   pclFunc, pcpTwEnd, pcpHopo_sgstab);
+		dbg(TRACE, "%s: Received HOPO = <%s> is in SGS.TAB HOPO<%s>",
+				   pclFunc, pcgHomeAP, pcpHopo_sgstab);
 		return RC_SUCCESS;
 	}
 }
