@@ -30406,37 +30406,48 @@ static void setupHopo(char *pcpHopo)
 
 static int checkAndsetHopo(char *pcpTwEnd, char *pcpHopo_sgstab)
 {
+    int ilLen = 0;
+    int ilRc = RC_FAIL;
 	char *pclFunc = "checkAndsetHopo";
 
 	/*char pclHopoEvent[512] = "\0";*/
 
+	char pclTmp[32] = "\0";
+
 	if ( (pcpTwEnd == NULL) || (strlen(pcpTwEnd) == 0) )
 	{
 	    dbg(TRACE, "%s: Received pcpTwEnd = <%s> is null",pclFunc, pcpTwEnd);
-		return RC_FAIL;
+		ilRc = RC_FAIL;
 	}
 	else
 	{
-		get_real_item(pcgHomeAp, pcpTwEnd, 1);
-		if (strlen(pcgHomeAp) == 0)
+		ilLen = get_real_item(pcgHomeAp, pcpTwEnd, 1);
+		if (strlen(pcgHomeAp) == 0 || ilLen < 3)
 		{
-		    dbg(TRACE, "%s: Extracting pcpTwEnd = <%s> for received hopo fails",pclFunc, pcpTwEnd);
-		    return RC_FAIL;
+		    dbg(TRACE, "%s: Extracting pcpTwEnd = <%s> for received hopo fails or length < 3",pclFunc, pcpTwEnd);
+		    ilRc = RC_FAIL;
+		}
+		else
+		{
+		    strcat(pcgHomeAp,",");
+		    sprintf(pclTmp,"%s,",pcpHopo_sgstab);
+
+            if  ( strstr(pclTmp, pcgHomeAp) == 0 )
+            {
+                dbg(TRACE, "%s: Received HOPO = <%s> is not in SGS.TAB HOPO<%s>",
+                           pclFunc, pcgHomeAp, pclTmp);
+                ilRc = RC_FAIL;
+            }
+            else
+            {
+                dbg(TRACE, "%s: Received HOPO = <%s> is in SGS.TAB HOPO<%s>",
+                           pclFunc, pcgHomeAp, pclTmp);
+                ilRc = RC_SUCCESS;
+            }
 		}
 	}
 
-	if  ( strstr(pcpHopo_sgstab, pcgHomeAp) == 0 )
-	{
-		dbg(TRACE, "%s: Received HOPO = <%s> is not in SGS.TAB HOPO<%s>",
-				   pclFunc, pcgHomeAp, pcpHopo_sgstab);
-		return RC_FAIL;
-	}
-	else
-	{
-		dbg(TRACE, "%s: Received HOPO = <%s> is in SGS.TAB HOPO<%s>",
-				   pclFunc, pcgHomeAp, pcpHopo_sgstab);
-		return RC_SUCCESS;
-	}
+	return ilRc;
 }
 
 /*
