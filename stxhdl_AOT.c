@@ -443,7 +443,7 @@ static int init_stxhdl(void)
 
 	/* -------------------------------------------------------------- */
 
-    setHomeAirport(cgProcessName, pcgHomeAP_sgstab);
+   setHomeAirport(cgProcessName, pcgHomeAP_sgstab);
 
    /* try to read configuration file */
    memset((void*)pclSections, 0x00, iMAX_BUF_SIZE);
