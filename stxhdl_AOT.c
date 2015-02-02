@@ -2303,11 +2303,11 @@ static int HandleData()
       dbg(DEBUG,"<HandleData> compare command <%s> and <%s>",
                prlCmdblk->command, rgTM.prSection[ilCurSec].pcCommand);
 
-    /*FYA v1.3a UFIS-8302*/
-    if(rgTM.prSection[ilCurSec].pcHomeAirport == NULL || strlen(rgTM.prSection[ilCurSec].pcHomeAirport) == 0)
-    {
-        strcpy(rgTM.prSection[ilCurSec].pcHomeAirport, pcgHomeAP);
-    }
+        /*FYA v1.3a UFIS-8302*/
+        if(rgTM.prSection[ilCurSec].pcHomeAirport == NULL || strlen(rgTM.prSection[ilCurSec].pcHomeAirport) == 0)
+        {
+            strcpy(rgTM.prSection[ilCurSec].pcHomeAirport, pcgHomeAP);
+        }
 
       if (!strcmp(prlCmdblk->command, rgTM.prSection[ilCurSec].pcCommand))
       {
