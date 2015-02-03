@@ -1,0 +1,7 @@
+# depslib dependency file v1.0
+1422933764 source:c:\users\ufis-frank\desktop\addstring\main.c
+	<stdio.h>
+	<stdlib.h>
+	<ctype.h>
+	<string.h>
+
