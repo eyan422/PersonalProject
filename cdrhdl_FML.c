@@ -1,7 +1,7 @@
 #ifndef _DEF_mks_version
 #define _DEF_mks_version
 #include "ufisvers.h" /* sets UFIS_VERSION, must be done before mks_version */
-static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/cdrhdl.c 1.40 2015/02/04 12:18:20SGT fya Exp  $";
+static char mks_version[] = "@(#) "UFIS_VERSION" $Id: Ufis/_Standard/_Standard_Server/Base/Server/Kernel/cdrhdl.c 1.4k 2015/02/10 17:46:20SGT fya Exp  $";
 #endif /* _DEF_mks_version */
 /******************************************************************************/
 /*                                                                            */
@@ -366,7 +366,7 @@ static void HandleQueErr(int); /* Handles queuing errors */
 //static int HandleData(void); /* Handles event data     */
 static int HandleData(EVENT *prpEvent); /* Handles event data     */
 static int GetCommand(char *pcpCommand, int *pipCmd);
-static int HandleFML_Command(int ipQue, char *pcpCommand, char *pcpTable, char *pcpSelection, char *pcpField, char *pcpData);
+static int HandleFML_Command(int ipQue, char *pcpCommand, char *pcpTable, char *pcpSelection, char *pcpField, char *pcpData, BC_HEAD *prpBchead, CMDBLK *prpCmdblk);
 
 static void HandleQueues(void); /* Waiting for Sts.-switch*/
 
@@ -1415,7 +1415,15 @@ static int HandleData(EVENT *prpEvent)
         {
            case CMD_FML:
                 dbg(DEBUG, "%s: %s Cmdblk->command = <%s>", pclFunc, prgCmdTxt[ilCmd], prlCmdblk->command);
-                HandleFML_Command(ilQue_out,prlCmdblk->command,clTable,pclSelection,pclFields,pclData);
+                if(clTable == NULL)
+                {
+                    HandleFML_Command(ilQue_out,prlCmdblk->command,"FMLTAB",pclSelection,pclFields,pclData,prlBchead,prlCmdblk);
+                }
+                else
+                {
+                    HandleFML_Command(ilQue_out,prlCmdblk->command,clTable,pclSelection,pclFields,pclData,prlBchead,prlCmdblk);
+                }
+
                 break;
            default:
                 dbg(DEBUG, "%s: %s Cmdblk->command = <%s> -> Invalid Command Received", pclFunc, prgCmdTxt[ilCmd], prlCmdblk->command);
@@ -3926,6 +3934,8 @@ static int ReadCedaArray(char *pcpMyChild, char *pcpKeyTbl, char *pcpKeyFld, cha
     short ilLocalCursor = 0;
     char *pclPtr = NULL;
 
+    char *pclFunc = "ReadCedaArray";
+
     /*
       char pclSqlBufX[32 * 1024];
      */
@@ -4041,6 +4051,8 @@ static int ReadCedaArray(char *pcpMyChild, char *pcpKeyTbl, char *pcpKeyFld, cha
                     sprintf(pclDataArea, "{=TOT=}%09d{=PACK=}%04d{=DAT=}",
                             ilTotalLen, prpRecDesc->LineCount);
                     dbg(DEBUG, "%s PACKAGE <%s>", pcpMyChild, pclDataArea);
+
+                    dbg(DEBUG, "%s connfd <%d> line <%d>", pclFunc,connfd,__LINE__);
 
                     if(connfd > 0)
                     {
@@ -4183,6 +4195,7 @@ static int CheckFmlTemplate(char *pcpMyChild, char *pcpKeyTbl, char *pcpKeyWhe) 
     short slChkFkt = 0;
     short slTplCursor = 0;
     short slTplFkt = 0;
+    int ilCount = 0;
     FILE *fp = NULL;
     char blIsCombo;
     char pclAdid[2] = "";
@@ -4221,6 +4234,8 @@ static int CheckFmlTemplate(char *pcpMyChild, char *pcpKeyTbl, char *pcpKeyWhe) 
     char pclFieldName[12];
     char *pclToken;
 
+    char *pclPointer = pcpKeyWhe;
+
     ilRC = HandleOraLogin(TRUE, "");
     if (ilRC != RC_SUCCESS)
         return ilRC;
@@ -4229,8 +4244,24 @@ static int CheckFmlTemplate(char *pcpMyChild, char *pcpKeyTbl, char *pcpKeyWhe) 
     /*         which is FLNU in the received whereclause */
     /*         FLNU IN ([FLNU]) AND AREA='A'  */
     (void) CedaGetKeyItem(pclAftUrno, &llTmpLen, pcpKeyWhe, "FLNU IN (", ")", TRUE);
+    if(pclAftUrno == NULL || strlen(pclAftUrno) <=0)
+    {
+        while ( '\0' != *pclPointer )
+        {
+            if( !isdigit(*pclPointer) )
+            {
+                //dbg(DEBUG,"*pclPointer<%c> is invalid number\n",*pclPointer);
+                pclPointer++;
+                continue;
+            }
+            else
+            {
+                //dbg(DEBUG,"*pclPointer<%c> is valid number\n",*pclPointer);
+                pclAftUrno[ilCount++] = *pclPointer++;
+            }
+        }
+    }
     dbg(TRACE, "%s RELATED FLIGHT AFT.URNO = <%s> FOR DOR TEMPLATE CHECK", pcpMyChild, pclAftUrno);
-
 
     /* ------------------------------------------------------------------------------ */
     /* Logic change. When template has been created still need to upd auto-pop fields */
@@ -4276,7 +4307,6 @@ static int CheckFmlTemplate(char *pcpMyChild, char *pcpKeyTbl, char *pcpKeyWhe) 
     }
     sprintf(pclFmlFile, "%s/%s", getenv("CFG_PATH"), pclFmlTemplate);
     dbg(TRACE, "%s DOR TEMPLATE LOCATION/NAME <%s>", pcpMyChild, pclFmlFile);
-
 
     dbg(TRACE, "%s READING TEMPLATE TABLE CONFIG FIRST", pcpMyChild);
     fp = fopen(pclFmlFile, "r");
@@ -4531,7 +4561,9 @@ static int CheckFmlTemplate(char *pcpMyChild, char *pcpKeyTbl, char *pcpKeyWhe) 
         /* ----------------------------------------------------- */
 
         dbg(TRACE, "%s CHECK IF THE TEMPLATE HAS ALREADY BEEN CREATED", pcpMyChild);
-        sprintf(pclChkSqlBuf, "SELECT COUNT(*) FROM %s %s AND USEC LIKE 'SYSTEM_%%'", pcpKeyTbl, pcpKeyWhe);
+        //sprintf(pclChkSqlBuf, "SELECT COUNT(*) FROM %s %s AND USEC LIKE 'SYSTEM_%%'", pcpKeyTbl, pcpKeyWhe);
+        sprintf(pclChkSqlBuf, "SELECT COUNT(*) FROM %s WHERE USEC LIKE 'SYSTEM_%%' AND %s", pcpKeyTbl, pcpKeyWhe+strlen("WHERE "));
+
         dbg(TRACE, "%s <%s>", pcpMyChild, pclChkSqlBuf);
         slChkCursor = 0;
         slChkFkt = START;
@@ -5889,13 +5921,19 @@ static int GetFMLFieldData(char *pcpMyChild, char *pcpConfigName, char *pcpAftUr
     ilDbRc = RC_FAIL;
 
     memset(pclSqlData, 0, sizeof (pclSqlData));
-    if (!strcmp(pclTabName, "LDM")) {
+    if (!strcmp(pclTabName, "LDM"))
+    {
         ilDbRc = CalcLoad(pcpMyChild, pclFieldName, pcpAftUrno, pclSqlData);
-    } else if (!strcmp(pclTabName, "STAFF")) {
+    }
+    else if (!strcmp(pclTabName, "STAFF"))
+    {
         ilDbRc = GetStaffInfo(pcpMyChild, pclFieldName, pcpAftUrno, pclSqlData);
-    } else if (!strcmp(pclTabName, "STIME")) {
+    }
+    else if (!strcmp(pclTabName, "STIME"))
+    {
         ilLen = strlen(pclFieldName);
-        for (ili = 0; ili < ilLen; ili++) {
+        for (ili = 0; ili < ilLen; ili++)
+        {
             if (pclFieldName[ili] == '_')
                 pclFieldName[ili] = '-';
         }
@@ -6374,23 +6412,35 @@ static int GetStaffInfo(char *pcpMyChild, char *pclFieldName, char *pcpAftUrno, 
     short slSqlFunc;
     int ilRc;
     int ili;
-    char pclSqlBuf[1024];
-    char pclSqlBuf2[1024];
-    char pclSqlData[2048];
-    char pclTmpBuf[1024];
+    char *pclFunc = "GetStaffInfo";
+    char pclSqlBuf[1024] = "\0";
+    char pclSqlBuf2[1024] = "\0";
+    char pclSqlData[2048] = "\0";
+    char pclTmpBuf[1024] = "\0";
 
-    for (ili = 0; ili < igFccoSettings; ili++) {
+    for (ili = 0; ili < igFccoSettings; ili++)
+    {
         sprintf(pclTmpBuf, "FCCO_%s", pclFieldName);
         if (!strcmp(rgFccoNode[ili].fcco, pclTmpBuf))
             break;
     }
-    if (strcmp(rgFccoNode[ili].fcco, pclTmpBuf)) {
+
+    dbg(DEBUG, "%s line<%d> pclTmpBuf<%s>", pclFunc, __LINE__,pclTmpBuf);
+
+
+    if (pclTmpBuf == NULL || strcmp(rgFccoNode[ili].fcco, pclTmpBuf))
+    {
         dbg(DEBUG, "%s CANNOT FIND FCCO SETTING <%s>", pcpMyChild, pclFieldName);
         return RC_FAIL;
     }
+
+    dbg(DEBUG, "%s line<%d> pcpAftUrno<%s>", pclFunc, __LINE__, pcpAftUrno);
+
     sprintf(pclSqlBuf, "SELECT TRIM(USTF) FROM JOBTAB WHERE UAFT = '%s' AND FCCO IN (%s)",
             pcpAftUrno, rgFccoNode[ili].fcco_list);
+
     dbg(DEBUG, "%s STAFF SELECT <%s>", pcpMyChild, pclSqlBuf);
+
     ilRc = RC_SUCCESS;
     slSqlCursor = 0;
     slSqlFunc = START;
@@ -6467,7 +6517,7 @@ int strip_special_char(char *pcpProcessStr) {
     return blStripped;
 }
 
-static int HandleFML_Command(int ipQue, char *pcpCommand, char *pcpTable, char *pcpSelection, char *pcpField, char *pcpData)
+static int HandleFML_Command(int ipQue, char *pcpCommand, char *pcpTable, char *pcpSelection, char *pcpField, char *pcpData, BC_HEAD *prpBchd, CMDBLK *prpCmdblk)
 {
     char *pclFunc = "HandleFML_Command"; /* the function name */
     char *pclMyChild = pclFunc;
@@ -6477,7 +6527,11 @@ static int HandleFML_Command(int ipQue, char *pcpCommand, char *pcpTable, char *
     int ilGotError = FALSE;
     int ilCmdAlive = FALSE;
     int ilEndAlive = FALSE;
-    char *pclAliveAnsw = "ALIVE{=ALIVE=}ALIVE";
+
+    #if 0
+        char *pclAliveAnsw = "ALIVE{=ALIVE=}ALIVE";
+    #endif // 0
+
     char *pclTimeOutMsg = "ERROR: TIMEOUT WHILE WAITING FOR ANSWER";
     char *pclAnyErrMsg = "ERROR: UNEXPECTED MESSAGE FROM SYSQCP";
 
@@ -6567,6 +6621,8 @@ static int HandleFML_Command(int ipQue, char *pcpCommand, char *pcpTable, char *
     igProcIsChild = TRUE;
     igAnswerQueue = 0;
 
+
+    strcpy(pcgMyProcName, pclMyChild);
     #if 0
         ilCpid = getpid();
         igMyPid = ilCpid;
@@ -6583,6 +6639,8 @@ static int HandleFML_Command(int ipQue, char *pcpCommand, char *pcpTable, char *
         SetDbgLimits (0,1);*/
     #endif // 0
 
+    //dbg(DEBUG, "%s Inside-1", pclFunc);
+
     CT_InitStringDescriptor(&rgKeyItemListOut);
     CT_InitStringDescriptor(&rgRcvBuff);
     InitRecordDescriptor(&rlRecDesc, (1024 * 1024), 0, FALSE);
@@ -6595,10 +6653,10 @@ static int HandleFML_Command(int ipQue, char *pcpCommand, char *pcpTable, char *
     lgEvtBgnTime = time(0L);
 
     igHrgAlive = TRUE;
-    ilEndAlive = FALSE;
-    while (ilEndAlive == FALSE)
+    //ilEndAlive = FALSE;
+    //while (ilEndAlive == FALSE)
     {
-        ilEndAlive = TRUE;
+        //ilEndAlive = TRUE;
 
         igWaitForAck = FALSE;
 
@@ -6622,18 +6680,33 @@ static int HandleFML_Command(int ipQue, char *pcpCommand, char *pcpTable, char *
             pclRcvData = rgRcvBuff.Value;
         #endif
 
-        pclRcvData = pcpData;
+        //dbg(DEBUG, "%s Inside-2", pclFunc);
+        dbg(TRACE,"%s Received Data <%s>", pclMyChild,pcpData);
+
+        //rgRcvBuff.Value = pcpData;
+        //dbg(DEBUG, "%s Inside-2.1", pclFunc);
+
+
+        if (pcpData == NULL || strlen(pcpData) <= 0)
+        {
+            pclRcvData = pclFunc;
+        }
+        else
+        {
+            pclRcvData = pcpData;
+        }
+
+        //dbg(DEBUG, "%s Inside-2.2", pclFunc);
+
         pclData = NULL;
         lgTotalRecs = 0;
         lgTotalByte = 0;
         lgEvtBgnTime = time(0L);
-
-        /* dbg(TRACE,"%s RECEIVED <%s>", pclMyChild,pclRcvData);  */
-
 #ifdef WMQ
         /* reset all open queues inherited from the parent cdrhdl */
         WmqResetQuetable();
 #endif
+        //dbg(DEBUG, "%s Inside-3", pclFunc);
         pclKeyPtr = GetKeyItem(pclKeyEvt, &llDatLen, pclRcvData, "{=EVT=}", "{=", TRUE);
         if (llDatLen > 0) dbg(TRACE, "%s %s <%s> LEN=%d", pclMyChild, "{=EVT=}", pclKeyEvt, llDatLen);
         {
@@ -6654,45 +6727,49 @@ static int HandleFML_Command(int ipQue, char *pcpCommand, char *pcpTable, char *
             ilEvtCnt = 1;
         } /* end else */
 
-        pclKeyPtr = GetKeyItem(pclKeyTot, &llDatLen, pclRcvData, "{=TOT=}", "{=", TRUE);
-        if (llDatLen > 0) dbg(TRACE, "%s %s <%s> LEN=%d", pclMyChild, "{=TOT=}", pclKeyTot, llDatLen);
+        #if 0
+            pclKeyPtr = GetKeyItem(pclKeyTot, &llDatLen, pclRcvData, "{=TOT=}", "{=", TRUE);
+            if (llDatLen > 0) dbg(TRACE, "%s %s <%s> LEN=%d", pclMyChild, "{=TOT=}", pclKeyTot, llDatLen);
 
-        pclKeyPtr = GetKeyItem(pclKeyIdn, &llDatLen, pclRcvData, "{=IDN=}", "{=", TRUE);
-        if (llDatLen > 0) dbg(TRACE, "%s %s <%s> LEN=%d", pclMyChild, "{=IDN=}", pclKeyIdn, llDatLen);
+            pclKeyPtr = GetKeyItem(pclKeyIdn, &llDatLen, pclRcvData, "{=IDN=}", "{=", TRUE);
+            if (llDatLen > 0) dbg(TRACE, "%s %s <%s> LEN=%d", pclMyChild, "{=IDN=}", pclKeyIdn, llDatLen);
 
-        pclKeyPtr = GetKeyItem(pclKeyExt, &llDatLen, pclRcvData, "{=EXT=}", "{=", TRUE);
-        if (llDatLen > 0) dbg(TRACE, "%s %s <%s> LEN=%d", pclMyChild, "{=EXT=}", pclKeyExt, llDatLen);
 
-        pclKeyPtr = GetKeyItem(pclKeyHop, &llDatLen, pclRcvData, "{=HOPO=}", "{=", TRUE);
-        if (llDatLen > 0) dbg(TRACE, "%s %s <%s> LEN=%d", pclMyChild, "{=HOPO=}", pclKeyHop, llDatLen);
+            pclKeyPtr = GetKeyItem(pclKeyExt, &llDatLen, pclRcvData, "{=EXT=}", "{=", TRUE);
+            if (llDatLen > 0) dbg(TRACE, "%s %s <%s> LEN=%d", pclMyChild, "{=EXT=}", pclKeyExt, llDatLen);
 
-        pclKeyPtr = GetKeyItem(pclKeyUsr, &llDatLen, pclRcvData, "{=USR=}", "{=", TRUE);
-        if (llDatLen > 0) dbg(TRACE, "%s %s <%s> LEN=%d", pclMyChild, "{=USR=}", pclKeyUsr, llDatLen);
+            pclKeyPtr = GetKeyItem(pclKeyHop, &llDatLen, pclRcvData, "{=HOPO=}", "{=", TRUE);
+            if (llDatLen > 0) dbg(TRACE, "%s %s <%s> LEN=%d", pclMyChild, "{=HOPO=}", pclKeyHop, llDatLen);
 
-        pclKeyPtr = GetKeyItem(pclKeyWks, &llDatLen, pclRcvData, "{=WKS=}", "{=", TRUE);
-        if (llDatLen > 0)
-        {
-            dbg(TRACE, "%s %s <%s> LEN=%d", pclMyChild, "{=WKS=}", pclKeyWks, llDatLen);
-            //SetGrpMemberInfo(igMyGrpNbr, 8, pclKeyWks, 0);
-        }
+            pclKeyPtr = GetKeyItem(pclKeyUsr, &llDatLen, pclRcvData, "{=USR=}", "{=", TRUE);
+            if (llDatLen > 0) dbg(TRACE, "%s %s <%s> LEN=%d", pclMyChild, "{=USR=}", pclKeyUsr, llDatLen);
 
-        pclKeyPtr = GetKeyItem(pclKeyTws, &llDatLen, pclRcvData, "{=TWS=}", "{=", TRUE);
-        if (llDatLen > 0)
-        {
-            dbg(TRACE, "%s %s <%s> LEN=%d", pclMyChild, "{=TWS=}", pclKeyTws, llDatLen);
-        }
 
-        pclKeyPtr = GetKeyItem(pclKeyTwe, &llDatLen, pclRcvData, "{=TWE=}", "{=", TRUE);
-        if (llDatLen > 0)
-        {
-            dbg(TRACE, "%s %s <%s> LEN=%d", pclMyChild, "{=TWE=}", pclKeyTwe, llDatLen);
-        }
+            pclKeyPtr = GetKeyItem(pclKeyWks, &llDatLen, pclRcvData, "{=WKS=}", "{=", TRUE);
+            if (llDatLen > 0)
+            {
+                dbg(TRACE, "%s %s <%s> LEN=%d", pclMyChild, "{=WKS=}", pclKeyWks, llDatLen);
+                //SetGrpMemberInfo(igMyGrpNbr, 8, pclKeyWks, 0);
+            }
 
-        pclKeyPtr = GetKeyItem(pclKeyTim, &llDatLen, pclRcvData, "{=TIM=}", "{=", TRUE);
-        if (llDatLen > 0) dbg(TRACE, "%s %s <%s> LEN=%d", pclMyChild, "{=TIM=}", pclKeyTim, llDatLen);
-        {
-            igTimeOut = atoi(pclKeyTim);
-        }
+            pclKeyPtr = GetKeyItem(pclKeyTws, &llDatLen, pclRcvData, "{=TWS=}", "{=", TRUE);
+            if (llDatLen > 0)
+            {
+                dbg(TRACE, "%s %s <%s> LEN=%d", pclMyChild, "{=TWS=}", pclKeyTws, llDatLen);
+            }
+
+            pclKeyPtr = GetKeyItem(pclKeyTwe, &llDatLen, pclRcvData, "{=TWE=}", "{=", TRUE);
+            if (llDatLen > 0)
+            {
+                dbg(TRACE, "%s %s <%s> LEN=%d", pclMyChild, "{=TWE=}", pclKeyTwe, llDatLen);
+            }
+
+            pclKeyPtr = GetKeyItem(pclKeyTim, &llDatLen, pclRcvData, "{=TIM=}", "{=", TRUE);
+            if (llDatLen > 0) dbg(TRACE, "%s %s <%s> LEN=%d", pclMyChild, "{=TIM=}", pclKeyTim, llDatLen);
+            {
+                igTimeOut = atoi(pclKeyTim);
+            }
+        #endif // 0
 
         pclKeyPtr = GetKeyItem(pclKeySep, &llDatLen, pclRcvData, "{=RECSEPA=}", "{=", TRUE);
         if (llDatLen > 0)
@@ -6728,6 +6805,7 @@ static int HandleFML_Command(int ipQue, char *pcpCommand, char *pcpTable, char *
             dbg(TRACE, "%s %s <...> LEN=%d", pclMyChild, "{=FLDSEPA=}", llDatLen);
         }
 
+
         if (pclKeyPtr != NULL)
         {
             strcpy(pclFldSep, pclKeySep);
@@ -6737,38 +6815,50 @@ static int HandleFML_Command(int ipQue, char *pcpCommand, char *pcpTable, char *
             strcpy(pclFldSep, ",");
         }
 
-        pclKeyPtr = GetKeyItem(pclKeyApp, &llDatLen, pclRcvData, "{=APP=}", "{=", TRUE);
-        if (llDatLen > 0)
-        {
-            dbg(TRACE, "%s %s <%s> LEN=%d", pclMyChild, "{=APP=}", pclKeyApp, llDatLen);
-            //SetGrpMemberInfo(igMyGrpNbr, 9, pclKeyApp, 0);
-        }
+        #if 0
+            pclKeyPtr = GetKeyItem(pclKeyApp, &llDatLen, pclRcvData, "{=APP=}", "{=", TRUE);
+            if (llDatLen > 0)
+            {
+                dbg(TRACE, "%s %s <%s> LEN=%d", pclMyChild, "{=APP=}", pclKeyApp, llDatLen);
+                //SetGrpMemberInfo(igMyGrpNbr, 9, pclKeyApp, 0);
+            }
 
-        pclKeyPtr = GetKeyItem(pclKeyCmd, &llDatLen, pclRcvData, "{=CMD=}", "{=", TRUE);
-        if (llDatLen > 0)
-        {
-            dbg(TRACE, "%s %s <%s> LEN=%d", pclMyChild, "{=CMD=}", pclKeyCmd, llDatLen);
-        }
+            pclKeyPtr = GetKeyItem(pclKeyCmd, &llDatLen, pclRcvData, "{=CMD=}", "{=", TRUE);
+            if (llDatLen > 0)
+            {
+                dbg(TRACE, "%s %s <%s> LEN=%d", pclMyChild, "{=CMD=}", pclKeyCmd, llDatLen);
+            }
 
-        pclKeyPtr = GetKeyItem(pclKeyTbl, &llDatLen, pclRcvData, "{=TBL=}", "{=", TRUE);
-        if (llDatLen > 0)
-        {
-            dbg(TRACE, "%s %s <%s> LEN=%d", pclMyChild, "{=TBL=}", pclKeyTbl, llDatLen);
-        }
 
-        rlKeyDat.ItemPtr = GetKeyItem(rlKeyDat.Value, &rlKeyDat.ItemLen, pclRcvData, "{=DAT=}", "{=", FALSE);
+            pclKeyPtr = GetKeyItem(pclKeyTbl, &llDatLen, pclRcvData, "{=TBL=}", "{=", TRUE);
+            if (llDatLen > 0)
+            {
+                dbg(TRACE, "%s %s <%s> LEN=%d", pclMyChild, "{=TBL=}", pclKeyTbl, llDatLen);
+            }
+        #endif // 0
 
-        pclKeyPtr = GetKeyItem(pclKeyQue, &llDatLen, pclRcvData, "{=QUE=}", "{=", TRUE);
-        if (llDatLen > 0)
-        {
-            dbg(TRACE, "%s %s <%s> LEN=%d", pclMyChild, "{=QUE=}", pclKeyQue, llDatLen);
-        }
+            //rlKeyDat.ItemPtr = GetKeyItem(rlKeyDat.Value, &rlKeyDat.ItemLen, pclRcvData, "{=DAT=}", "{=", FALSE);
+            //pclKeyCmd = pcpCommand;
+            //pclKeyTbl = pcpTable;
+            strcpy(pclKeyCmd,pcpCommand);
+            strcpy(pclKeyTbl,pcpTable);
+            rlKeyDat.Value = pclRcvData;
 
-        pclKeyPtr = GetKeyItem(pclKeyHex, &llDatLen, pclRcvData, "{=HEXIP=}", "{=", TRUE);
-        if (llDatLen > 0)
-        {
-            dbg(TRACE, "%s %s <%s> LEN=%d", pclMyChild, "{=HEXIP=}", pclKeyHex, llDatLen);
-        }
+            //dbg(DEBUG, "%s pclKeyCmd<%s> pclKeyTbl<%s> rlKeyDat.Value<%s>", pclFunc, pclKeyCmd, pclKeyTbl, rlKeyDat.Value);
+
+        #if 0
+            pclKeyPtr = GetKeyItem(pclKeyQue, &llDatLen, pclRcvData, "{=QUE=}", "{=", TRUE);
+            if (llDatLen > 0)
+            {
+                dbg(TRACE, "%s %s <%s> LEN=%d", pclMyChild, "{=QUE=}", pclKeyQue, llDatLen);
+            }
+
+            pclKeyPtr = GetKeyItem(pclKeyHex, &llDatLen, pclRcvData, "{=HEXIP=}", "{=", TRUE);
+            if (llDatLen > 0)
+            {
+                dbg(TRACE, "%s %s <%s> LEN=%d", pclMyChild, "{=HEXIP=}", pclKeyHex, llDatLen);
+            }
+        #endif // 0
 
         pclKeyPtr = GetKeyItem(pclKeyPak, &llDatLen, pclRcvData, "{=PACK=}", "{=", TRUE);
         slMaxPak = 0;
@@ -6779,18 +6869,21 @@ static int HandleFML_Command(int ipQue, char *pcpCommand, char *pcpTable, char *
         }
         sprintf(pclKeyPak, "%d", slMaxPak);
 
+
         igTmpAlive = FALSE;
-        pclKeyPtr = GetKeyItem(pclKeyAli, &llDatLen, pclRcvData, "{=ALIVE=}", "{=", TRUE);
-        if (llDatLen > 0)
-        {
-            dbg(TRACE, "%s %s <%s> LEN=%d", pclMyChild, "{=ALIVE=}", pclKeyAli, llDatLen);
-            if (strcmp(pclKeyAli, "CLOSE") != 0)
+        #if 0
+            pclKeyPtr = GetKeyItem(pclKeyAli, &llDatLen, pclRcvData, "{=ALIVE=}", "{=", TRUE);
+            if (llDatLen > 0)
             {
-                igHrgAlive = TRUE;
-                igTmpAlive = TRUE;
-                HandleHrgCmd(TRUE, "");
+                dbg(TRACE, "%s %s <%s> LEN=%d", pclMyChild, "{=ALIVE=}", pclKeyAli, llDatLen);
+                if (strcmp(pclKeyAli, "CLOSE") != 0)
+                {
+                    igHrgAlive = TRUE;
+                    igTmpAlive = TRUE;
+                    HandleHrgCmd(TRUE, "");
+                }
             }
-        }
+        #endif
 
         rlRecDesc.UsedSize = 0;
         rlRecDesc.LineCount = 0;
@@ -6799,6 +6892,9 @@ static int HandleFML_Command(int ipQue, char *pcpCommand, char *pcpTable, char *
         ilRC = RC_SUCCESS;
         for (ilCurEvt = 1; ((ilCurEvt <= ilEvtCnt)&&(ilRC == RC_SUCCESS)); ilCurEvt++)
         {
+
+            dbg(TRACE,"%s In the Loop",pclFunc);
+
             if (ilMultEvt == TRUE)
             {
                 sprintf(pclCurKey, "{=EVT_%d=}", ilCurEvt);
@@ -6819,41 +6915,55 @@ static int HandleFML_Command(int ipQue, char *pcpCommand, char *pcpTable, char *
                 pclEvtData = pclRcvData;
             } /* end else */
 
-            pclKeyPtr = GetKeyItem(pclKeyHnt, &llDatLen, pclEvtData, "{=ORAHINT=}", "{=", TRUE);
-            if (llDatLen > 0)
-            {
-                dbg(TRACE, "%s %s <%s> LEN=%d", pclMyChild, "{=ORAHINT=}", pclKeyHnt, llDatLen);
-            }
+            #if 0
+                pclKeyPtr = GetKeyItem(pclKeyHnt, &llDatLen, pclEvtData, "{=ORAHINT=}", "{=", TRUE);
+                if (llDatLen > 0)
+                {
+                    dbg(TRACE, "%s %s <%s> LEN=%d", pclMyChild, "{=ORAHINT=}", pclKeyHnt, llDatLen);
+                }
 
-            rlKeyWhe.ItemPtr = GetKeyItem(rlKeyWhe.Value, &rlKeyWhe.ItemLen, pclEvtData, "{=WHE=}", "{=", FALSE);
-            rlKeyFld.ItemPtr = GetKeyItem(rlKeyFld.Value, &rlKeyFld.ItemLen, pclEvtData, "{=FLD=}", "{=", FALSE);
+                rlKeyWhe.ItemPtr = GetKeyItem(rlKeyWhe.Value, &rlKeyWhe.ItemLen, pclEvtData, "{=WHE=}", "{=", FALSE);
+                rlKeyFld.ItemPtr = GetKeyItem(rlKeyFld.Value, &rlKeyFld.ItemLen, pclEvtData, "{=FLD=}", "{=", FALSE);
+            #endif
+            rlKeyWhe.Value = pcpSelection;
+            rlKeyFld.Value = pcpField;
 
             pclKeyWhe = pclEmpty;
             pclKeyFld = pclEmpty;
             pclKeyDat = pclEmpty;
-            if (rlKeyWhe.ItemPtr != NULL)
-            {
-                rlKeyWhe.Help[0] = rlKeyWhe.ItemPtr[rlKeyWhe.ItemLen];
-                rlKeyWhe.ItemPtr[rlKeyWhe.ItemLen] = 0x00;
-                dbg(TRACE, "%s %s <%s> LEN=%d", pclMyChild, "{=WHE=}", rlKeyWhe.ItemPtr, rlKeyWhe.ItemLen);
-                pclKeyWhe = rlKeyWhe.ItemPtr;
-            }
 
-            if (rlKeyFld.ItemPtr != NULL)
-            {
-                rlKeyFld.Help[0] = rlKeyFld.ItemPtr[rlKeyFld.ItemLen];
-                rlKeyFld.ItemPtr[rlKeyFld.ItemLen] = 0x00;
-                dbg(TRACE, "%s %s <%s> LEN=%d", pclMyChild, "{=FLD=}", rlKeyFld.ItemPtr, rlKeyFld.ItemLen);
-                pclKeyFld = rlKeyFld.ItemPtr;
-            }
+            //dbg(DEBUG, "%s rlKeyWhe.Value<%s> rlKeyFld.Value<%s> rlKeyDat.Value<%s>", pclFunc, rlKeyWhe.Value, rlKeyFld.Value, rlKeyDat.Value);
 
-            if (rlKeyDat.ItemPtr != NULL)
-            {
-                rlKeyDat.Help[0] = rlKeyDat.ItemPtr[rlKeyDat.ItemLen];
-                rlKeyDat.ItemPtr[rlKeyDat.ItemLen] = 0x00;
-                dbg(TRACE, "%s %s <%s> LEN=%d", pclMyChild, "{=DAT=}", rlKeyDat.ItemPtr, rlKeyDat.ItemLen);
-                pclKeyDat = rlKeyDat.ItemPtr;
-            }
+            pclKeyWhe = rlKeyWhe.Value;
+            pclKeyFld = rlKeyFld.Value;
+            pclKeyDat = rlKeyDat.Value;
+            dbg(DEBUG, "%s pclKeyWhe<%s> pclKeyFld<%s> pclKeyDat<%s>", pclFunc, pclKeyWhe, pclKeyFld, pclKeyDat);
+
+            #if 0
+                if (rlKeyWhe.ItemPtr != NULL)
+                {
+                    rlKeyWhe.Help[0] = rlKeyWhe.ItemPtr[rlKeyWhe.ItemLen];
+                    rlKeyWhe.ItemPtr[rlKeyWhe.ItemLen] = 0x00;
+                    dbg(TRACE, "%s %s <%s> LEN=%d", pclMyChild, "{=WHE=}", rlKeyWhe.ItemPtr, rlKeyWhe.ItemLen);
+                    pclKeyWhe = rlKeyWhe.ItemPtr;
+                }
+
+                if (rlKeyFld.ItemPtr != NULL)
+                {
+                    rlKeyFld.Help[0] = rlKeyFld.ItemPtr[rlKeyFld.ItemLen];
+                    rlKeyFld.ItemPtr[rlKeyFld.ItemLen] = 0x00;
+                    dbg(TRACE, "%s %s <%s> LEN=%d", pclMyChild, "{=FLD=}", rlKeyFld.ItemPtr, rlKeyFld.ItemLen);
+                    pclKeyFld = rlKeyFld.ItemPtr;
+                }
+
+                if (rlKeyDat.ItemPtr != NULL)
+                {
+                    rlKeyDat.Help[0] = rlKeyDat.ItemPtr[rlKeyDat.ItemLen];
+                    rlKeyDat.ItemPtr[rlKeyDat.ItemLen] = 0x00;
+                    dbg(TRACE, "%s %s <%s> LEN=%d", pclMyChild, "{=DAT=}", rlKeyDat.ItemPtr, rlKeyDat.ItemLen);
+                    pclKeyDat = rlKeyDat.ItemPtr;
+                }
+            #endif
 
             sprintf(pclChkCmd, ",%s,", pclKeyCmd);
             ilSendToRouter = FALSE;
@@ -7038,7 +7148,8 @@ static int HandleFML_Command(int ipQue, char *pcpCommand, char *pcpTable, char *
 
                 if (pclKeyTwe[0] == '\0')
                 {
-                    sprintf(pclKeyTwe, "%s,%s,%s", pclKeyHop, pclKeyExt, pclKeyApp);
+                    //sprintf(pclKeyTwe, "%s,%s,%s", pclKeyHop, pclKeyExt, pclKeyApp);
+                    sprintf(pclKeyTwe, "%s,%s,cdrhdl", cgHopo, cgTabEnd);
                 }
 
                 dbg(DEBUG, "%s NOW SENDING SendCedaEvent ...", pclMyChild);
@@ -7065,7 +7176,7 @@ static int HandleFML_Command(int ipQue, char *pcpCommand, char *pcpTable, char *
                         RC_SUCCESS); /* BC_HEAD.rc: RC_SUCCESS      */
 
                 /* warten auf Antwort vom Empfaenger */
-                SetGrpMemberInfo(igMyGrpNbr, 1, "C", 0);
+                //SetGrpMemberInfo(igMyGrpNbr, 1, "C", 0);
                 ilRC = WaitAndCheckQueue(igTimeOut, igAnswerQueue, &prgItem);
 
                 if (ilRC != RC_SUCCESS)
@@ -7189,7 +7300,7 @@ static int HandleFML_Command(int ipQue, char *pcpCommand, char *pcpTable, char *
                 ilOutDatPos = 0;
                 StrgPutStrg(pclOutData, &ilOutDatPos, "{=TOT=}", 0, -1, pclDummy);
 
-                dbg(TRACE, "%s SENDING MY OWN ANSWER", pclMyChild);
+                dbg(TRACE, "%s SENDING MY OWN ANSWER, line<%d>", pclMyChild,__LINE__);
 
                 #if 0
                     ilRC = SendDataToClient(pclMyChild, pclOutData, ilBytesToSend, connfd, TRUE);
@@ -7203,21 +7314,50 @@ static int HandleFML_Command(int ipQue, char *pcpCommand, char *pcpTable, char *
                 #endif // 0
             } /* end else */
 
-            ilRC = SendCedaEvent(igQueToNetin, /* adress to send the answer   */
-                        mod_id, /* Set to temp queue ID        */
-                        pclKeyUsr, /* BC_HEAD.dest_name           */
-                        pclKeyWks, /* BC_HEAD.recv_name           */
-                        pclKeyTws, /* CMDBLK.tw_start             */
-                        pclKeyTwe, /* CMDBLK.tw_end               */
-                        pclKeyCmd, /* CMDBLK.command              */
-                        pclKeyTbl, /* CMDBLK.obj_name             */
-                        pclKeyWhe, /* Selection Block             */
-                        pclKeyFld, /* Field Block                 */
-                        pclOutData, /* Data Block                  */
-                        pclKeyTim, /* Error description           */
-                        2, /* 0 or Priority               */
-                        NETOUT_NO_ACK); /* BC_HEAD.rc: RC_SUCCESS      */
+            #if 0
+                dbg(TRACE,"%s Route<%d>",pclMyChild,igQueToNetin);
+                dbg(TRACE,"%s mod_id<%d>",pclMyChild,mod_id);
+                dbg(TRACE,"%s pclKeyUsr<%s>",pclMyChild,pclKeyUsr);
+                dbg(TRACE,"%s pclKeyWks<%s>",pclMyChild,pclKeyWks);
+                dbg(TRACE,"%s pclKeyTws<%s>",pclMyChild,pclKeyTws);
+                dbg(TRACE,"%s pclKeyTwe<%s>",pclMyChild,pclKeyTwe);
+                dbg(TRACE,"%s pclKeyCmd<%s>",pclMyChild,pclKeyCmd);
+                dbg(TRACE,"%s pclKeyTbl<%s>",pclMyChild,pclKeyTbl);
+                dbg(TRACE,"%s pclKeyWhe<%s>",pclMyChild,pclKeyWhe);
+                dbg(TRACE,"%s pclKeyFld<%s>",pclMyChild,pclKeyFld);
+                dbg(TRACE,"%s pclOutData<%s>",pclMyChild,pclOutData);
+                dbg(TRACE,"%s pclKeyTim<%s>",pclMyChild,pclKeyTim);
 
+                ilRC = SendCedaEvent(igQueToNetin, /* adress to send the answer   */
+                            mod_id, /* Set to temp queue ID        */
+                            pclKeyUsr, /* BC_HEAD.dest_name           */
+                            pclKeyWks, /* BC_HEAD.recv_name           */
+                            pclKeyTws, /* CMDBLK.tw_start             */
+                            pclKeyTwe, /* CMDBLK.tw_end               */
+                            pclKeyCmd, /* CMDBLK.command              */
+                            pclKeyTbl, /* CMDBLK.obj_name             */
+                            pclKeyWhe, /* Selection Block             */
+                            pclKeyFld, /* Field Block                 */
+                            pclOutData, /* Data Block                  */
+                            pclKeyTim, /* Error description           */
+                            2, /* 0 or Priority               */
+                            NETOUT_NO_ACK); /* BC_HEAD.rc: RC_SUCCESS      */
+            #endif // 0
+            /*
+            ilRC = new_tools_send_sql(igQueToNetin,prpBchd,prpCmdblk,pclKeyFld,pclOutData);
+            dbg(TRACE,"%s Route<%d>",pclMyChild,igQueToNetin);
+            dbg(TRACE,"%s pclKeyFld<%s>",pclMyChild,pclKeyFld);
+            dbg(TRACE,"SENT DATA:\n%s",pclOutData);
+            */
+
+            dbg(DEBUG,"===============tools_send_sql_rc ipQue <%d>==================", ipQue);
+            dbg(TRACE,"cmd = <%s>", pcpCommand);
+            dbg(TRACE,"sel = <%s>", pcpSelection );
+            dbg(TRACE,"fld = <%s>", pclKeyFld );
+            dbg(TRACE,"dat = <%s>", pclOutData );
+
+            ilRC = RC_SUCCESS;
+            tools_send_sql_rc(ipQue,pcpCommand,"TAB", pcpSelection,pclKeyFld,pclOutData,ilRC);
         } /* end if */
 
         #if 0
