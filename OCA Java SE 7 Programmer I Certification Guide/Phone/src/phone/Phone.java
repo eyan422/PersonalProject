@@ -1,9 +1,11 @@
 package phone;
 
 class Phone {
-	private boolean tested;
 	
+	String model;
+	String company;
 	double weight;
+	private boolean tested;
 	
 	public void setTested(boolean val) {
 		tested = val;
@@ -38,5 +40,13 @@ class Phone {
 	
 	double getWeight() {
 		return weight;
+	}
+	
+	void makeCall(String number) {
+		
+	}
+	
+	void receiveCall() {
+		
 	}
 }
