@@ -6977,9 +6977,7 @@ static int HandleFML_Command(int ipQue, char *pcpCommand, char *pcpTable, char *
                         ilSendToRouter = TRUE;
                     } /* end if */
                 } /* end if */
-            #endif // 0
 
-            #if 0
                 if ((strstr(",RRA,", pclChkCmd) != NULL) && (ilSendToRouter == FALSE))
                 {
                     dbg(TRACE, "%s RRA TRANSACTION RECEIVED (OLD STYLE)", pclMyChild);

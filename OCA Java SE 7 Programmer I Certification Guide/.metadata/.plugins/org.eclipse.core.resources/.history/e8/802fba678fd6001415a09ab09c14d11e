@@ -1,0 +1,8 @@
+package staticvarible;
+
+public class StaticVarible {
+	String name;
+	static int bankVault; 
+}
+
+
