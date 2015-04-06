@@ -1,0 +1,13 @@
+package nullstring;
+
+public class NullString {
+	static String lang = "Java";
+	
+	public static void main(String args[])
+	{	
+		lang += " is everywhere!";
+		String initializedToNull = null;
+		initializedToNull += "Java";
+		System.out.println(initializedToNull);
+	}
+}
