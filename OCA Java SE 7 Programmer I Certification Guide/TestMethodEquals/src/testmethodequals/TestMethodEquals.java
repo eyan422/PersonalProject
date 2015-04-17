@@ -2,7 +2,7 @@ package testmethodequals;
 
 import java.util.ArrayList;
 
-//import testequality.BankAccount;
+/*import testequality.BankAccount;*/
 
 class BankAccount{
 	String acctNumber;
