@@ -4,17 +4,18 @@ import java.util.*;
 public class NestedArrayList {
 	public static void main(String args[]){
 		ArrayList<String> exams= new ArrayList<String>();
-		exams.add("Java"); 
+		exams.add("Java");
 		exams.add("Oracle");
 		
 		ArrayList<String> levels= new ArrayList<String>();
-		levels.add("Basic"); 
+		levels.add("Basic");
 		levels.add("Advanced");
 		
 		ArrayList<String> grades= new ArrayList<String>();
-		grades.add("Pass"); 
+		grades.add("Pass");
 		grades.add("Fail");
 		
+		/*embedded ArrayList*/
 		ArrayList<ArrayList<String>> nestedArrayList = new ArrayList< ArrayList<String>>();
 		nestedArrayList.add(exams);
 		nestedArrayList.add(levels);
@@ -23,5 +24,12 @@ public class NestedArrayList {
 		for (ArrayList<String> nestedListElement : nestedArrayList)
 			for (String element : nestedListElement)
 			System.out.println(element);
+		
+		int total = 0;
+		int primeNums[] = {2, 3, 7, 11};
+		
+		for (int num : primeNums)
+			total += num;
+		System.out.println("total:"+total);
 	}
 }
