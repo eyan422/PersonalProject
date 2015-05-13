@@ -21,10 +21,12 @@ class Movable {
 	
 	public static void main(String args[])
 	{
+		Movable1 m1 = new Person();
 		Movable m = new Movable();
 		Person p = new Person();
 		Vehicle v = new Vehicle();
 		
+		m.walk(m1);
 		m.walk(p);
 		m.walk(v);
 	}
