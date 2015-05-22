@@ -4,12 +4,20 @@ class Phone {
 	static void call() {
 		System.out.println("Call-Phone");
 	}
+	
+	void show() {
+		System.out.println("Phone");
+	}
 }
 
 class SmartPhone extends Phone{
 	
 	static void call() {
 		System.out.println("Call-SmartPhone");
+	}
+	
+	void show() {
+		System.out.println("SmartPhone");
 	}
 }
 
@@ -24,5 +32,7 @@ class TestPhones {
 		phone.call();
 		smartPhone.call();
 		
+		phone.show();
+		smartPhone.show();
 	}
 }
