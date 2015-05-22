@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="src" path="Arrays/Binary Search/src"/>
+	<classpathentry kind="src" path="Arrays/src"/>
+	<classpathentry kind="src" path="ArraySort/src"/>
+	<classpathentry kind="src" path="BubbleSort/src"/>
+	<classpathentry kind="src" path="Collections/ArrayQueue/src"/>
+	<classpathentry kind="src" path="Collections/ArrayStack/src"/>
+	<classpathentry kind="src" path="Collections/BinaryTree/src"/>
+	<classpathentry kind="src" path="Collections/Concordance/src"/>
+	<classpathentry kind="src" path="Collections/ConvertingInfixtoPostfix/src"/>
+	<classpathentry kind="src" path="Collections/GenericMethod/src"/>
+	<classpathentry kind="src" path="Collections/Iterator/src"/>
+	<classpathentry kind="src" path="Collections/LinkedListStack/src"/>
+	<classpathentry kind="src" path="Collections/LinkedQueue/src"/>
+	<classpathentry kind="src" path="Collections/Polynomial/src"/>
+	<classpathentry kind="src" path="Collections/Ring/src"/>
+	<classpathentry kind="src" path="Collections/RPN_Calculator/src"/>
+	<classpathentry kind="src" path="Collections/Simulation/src"/>
+	<classpathentry kind="src" path="Collections/TestDictionary/src"/>
+	<classpathentry kind="src" path="Collections/TestEnumMap/src"/>
+	<classpathentry kind="src" path="Collections/TestEnumSet/src"/>
+	<classpathentry kind="src" path="Collections/TestHashCodes/src"/>
+	<classpathentry kind="src" path="Collections/TestHashing/src"/>
+	<classpathentry kind="src" path="Collections/TestHashing1/src"/>
+	<classpathentry kind="src" path="Collections/TestHashTable/src"/>
+	<classpathentry kind="src" path="Collections/TestingHashSet/src"/>
+	<classpathentry kind="src" path="Collections/TestingPairClass/src"/>
+	<classpathentry kind="src" path="Collections/TestingSeveralIterators/src"/>
+	<classpathentry kind="src" path="Collections/TestingStringQueue/src"/>
+	<classpathentry kind="src" path="Collections/TestLinearProbing/src"/>
+	<classpathentry kind="src" path="Collections/TestLinkedHashSet/src"/>
+	<classpathentry kind="src" path="Collections/TestQueue/src"/>
+	<classpathentry kind="src" path="Collections/TestStringList/src"/>
+	<classpathentry kind="src" path="Collections/TestStringStack/src"/>
+	<classpathentry kind="src" path="Collections/TestSubList-Iterator/src"/>
+	<classpathentry kind="src" path="Collections/TestSubList/src"/>
+	<classpathentry kind="src" path="Collections/TestTreeSet/src"/>
+	<classpathentry kind="src" path="Collections/TestTreeSetWithComparator/src"/>
+	<classpathentry kind="src" path="Heap_Priority/src"/>
+	<classpathentry kind="src" path="InsertionSort/src"/>
+	<classpathentry kind="src" path="Linked List/src"/>
+	<classpathentry kind="src" path="MergeSort/src"/>
+	<classpathentry kind="src" path="SelectionSort/src"/>
+	<classpathentry kind="src" path="ShellSort/src"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+	<classpathentry kind="output" path="ShellSort/bin"/>
+</classpath>
