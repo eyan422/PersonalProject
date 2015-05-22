@@ -1,0 +1,22 @@
+package contstring;
+
+public class ContString {
+	public static void main(String... args) {
+		
+		final char V[] = {'1','2','3','4','5'};
+		System.out.println(V);
+		V[1] = '0';
+		System.out.println(V);
+		
+		String summer = new String("Summer");
+		String summer2 = "Summer";
+		System.out.println(summer2);
+
+		System.out.println("Summer");
+		System.out.println("autumn");
+		
+		System.out.println("autumn" == "summer");
+		
+		String autumn = new String("Summer");
+	}
+}

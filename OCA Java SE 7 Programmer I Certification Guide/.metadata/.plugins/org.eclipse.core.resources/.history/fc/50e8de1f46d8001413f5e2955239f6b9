@@ -1,0 +1,9 @@
+package mobile;
+
+class Phone {
+	static boolean softKeyboard = true;
+}
+
+public class Mobile {
+
+}

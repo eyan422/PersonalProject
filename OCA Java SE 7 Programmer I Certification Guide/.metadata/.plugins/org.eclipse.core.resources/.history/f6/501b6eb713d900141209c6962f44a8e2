@@ -1,0 +1,10 @@
+package string1;
+
+public class String1 {
+	public static void main(String args[]){
+		String morning1 = "Morning";
+		System.out.println("Morning" == morning1);
+		
+		
+	}
+}

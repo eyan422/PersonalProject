@@ -1,0 +1,11 @@
+package phone;
+
+class Phone {
+	private boolean tested;
+	public void setTested(boolean val) {
+		tested = val;
+	}
+	public boolean isTested() {
+		return tested;
+	}
+}

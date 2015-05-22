@@ -1,0 +1,24 @@
+package emp;
+
+class Emp {
+	String name;
+	int age;
+	
+	Emp() {
+		age = 22;
+	}
+	public void setName(String val) {
+		name = val;
+	}
+	public void printEmp() {
+		System.out.println("name = " + name + " age = " + age);
+	}
+}
+
+class TestDrive{
+	public static void main(String args[]){
+		Emp e = new Emp();
+		e.setName("yan");
+		e.printEmp();
+	}
+}
