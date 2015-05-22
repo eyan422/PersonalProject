@@ -1,6 +1,7 @@
 package arrayinit;
 
 public class ArrayInit {
+	@SuppressWarnings("unused")
 	public static void main(String args[])
 	{
 		int eArr1[] = {10, 23, 10, 2};
@@ -11,5 +12,6 @@ public class ArrayInit {
 		int[] eArr4 = new int[10] {};
 		int eArr5[] = new int[2] {10, 20};
 		*/
+		int eArr5[] = new int[] {10, 20};
 	}
 }
