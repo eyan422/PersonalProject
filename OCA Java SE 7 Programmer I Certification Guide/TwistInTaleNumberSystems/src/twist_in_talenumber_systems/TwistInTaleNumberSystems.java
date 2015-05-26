@@ -9,7 +9,7 @@ public class TwistInTaleNumberSystems {
 		
 		long var7 = 100__12__12;
 		
-		System.out.println (baseDecimal + octVal);
+		System.out.println (baseDecimal + " " + octVal);
 		System.out.println (hexVal + binVal);
 		System.out.println (var7);
 	}
