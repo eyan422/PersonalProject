@@ -16,6 +16,10 @@ class Employee {
 		name = newName;
 		age = newAge;
 	}
+	
+	{
+		System.out.println("ini block");
+	}
 }
 
 class ConstructerIni
