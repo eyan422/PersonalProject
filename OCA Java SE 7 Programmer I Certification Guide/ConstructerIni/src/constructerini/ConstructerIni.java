@@ -11,7 +11,7 @@ class Employee {
 		this("Frank", 12);
 	}
 	
-	Employee (String newName, int newAge) 
+	private Employee (String newName, int newAge) 
 	{
 		name = newName;
 		age = newAge;
