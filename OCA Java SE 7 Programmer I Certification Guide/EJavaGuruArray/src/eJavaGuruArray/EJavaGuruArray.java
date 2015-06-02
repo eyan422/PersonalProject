@@ -11,5 +11,7 @@ class EJavaGuruArray {
 		System.out.println((char)arr[1]);
 		System.out.println(arr[2]);
 		System.out.println(arr[3]);
+		
+		System.out.println(arr[0] + arr[1] + arr[2] + arr[3]);
 	}
 }
