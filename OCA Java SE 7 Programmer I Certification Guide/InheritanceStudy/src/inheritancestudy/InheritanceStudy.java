@@ -10,7 +10,10 @@ class person
 
 class frank extends person
 {
-	
+	void name()
+	{
+		System.out.println("frank class");
+	}
 }
 
 public class InheritanceStudy {
@@ -29,11 +32,13 @@ public class InheritanceStudy {
 		{
 			if ( m instanceof frank )
 			{
-				System.out.println("frank");
+				//System.out.println("frank");
+				m.name();
 			}
 			else if ( m instanceof person )
 			{
-				System.out.println("person");
+				//System.out.println("person");
+				m.name();
 			}
 		}
 	}
