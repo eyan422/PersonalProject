@@ -19,6 +19,6 @@ public class ThrowNumberFormatException
 	public static void main(String args[]) 
 	{
 		System.out.println(convertToNum("16b"));
-		//System.out.println(convertToNum("65v"));
+		System.out.println(convertToNum("65v"));
 	}
 }
