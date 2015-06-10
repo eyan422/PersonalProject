@@ -1,0 +1,10 @@
+package logicaloperator;
+
+public class LogicalOperator {
+	int a = 10;
+	int b = 20;
+	System.out.println(a > 20 && b > 10);
+	System.out.println(a > 20 || b > 10);
+	System.out.println(! (b > 10));
+	System.out.println(! (a > 20));
+}

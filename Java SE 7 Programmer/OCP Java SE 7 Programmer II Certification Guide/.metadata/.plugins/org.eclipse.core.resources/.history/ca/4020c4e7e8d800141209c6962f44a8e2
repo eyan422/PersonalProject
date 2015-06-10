@@ -1,0 +1,25 @@
+package home;
+
+public class Home {
+	public static void main(String[] args) {
+		Phone ph = new Phone();
+		ph.setWeight(-12.23);
+		System.out.println(ph.getWeight());
+		ph.setWeight(77712.23);
+		System.out.println(ph.getWeight());
+		ph.setWeight(12.23);
+		System.out.println(ph.getWeight());
+	}
+}
+
+class Phone {
+	private double weight;
+	public void setWeight(double val) {
+			if (val > 0 && val < 1000) {
+				weight =val;
+			}
+		}
+	public double getWeight() {
+		return weight;
+	}
+}

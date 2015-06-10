@@ -1,0 +1,53 @@
+package employee;
+
+/*
+class Employee {
+	String name;
+	int age;
+	
+	Employee() {
+		//
+		//name = "John";
+		//age = 25;
+		//
+		this(null,0);
+	}
+	
+	Employee(String newName) {
+		name = newName;
+		age = 25;
+	}
+	
+	Employee(int newAge, String newName) {
+		name = newName;
+		age = newAge;
+	}
+	
+	Employee(String newName, int newAge) {
+		name = newName;
+		age = newAge;
+	}
+}
+*/
+
+class Employee {
+String name;
+int age;
+Employee() {
+this ();
+}
+Employee (String newName, int newAge) {
+Twist in the Tale 3.2
+Won’t compile—
+the call to the
+overloaded
+constructor must
+be the first
+statement in a
+constructor.
+www.it-ebooks.info
+Accessing object fields 145
+name = newName;
+age = newAge;
+}
+}
