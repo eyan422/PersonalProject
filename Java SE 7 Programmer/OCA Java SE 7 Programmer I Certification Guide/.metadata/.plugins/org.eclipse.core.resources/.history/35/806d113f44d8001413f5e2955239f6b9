@@ -1,0 +1,23 @@
+package student;
+
+class Student {
+	private double marks1, marks2, marks3;
+	private double maxMarks = 100;
+	double avg = 0;
+	
+	public double getAverage() {
+		//double avg = 0;
+		avg = ((marks1 + marks2 + marks3) / (maxMarks*3)) * 100;
+		return avg;
+	}
+	public void setAverage(double val) {
+		avg = val;
+	}
+	
+	public static void main(String arg[])
+	{
+		Student s = new Student();
+		
+		System.out.println(s.getAverage());
+	}
+}

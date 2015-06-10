@@ -1,0 +1,19 @@
+package contstring;
+
+public class ContString {
+	public static void main(String... args) {
+		
+		private final char value[];
+				
+		String summer = new String("Summer");
+		String summer2 = "Summer";
+		System.out.println(summer2);
+
+		System.out.println("Summer");
+		System.out.println("autumn");
+		
+		System.out.println("autumn" == "summer");
+		
+		String autumn = new String("Summer");
+	}
+}

@@ -1,0 +1,16 @@
+package twist_in_talenumber_systems;
+
+public class TwistInTaleNumberSystems {
+		public static void main (String args[]) {
+		int baseDecimal = 267;
+		int octVal = 0413;
+		int hexVal = 0x10B;
+		int binVal = 0b100001011;
+		
+		long var7 = 100__12__12;
+		
+		System.out.println (baseDecimal + " " + octVal);
+		System.out.println (hexVal + binVal);
+		System.out.println (var7);
+	}
+}
